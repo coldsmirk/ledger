@@ -1,0 +1,5 @@
+{
+  "$schema": "https://raw.githubusercontent.com/arethetypeswrong/arethetypeswrong.github.io/main/packages/cli/schema.json",
+  "excludeEntrypoints": ["styles.css"],
+  "profile": "node16"
+}

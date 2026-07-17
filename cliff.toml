@@ -1,0 +1,41 @@
+# git-cliff configuration — generates categorized release notes from Conventional Commits.
+# Used by .github/workflows/release.yml to build the GitHub Release body (git-cliff --latest).
+# Docs: https://git-cliff.org/docs/configuration
+[changelog]
+# The GitHub Release title already shows the version, so emit only the grouped sections here.
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {% if commit.breaking %}**⚠️ BREAKING** {% endif %}{% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | split(pat="\n") | first | upper_first }}
+{%- endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+# Keep non-conventional commits (e.g. a PR whose squash title missed the prefix) under the catch-all
+# "Other" group instead of silently dropping them; merge commits are skipped explicitly below.
+filter_unconventional = false
+filter_commits = true
+tag_pattern = "v[0-9]*"
+# First match wins; the `<!-- N -->` prefixes only control section order and are stripped from output.
+commit_parsers = [
+  # Skip GitHub's default PR-merge commits ("Merge pull request #N …") and any other merge commit.
+  { message = "^Merge ", skip = true },
+  { message = "^feat", group = "<!-- 00 -->🚀 Features" },
+  { message = "^fix", group = "<!-- 01 -->🐛 Bug Fixes" },
+  { message = "^perf", group = "<!-- 02 -->⚡ Performance" },
+  { message = "^refactor", group = "<!-- 03 -->🚜 Refactor" },
+  { message = "^docs", group = "<!-- 04 -->📚 Documentation" },
+  { message = "^(build|chore)\\(deps\\)", group = "<!-- 05 -->🏗️ Build / Deps" },
+  { message = "^build", group = "<!-- 05 -->🏗️ Build / Deps" },
+  { message = "^ci", group = "<!-- 06 -->🤖 Continuous Integration" },
+  { message = "^test", group = "<!-- 07 -->🧪 Testing" },
+  { message = "^style", group = "<!-- 08 -->🎨 Styling" },
+  { message = "^chore", group = "<!-- 09 -->🧹 Chores" },
+  { message = ".*", group = "<!-- 10 -->🔧 Other" },
+]

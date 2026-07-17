@@ -1,0 +1,63 @@
+{
+  "name": "ledger",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Mantine-native DataTable built on TanStack Table and TanStack Virtual.",
+  "license": "UNLICENSED",
+  "author": {
+    "name": "Venus"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "check:package": "pnpm -r --filter \"@coldsmirk/*\" exec publint && pnpm -r --filter \"@coldsmirk/*\" exec attw --pack .",
+    "clean": "pnpm -r run clean",
+    "lint": "eslint . --fix",
+    "lint:check": "eslint .",
+    "lint:css": "stylelint --fix \"packages/*/src/**/*.css\"",
+    "lint:css:check": "stylelint \"packages/*/src/**/*.css\"",
+    "prepare": "husky",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm -r run typecheck",
+    "version:major": "jiti scripts/version.ts major",
+    "version:minor": "jiti scripts/version.ts minor",
+    "version:patch": "jiti scripts/version.ts patch"
+  },
+  "lint-staged": {
+    "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}": "eslint --fix",
+    "{package.json,tsconfig.json,tsconfig.*.json}": "eslint --fix",
+    "*.css": "stylelint --fix"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@coldsmirk/commitlint-config": "^0.7.0",
+    "@coldsmirk/eslint-config": "^0.7.0",
+    "@coldsmirk/stylelint-config": "^0.7.0",
+    "@coldsmirk/tsconfig": "^0.7.0",
+    "@commitlint/cli": "^21.2.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitest/coverage-v8": "^4.1.9",
+    "eslint": "^10.6.0",
+    "husky": "^9.1.7",
+    "jiti": "^2.7.0",
+    "jsdom": "^29.1.1",
+    "lint-staged": "^17.0.8",
+    "publint": "^0.3.14",
+    "rimraf": "^6.1.3",
+    "stylelint": "^17.14.0",
+    "tsdown": "^0.22.3",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  },
+  "packageManager": "pnpm@11.6.0",
+  "engines": {
+    "node": ">=24"
+  }
+}

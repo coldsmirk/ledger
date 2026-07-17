@@ -1,0 +1,16 @@
+# Normalize all text files to LF in the repository and on checkout (cross-OS).
+* text=auto eol=lf
+
+# Generated lockfile: collapse in diffs and exclude from language stats.
+pnpm-lock.yaml linguist-generated=true
+
+# Binary assets — never normalize or diff as text.
+*.wasm binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary

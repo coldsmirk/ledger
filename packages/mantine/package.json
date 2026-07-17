@@ -1,0 +1,118 @@
+{
+  "name": "@coldsmirk/ledger-mantine",
+  "version": "0.1.0",
+  "description": "Mantine-native <DataTable> on TanStack Table and TanStack Virtual: sorting, filtering, pagination, selection, pinning, inline editing, and adaptive row virtualization.",
+  "keywords": [
+    "data-table",
+    "datagrid",
+    "table",
+    "mantine",
+    "react",
+    "tanstack-table",
+    "virtualization"
+  ],
+  "homepage": "https://github.com/coldsmirk/ledger/tree/main/packages/mantine#readme",
+  "bugs": "https://github.com/coldsmirk/ledger/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coldsmirk/ledger.git",
+    "directory": "packages/mantine"
+  },
+  "license": "UNLICENSED",
+  "author": {
+    "name": "Venus"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./locales": {
+      "source": "./src/locales.ts",
+      "import": {
+        "types": "./dist/locales.d.ts",
+        "default": "./dist/locales.js"
+      },
+      "require": {
+        "types": "./dist/locales.d.cts",
+        "default": "./dist/locales.cjs"
+      }
+    },
+    "./package.json": "./package.json",
+    "./styles.css": {
+      "source": "./src/styles.css",
+      "default": "./dist/styles.css"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.14.5",
+    "clsx": "^2.1.1"
+  },
+  "devDependencies": {
+    "@mantine/core": "^9.4.1",
+    "@mantine/hooks": "^9.4.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "peerDependencies": {
+    "@mantine/core": "^9.0.0",
+    "@mantine/hooks": "^9.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      ".": {
+        "import": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/index.js"
+        },
+        "require": {
+          "types": "./dist/index.d.cts",
+          "default": "./dist/index.cjs"
+        }
+      },
+      "./locales": {
+        "import": {
+          "types": "./dist/locales.d.ts",
+          "default": "./dist/locales.js"
+        },
+        "require": {
+          "types": "./dist/locales.d.cts",
+          "default": "./dist/locales.cjs"
+        }
+      },
+      "./package.json": "./package.json",
+      "./styles.css": "./dist/styles.css"
+    }
+  }
+}

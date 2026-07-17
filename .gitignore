@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+.claude/
+*.log
+.DS_Store
+.turbo/
+*.tsbuildinfo
+.playwright-mcp/
+.playwright-cli/

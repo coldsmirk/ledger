@@ -1,0 +1,8 @@
+packages:
+  - packages/*
+
+# This repo consumes the @coldsmirk shared configs the day they ship (same-owner canon repo), so
+# pnpm's minimum-release-age supply-chain gate would fail CI on every toolchain release. Same
+# deliberate trade-off as canon itself; the .npmrc form of this setting is NOT read by pnpm — it
+# must live here.
+minimumReleaseAge: 0

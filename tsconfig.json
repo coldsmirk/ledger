@@ -1,0 +1,9 @@
+{
+  // Covers the repo-level TypeScript files (configs, scripts, test setup) that live outside the
+  // packages' own `include: ["src"]` — checked by the root `typecheck` script.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["*.ts", "scripts", "packages/*/tsdown.config.ts", "packages/*/vite.config.ts"]
+}

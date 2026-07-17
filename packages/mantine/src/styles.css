@@ -1,0 +1,507 @@
+/*
+ * @coldsmirk/ledger-mantine — layered stylesheet.
+ *
+ * Contract (docs/styling.md):
+ *   - every class is kebab-case under the `ledger-` prefix, mapped 1:1 from a camelCase
+ *     Styles API selector (root -> .ledger-root, headerCell -> .ledger-header-cell);
+ *   - state is expressed through data-attributes (data-selected, data-pinned="left"),
+ *     never through state classes;
+ *   - custom properties use the `--ledger-*` prefix;
+ *   - colors and metrics consume Mantine CSS variables only, so dark mode and RTL follow
+ *     the host theme with no rules of our own.
+ * Everything lives in the `ledger` layer; cross-library layer order is the app's call.
+ */
+
+@layer ledger {
+  /* ------------------------------------------------------------------------------------------
+   * Motion respect
+   * ------------------------------------------------------------------------------------------ */
+  @media (prefers-reduced-motion: reduce) {
+    .ledger-expander-cell button svg,
+    [data-group-cell] button svg,
+    .ledger-header-cell button[data-expanded] svg {
+      transition: none;
+    }
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * Adaptive sizing (docs/sizing.md): the root fills whatever the parent gives it and
+   * degrades to content height when the parent is indefinite. min-width/min-height: 0
+   * pre-defuse the flex/grid min-size:auto shrink trap; overflow only ever appears on the
+   * internal scroller.
+   * ------------------------------------------------------------------------------------------ */
+  .ledger-root {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* The frame around header + body — the elastic middle; carries the outer table border
+     (painted in the Borders section: three real sides + an inset overlay bottom). */
+  .ledger-main {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* The header viewport never scrolls by itself; its scrollLeft mirrors the body scroller. */
+  .ledger-header {
+    flex: none;
+    overflow: hidden;
+  }
+
+  /* The one elastic region — the Mantine ScrollArea hosting the body table. Its bottom seam
+     line is an inset overlay (Borders section), so it needs a positioning context. */
+  .ledger-scroller {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* The footer viewport (totals): always visible below the scroller, scrollLeft-mirrored.
+     Its separators live in the Borders section — the top seam belongs to the scroller. */
+  .ledger-footer {
+    flex: none;
+    overflow: hidden;
+  }
+
+  .ledger-table {
+    width: 100%;
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * Header: rendered outside the body scroller (never occludes its scrollbar, never bounces
+   * with overscroll); cells only stick horizontally when pinned. Actions reveal on hover/focus.
+   * ------------------------------------------------------------------------------------------ */
+  .ledger-header-cell {
+    position: relative;
+    vertical-align: middle;
+    background-color: var(--ledger-header-bg, var(--mantine-color-body));
+  }
+
+  .ledger-header-cell[data-pinned] {
+    position: sticky;
+    z-index: 2;
+  }
+
+  .ledger-header-cell[data-align="center"],
+  .ledger-cell[data-align="center"],
+  .ledger-footer-cell[data-align="center"] {
+    text-align: center;
+  }
+
+  .ledger-header-cell[data-align="end"],
+  .ledger-cell[data-align="end"],
+  .ledger-footer-cell[data-align="end"] {
+    text-align: end;
+  }
+
+  .ledger-header-label {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    max-width: 100%;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+  }
+
+  /* The sort control is a NATIVE button (matched via its type attribute) reset here: layered
+     author rules always beat UA button styles, whereas Mantine's UnstyledButton carries an
+     unlayered font-size that would defeat the layered `font: inherit` above (the unlayered-host
+     rule, docs/styling.md). */
+  .ledger-header-label[type="button"] {
+    padding: 0;
+    appearance: none;
+    cursor: pointer;
+    background: none;
+    border: 0;
+  }
+
+  .ledger-header-label[data-align="center"] {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .ledger-header-label[data-align="end"] {
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .ledger-header-label:focus-visible {
+    outline: 2px solid var(--mantine-primary-color-filled);
+    outline-offset: -2px;
+  }
+
+  .ledger-header-label [data-truncate],
+  .ledger-cell [data-truncate] {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Sort affordance: invisible until hover on unsorted columns, always visible once sorted. */
+  .ledger-sort-indicator {
+    display: inline-flex;
+    align-items: center;
+    color: var(--mantine-color-dimmed);
+    opacity: 0;
+  }
+
+  .ledger-header-cell:hover .ledger-sort-indicator,
+  .ledger-header-label:focus-visible .ledger-sort-indicator {
+    opacity: 0.6;
+  }
+
+  .ledger-sort-indicator[data-sorted] {
+    color: inherit;
+    opacity: 1;
+  }
+
+  .ledger-sort-indicator sup {
+    font-size: 0.7em;
+    font-weight: 600;
+  }
+
+  /* Actions overlay the trailing edge of the header cell and reveal on interaction. */
+  .ledger-header-actions {
+    position: absolute;
+    inset-inline-end: 4px;
+    top: 50%;
+    display: flex;
+    gap: 2px;
+    align-items: center;
+    padding-inline-start: 4px;
+    background-color: inherit;
+    opacity: 0;
+    translate: 0 -50%;
+  }
+
+  .ledger-header-actions:has([data-active]),
+  .ledger-header-actions:has([aria-expanded="true"]),
+  .ledger-header-cell:hover .ledger-header-actions,
+  .ledger-header-cell:focus-within .ledger-header-actions {
+    opacity: 1;
+  }
+
+  /* Resize handle on the trailing edge; the visible line appears on hover or while dragging. */
+  .ledger-resizer {
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    z-index: 1;
+    width: 8px;
+    height: 100%;
+    touch-action: none;
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  .ledger-resizer::after {
+    position: absolute;
+    inset-block: 15%;
+    inset-inline-end: 3px;
+    width: 2px;
+    content: "";
+    background-color: transparent;
+    border-radius: 1px;
+  }
+
+  .ledger-resizer:hover::after,
+  .ledger-resizer[data-resizing]::after {
+    background-color: var(--mantine-primary-color-filled);
+  }
+
+  /* Drag-reorder feedback. */
+  .ledger-header-cell[data-dragging] {
+    opacity: 0.4;
+  }
+
+  .ledger-header-cell[data-drop-side]::before {
+    position: absolute;
+    inset-block: 0;
+    z-index: 3;
+    width: 2px;
+    content: "";
+    background-color: var(--mantine-primary-color-filled);
+  }
+
+  .ledger-header-cell[data-drop-side="before"]::before {
+    inset-inline-start: 0;
+  }
+
+  .ledger-header-cell[data-drop-side="after"]::before {
+    inset-inline-end: 0;
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * Rows: every background flows through --ledger-row-bg, and pinned cells reference the same
+   * pipeline — a pinned column that fails to cover stripes/hover is unrepresentable.
+   * The paint site is the CELL, never the <tr>: Mantine ships an unlayered
+   * `tr { background-color: transparent }`, and unlayered author styles defeat any layered
+   * row-level paint regardless of specificity.
+   * ------------------------------------------------------------------------------------------ */
+  .ledger-row {
+    --ledger-pinned-bg: var(--ledger-row-bg, var(--mantine-color-body));
+  }
+
+  .ledger-row > td {
+    background-color: var(--ledger-row-bg, transparent);
+  }
+
+  .ledger-root[data-striped="odd"] .ledger-tbody .ledger-row[data-parity="odd"],
+  .ledger-root[data-striped="even"] .ledger-tbody .ledger-row[data-parity="even"] {
+    --ledger-row-bg: var(--ledger-striped-color, var(--mantine-color-default-hover));
+  }
+
+  .ledger-root[data-highlight-on-hover] .ledger-tbody .ledger-row:hover {
+    --ledger-row-bg: var(--ledger-hover-color, var(--mantine-color-default-hover));
+  }
+
+  .ledger-row[data-selected] {
+    --ledger-row-bg: var(--mantine-primary-color-light);
+  }
+
+  .ledger-row[data-clickable] {
+    cursor: pointer;
+  }
+
+  /* Sticky pinned rows sit at the body scroller's edges, above the flow (the header lives
+     outside the scroller, so top offsets start at 0). */
+  .ledger-row[data-pinned-row] {
+    --ledger-row-bg: var(--mantine-color-body);
+    position: sticky;
+    z-index: 2;
+  }
+
+  .ledger-row[data-pinned-row="top"] {
+    top: 0;
+  }
+
+  .ledger-row[data-pinned-row="bottom"] {
+    bottom: 0;
+  }
+
+  /* Virtualization spacers carry geometry only — no borders, no background. */
+  .ledger-table tr[data-ledger-spacer] {
+    background: none;
+    border: 0;
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * Cells
+   * ------------------------------------------------------------------------------------------ */
+  .ledger-cell[data-pinned],
+  .ledger-selection-cell[data-pinned],
+  .ledger-expander-cell[data-pinned],
+  .ledger-footer-cell[data-pinned] {
+    position: sticky;
+    z-index: 2;
+    background-color: var(--ledger-pinned-bg, var(--mantine-color-body));
+  }
+
+  /* Pinned-edge scroll shadows, visible only while content is actually scrolled past. */
+  [data-pinned-edge]::after {
+    position: absolute;
+    inset-block: 0;
+    width: 8px;
+    pointer-events: none;
+    content: "";
+    opacity: 0;
+  }
+
+  [data-pinned-edge="left"]::after {
+    inset-inline-end: 0;
+    background: linear-gradient(to right, rgb(0 0 0 / 10%), transparent);
+    translate: 100% 0;
+  }
+
+  [data-pinned-edge="right"]::after {
+    inset-inline-start: 0;
+    background: linear-gradient(to left, rgb(0 0 0 / 10%), transparent);
+    translate: -100% 0;
+  }
+
+  [dir="rtl"] [data-pinned-edge="left"]::after {
+    background: linear-gradient(to left, rgb(0 0 0 / 10%), transparent);
+    translate: -100% 0;
+  }
+
+  [dir="rtl"] [data-pinned-edge="right"]::after {
+    background: linear-gradient(to right, rgb(0 0 0 / 10%), transparent);
+    translate: 100% 0;
+  }
+
+  .ledger-root[data-scrolled-start] [data-pinned-edge="left"]::after,
+  .ledger-root[data-scrolled-end] [data-pinned-edge="right"]::after {
+    opacity: 1;
+  }
+
+  .ledger-selection-cell,
+  .ledger-expander-cell {
+    vertical-align: middle;
+    text-align: center;
+  }
+
+  /* Expander chevrons rotate open (rows, groups, expand-all). */
+  .ledger-expander-cell button svg,
+  [data-group-cell] button svg,
+  .ledger-header-cell button[data-expanded] svg,
+  .ledger-expander-cell button[data-expanded] svg {
+    transition: rotate 150ms ease;
+  }
+
+  .ledger-expander-cell button[data-expanded] svg,
+  [data-group-cell] button[data-expanded] svg,
+  .ledger-header-cell button[data-expanded] svg {
+    rotate: 90deg;
+  }
+
+  [data-group-cell] {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-weight: 500;
+  }
+
+  [data-group-count] {
+    font-size: var(--mantine-font-size-xs);
+    color: var(--mantine-color-dimmed);
+  }
+
+  /* Editing: a quiet affordance on hover, borderless editors filling the cell. */
+  .ledger-cell[data-editable]:hover {
+    box-shadow: inset 0 0 0 1px var(--mantine-color-default-border);
+  }
+
+  .ledger-cell[data-editing] {
+    padding-block: 2px;
+  }
+
+  .ledger-cell-editor {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    width: 100%;
+  }
+
+  .ledger-cell-editor[data-pending] {
+    opacity: 0.7;
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * Detail panels, footer, states, chrome
+   * ------------------------------------------------------------------------------------------ */
+  .ledger-detail-panel {
+    padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  }
+
+  .ledger-footer-cell {
+    font-weight: 600;
+    background-color: var(--mantine-color-body);
+  }
+
+  .ledger-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 12rem;
+    padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
+  }
+
+  .ledger-loader-row td {
+    padding-block: var(--mantine-spacing-sm);
+    color: var(--mantine-color-dimmed);
+    text-align: center;
+    border-bottom: 0;
+  }
+
+  .ledger-loader-row td > span {
+    margin-inline-start: 8px;
+    font-size: var(--mantine-font-size-sm);
+  }
+
+  .ledger-pagination-bar {
+    flex: none;
+  }
+
+  .ledger-root > .ledger-pagination-bar {
+    padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+    border-block-start: 1px solid var(--mantine-color-default-border);
+  }
+
+  /* The seam above the bar is owned by the table's own bottom edge (frame overlay, footer
+     trailing border, or scroller seam — Borders section); the bar draws its own line only in
+     the fully borderless look, where no other edge exists. */
+  .ledger-root[data-with-row-borders] > .ledger-pagination-bar,
+  .ledger-root[data-with-table-border] > .ledger-pagination-bar {
+    border-block-start: 0;
+  }
+
+  .ledger-selection-bar {
+    padding: var(--mantine-spacing-xs) 0;
+  }
+
+  /* ------------------------------------------------------------------------------------------
+   * Borders — ledger-owned at cell level. The host paints row borders on <tr> under
+   * border-collapse: collapse, and Chrome does not repaint collapsed borders at stuck sticky
+   * positions; our tables are border-collapse: separate (inline), so every cell carries its
+   * border wherever it sticks.
+   * ------------------------------------------------------------------------------------------ */
+  .ledger-root[data-with-row-borders] .ledger-thead th,
+  .ledger-root[data-with-row-borders] .ledger-tbody .ledger-row > td {
+    border-block-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+
+  .ledger-root[data-with-column-borders] .ledger-table th:not(:first-child),
+  .ledger-root[data-with-column-borders] .ledger-table td:not(:first-child) {
+    border-inline-start: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+
+  /* Seam ownership below the body (EP's inner-wrapper overlay technique): at scroll end the
+     last row's border occupies the viewport's LAST pixel, so any line stacked outside the
+     scroller would read as one thick border. Seam lines therefore paint as inset overlays that
+     COINCIDE with that pixel — never as leading borders on the next region. */
+  .ledger-root[data-with-row-borders] .ledger-scroller::after {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline: 0;
+    height: 1px;
+    pointer-events: none;
+    content: "";
+    background-color: var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+
+  /* The footer separates with its TRAILING edge only (the top seam is the scroller overlay);
+     under the frame this pixel coincides with the frame's bottom overlay. */
+  .ledger-root[data-with-row-borders] .ledger-footer {
+    border-block-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+
+  /* The frame: three real sides; the bottom edge is an inset overlay for the same coincidence
+     reason — it lands on the scroller's (or footer's) last pixel instead of adding one below. */
+  .ledger-root[data-with-table-border] .ledger-main {
+    border: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
+    border-block-end: 0;
+  }
+
+  .ledger-root[data-with-table-border] .ledger-main::after {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline: 0;
+    height: 1px;
+    pointer-events: none;
+    content: "";
+    background-color: var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+}
