@@ -66,6 +66,15 @@
     min-height: 0;
   }
 
+  /* Scrollbars (the ScrollArea children carrying data-orientation) are transient chrome and
+     float ABOVE pinned cells/rows (z-index 2), matching native overlay scrollbars and EP
+     (fixed columns +1, scrollbar bar +2). Mantine gives them no z-index of their own, so a
+     covered track stretch would be unreachable — the pinned cell intercepts the pointer — and
+     the thumb would vanish under a pinned column exactly at the scroll extremes. */
+  .ledger-scroller > [data-orientation] {
+    z-index: 3;
+  }
+
   /* The footer viewport (totals): always visible below the scroller, scrollLeft-mirrored.
      Its separators live in the Borders section — the top seam belongs to the scroller. */
   .ledger-footer {
