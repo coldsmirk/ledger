@@ -85,12 +85,21 @@ describe("DataTable", () => {
   });
 
   it("shows the empty state and the loading skeletons", () => {
-    const { rerender } = render(
-      <DataTable columns={columns} data={[]} emptyState="nothing here" getRowId={getRowId} />,
+    const { container, rerender } = render(
+      <DataTable columns={columns} data={[]} getRowId={getRowId} />,
       { wrapper }
     );
 
+    // The default is a rich Mantine EmptyState overlaid on the body region (data-empty scopes
+    // the region's min-height floor).
+    expect(container.querySelector<HTMLElement>(".ledger-root")?.dataset.empty).toBe("true");
+    expect(container.querySelector(":scope .ledger-empty .mantine-EmptyState-root")).toBeTruthy();
+    expect(screen.getByText("No data")).toBeTruthy();
+
+    rerender(<DataTable columns={columns} data={[]} emptyState="nothing here" getRowId={getRowId} />);
+
     expect(screen.getByText("nothing here")).toBeTruthy();
+    expect(container.querySelector(":scope .mantine-EmptyState-root")).toBeNull();
 
     rerender(<DataTable loading columns={columns} data={[]} getRowId={getRowId} />);
 

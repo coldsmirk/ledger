@@ -66,6 +66,12 @@
     min-height: 0;
   }
 
+  /* An empty body has no rows to give the region height — keep a readable floor under
+     indefinite parents; the overlaid empty block itself adds none. */
+  .ledger-root[data-empty] .ledger-scroller {
+    min-height: 16rem;
+  }
+
   /* Scrollbars (the ScrollArea children carrying data-orientation) are transient chrome and
      float ABOVE pinned cells/rows (z-index 2), matching native overlay scrollbars and EP
      (fixed columns +1, scrollbar bar +2). Mantine gives them no z-index of their own, so a
@@ -420,11 +426,14 @@
     background-color: var(--mantine-color-body);
   }
 
+  /* Overlaid on the whole body region (the scroller is its positioning context): centered in
+     the VISIBLE area, and immune to horizontal scrolling of the empty table underneath. */
   .ledger-empty {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 12rem;
     padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
   }
 

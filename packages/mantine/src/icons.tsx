@@ -31,6 +31,15 @@ function Icon({
   );
 }
 
+export function IconInbox(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 3.5h11v9h-11z" />
+      <path d="M2.5 9.5H6l1 1.5h2l1-1.5h3.5" />
+    </Icon>
+  );
+}
+
 export function IconChevronUp(props: IconProps) {
   return (
     <Icon {...props}>

@@ -128,7 +128,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `endReachedOffset` | `number` | `240` | px before the bottom |
 | `loadingMore` | `boolean` | `false` | Trailing loader row |
 | `loading` | `boolean` | `false` | Skeletons (no rows) or overlay (rows present) |
-| `emptyState` | `ReactNode` | `labels.empty` | Centered in the scroller |
+| `emptyState` | `ReactNode` | Mantine `EmptyState` titled `labels.empty` | Overlaid and centered in the visible body region |
 | `withColumnMenu` | `boolean` | `true` | Per-column menu trigger |
 | `withPaginationBar` | `boolean` | `true` | Renders only while pagination is enabled |
 | `pageSizeOptions` | `number[]` | `[10, 20, 50, 100]` | |

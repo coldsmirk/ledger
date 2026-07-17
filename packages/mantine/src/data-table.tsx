@@ -31,12 +31,12 @@ import type {
 import {
   Box,
   createVarsResolver,
+  EmptyState,
   genericFactory,
   getThemeColor,
   LoadingOverlay,
   Table as MantineTable,
   ScrollArea,
-  Text,
   useProps,
   useStyles
 } from "@mantine/core";
@@ -45,6 +45,7 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState 
 import { DataTableColumnsMenu } from "./columns-menu";
 import { DataTableProvider } from "./context";
 import { warnOnce } from "./env";
+import { IconInbox } from "./icons";
 import { resolveLabels } from "./labels";
 import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from "./pagination-bar";
 import { DataTableSearch } from "./search";
@@ -793,6 +794,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
       <Box
         ref={rootRef}
         aria-busy={loading || undefined}
+        data-empty={isEmpty || undefined}
         data-highlight-on-hover={highlightOnHover || undefined}
         data-loading={loading || undefined}
         data-scrolled-end={scrollEdges.end || undefined}
@@ -845,9 +847,12 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
             {isEmpty && (
               <div {...getStyles("empty")}>
                 {emptyState ?? (
-                  <Text c="dimmed" size="sm">
-                    {labels.empty}
-                  </Text>
+                  <EmptyState
+                    withIndicatorBackground
+                    icon={<IconInbox size={22} />}
+                    size="sm"
+                    title={labels.empty}
+                  />
                 )}
               </div>
             )}

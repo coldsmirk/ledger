@@ -56,7 +56,7 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 | `loading` with **no rows yet** | Skeleton rows (count follows the page size, clamped to 3–12) |
 | `loading` with rows present | A blurring `LoadingOverlay` above the current rows — the data stays visible during refetches |
 | `loadingMore` | A trailing loader row under the last data row ([virtualization.md](virtualization.md)) |
-| Zero rows and not loading | The `emptyState` node — or the localized default (`labels.empty`) — centered in the scroller region |
+| Zero rows and not loading | The `emptyState` node — or the default Mantine `EmptyState` (inbox icon + `labels.empty`) — overlaid and centered in the visible body region (`data-empty` on the root gives the region a 16rem floor under indefinite parents) |
 
 ```tsx
 <DataTable
