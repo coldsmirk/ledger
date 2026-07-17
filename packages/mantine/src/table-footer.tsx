@@ -11,16 +11,27 @@ import { useDataTableContext } from "./context";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 
 export function tableHasFooter<TData>(table: Table<TData>): boolean {
-  return table.getAllLeafColumns().some(column => column.columnDef.footer !== undefined);
+  return table.getVisibleLeafColumns().some(column => column.columnDef.footer !== undefined);
 }
 
-export function TableFooter<TData>({ table }: { table: Table<TData> }) {
+export function TableFooter<TData>({
+  table,
+  ariaRowIndexStart
+}: {
+  table: Table<TData>;
+  ariaRowIndexStart?: number;
+}) {
   const { getStyles } = useDataTableContext();
 
   return (
     <MantineTable.Tfoot {...getStyles("tfoot")}>
-      {table.getFooterGroups().map(footerGroup => (
-        <MantineTable.Tr key={footerGroup.id} role="row" {...getStyles("footerRow")}>
+      {table.getFooterGroups().map((footerGroup, groupIndex) => (
+        <MantineTable.Tr
+          key={footerGroup.id}
+          aria-rowindex={ariaRowIndexStart === undefined ? undefined : ariaRowIndexStart + groupIndex}
+          role="row"
+          {...getStyles("footerRow")}
+        >
           {footerGroup.headers.map(footer => (
             <MantineTable.Th
               key={footer.id}

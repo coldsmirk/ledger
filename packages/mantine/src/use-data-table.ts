@@ -10,7 +10,8 @@ import type {
   RowSelectionState,
   SortingState,
   Table,
-  TableOptions
+  TableOptions,
+  Updater
 } from "@tanstack/react-table";
 
 import type {
@@ -27,6 +28,7 @@ import type {
  * state through `table.options.meta.ledger`. Returns the bare TanStack `Table` instance.
  */
 import {
+  functionalUpdate,
   getCoreRowModel,
   getExpandedRowModel,
   getFacetedMinMaxValues,
@@ -95,6 +97,10 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
 
   /* ---- persistence hydrates uncontrolled slices, once, synchronously ---- */
   const [persisted] = useState(() => readPersistedState(persistState));
+  const filterSetListeners = useRef({
+    columnFilters: new Set<(value: ColumnFiltersState) => void>(),
+    globalFilter: new Set<(value: string) => void>()
+  });
 
   /* ---- state slices: controlled x / uncontrolled defaultX / observer onXChange ---- */
   const [sorting, setSorting] = useSlice({
@@ -107,12 +113,22 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     value: options.columnFilters,
     defaultValue: (persisted.columnFilters as ColumnFiltersState | undefined) ?? options.defaultColumnFilters,
     onChange: options.onColumnFiltersChange,
+    onSet: value => {
+      for (const listener of filterSetListeners.current.columnFilters) {
+        listener(value);
+      }
+    },
     fallback: NO_COLUMN_FILTERS
   });
   const [globalFilter, setGlobalFilter] = useSlice({
     value: options.globalFilter,
     defaultValue: (persisted.globalFilter as string | undefined) ?? options.defaultGlobalFilter,
     onChange: options.onGlobalFilterChange,
+    onSet: value => {
+      for (const listener of filterSetListeners.current.globalFilter) {
+        listener(value);
+      }
+    },
     fallback: ""
   });
   const [pagination, setPagination] = useSlice({
@@ -175,13 +191,22 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     onChange: options.onEditingCellChange,
     fallback: null
   });
+  const setNormalizedGlobalFilter = useCallback((updater: Updater<unknown>) => {
+    setGlobalFilter(previous => {
+      const next = functionalUpdate(updater, previous);
+
+      return typeof next === "string" ? next : "";
+    });
+  }, [setGlobalFilter]);
 
   /* ---- editing controller (docs/editing.md) ---- */
   const activeEditorRef = useRef<ActiveCellEditor | null>(null);
   const editingCellRef = useRef(editingCell);
+  const editingRequestRef = useRef(0);
   editingCellRef.current = editingCell;
 
   const stopEditing = useEventCallback((stopOptions?: { commit?: boolean }) => {
+    editingRequestRef.current += 1;
     const editor = activeEditorRef.current;
 
     if (!editor) {
@@ -190,21 +215,44 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     }
 
     if (stopOptions?.commit ?? true) {
-      editor.commit();
+      void Promise.resolve(editor.commit()).catch(() => false);
     } else {
       editor.cancel();
     }
   });
 
   const startEditing = useEventCallback((cell: DataTableEditingCell) => {
+    const request = ++editingRequestRef.current;
     const { current } = editingCellRef;
 
-    if (current && (current.rowId !== cell.rowId || current.columnId !== cell.columnId)) {
-      // Spreadsheet semantics: moving to another cell commits the one being edited.
-      activeEditorRef.current?.commit();
+    if (!current || (current.rowId === cell.rowId && current.columnId === cell.columnId)) {
+      setEditingCell(cell);
+      return;
     }
 
-    setEditingCell(cell);
+    const editor = activeEditorRef.current;
+
+    if (!editor) {
+      setEditingCell(cell);
+      return;
+    }
+
+    // Only the latest navigation request may win after an async commit settles.
+    const committed = editor.commit();
+
+    if (typeof committed !== "boolean") {
+      void Promise.resolve(committed).then(
+        success => {
+          if (success && editingRequestRef.current === request) {
+            setEditingCell(cell);
+          }
+        },
+        // Custom editors may still reject despite the boolean-result contract; stay put.
+        () => false
+      );
+    } else if (committed && editingRequestRef.current === request) {
+      setEditingCell(cell);
+    }
   });
 
   const clearEditing = useEventCallback(() => setEditingCell(null));
@@ -214,6 +262,23 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
   }, []);
 
   const selectionAnchor = useRef<string | null>(null);
+
+  const subscribeColumnFilters = useCallback((listener: (value: ColumnFiltersState) => void) => {
+    const listeners = filterSetListeners.current.columnFilters;
+    listeners.add(listener);
+
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+  const subscribeGlobalFilter = useCallback((listener: (value: string) => void) => {
+    const listeners = filterSetListeners.current.globalFilter;
+    listeners.add(listener);
+
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
 
   const selectAllScope: "page" | "all"
     = enablePagination || paginationMode === "server" ? "page" : "all";
@@ -227,6 +292,10 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
           stop: stopEditing,
           clear: clearEditing,
           registerEditor
+        },
+        filtering: {
+          subscribeColumnFilters,
+          subscribeGlobalFilter
         },
         editTrigger,
         enableEditing,
@@ -245,6 +314,8 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
       stopEditing,
       clearEditing,
       registerEditor,
+      subscribeColumnFilters,
+      subscribeGlobalFilter,
       editTrigger,
       enableEditing,
       onEditCommit,
@@ -325,32 +396,62 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
       ? Math.max(1, Math.ceil(rowCount / Math.max(1, pagination.pageSize)))
       : undefined;
 
-  const mounted = useRef(false);
+  const shouldAutoResetPageIndex
+    = tableOptions?.autoResetAll ?? tableOptions?.autoResetPageIndex ?? true;
+  const previousResetInputs = useRef({
+    columnFilters,
+    globalFilter,
+    sorting
+  });
 
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
-      return;
-    }
+    const previous = previousResetInputs.current;
+    const inputsChanged
+      = previous.columnFilters !== columnFilters
+        || previous.globalFilter !== globalFilter
+        || previous.sorting !== sorting;
+    previousResetInputs.current = {
+      columnFilters,
+      globalFilter,
+      sorting
+    };
 
-    if (!manualPagination) {
+    if (!manualPagination || !shouldAutoResetPageIndex || !inputsChanged) {
       return;
     }
 
     setPagination(previous => previous.pageIndex === 0 ? previous : { ...previous, pageIndex: 0 });
-  }, [columnFilters, globalFilter, sorting, manualPagination, setPagination]);
+  }, [
+    columnFilters,
+    globalFilter,
+    sorting,
+    manualPagination,
+    setPagination,
+    shouldAutoResetPageIndex
+  ]);
 
   // ---- reset targets ----
-  // Every TanStack `resetColumnX()` restores `table.initialState.x`, and the columns panel's
-  // reset is built out of them. `state` here is fully controlled, so `initialState` never
-  // reaches a read (`table.getState()` returns `options.state` verbatim) — it exists purely so a
-  // reset lands on what the application declared instead of on an empty slice. Persisted values
-  // are excluded deliberately: seeding those would make a reset a no-op after a refresh.
-  const layoutInitialState = {
-    ...options.defaultColumnOrder && { columnOrder: options.defaultColumnOrder },
-    ...options.defaultColumnVisibility && { columnVisibility: options.defaultColumnVisibility },
-    ...options.defaultColumnPinning && { columnPinning: options.defaultColumnPinning },
-    ...options.defaultColumnSizing && { columnSizing: options.defaultColumnSizing }
+  // TanStack's slice reset APIs restore `table.initialState`. The live state remains fully
+  // controlled; this object exists only to preserve ledger's `defaultX`/fallback contract.
+  // Persisted values stay excluded so reset remains useful after hydration.
+  const resetInitialState = {
+    sorting: options.defaultSorting ?? NO_SORTING,
+    columnFilters: options.defaultColumnFilters ?? NO_COLUMN_FILTERS,
+    globalFilter: options.defaultGlobalFilter ?? "",
+    pagination: options.defaultPagination ?? DEFAULT_PAGINATION,
+    rowSelection: options.defaultRowSelection ?? NO_ROW_SELECTION,
+    expanded: options.defaultExpanded ?? NO_EXPANDED,
+    columnVisibility: options.defaultColumnVisibility ?? NO_VISIBILITY,
+    columnPinning: options.defaultColumnPinning ?? NO_PINNING,
+    columnOrder: options.defaultColumnOrder ?? NO_COLUMN_ORDER,
+    columnSizing: options.defaultColumnSizing ?? NO_COLUMN_SIZING,
+    grouping: options.defaultGrouping ?? NO_GROUPING,
+    rowPinning: options.defaultRowPinning ?? NO_ROW_PINNING
+  };
+
+  const mergedFilterFns = {
+    ...tableOptions?.filterFns,
+    ...ledgerFilterFns
   };
 
   /* ---- assemble: tableOptions is the base layer, ledger-managed keys override (docs/state.md) ---- */
@@ -359,7 +460,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     columns: processedColumns,
     ...getRowId && { getRowId },
     ...defaultColumn && { defaultColumn },
-    initialState: layoutInitialState,
+    initialState: resetInitialState,
     state: {
       sorting,
       columnFilters,
@@ -376,7 +477,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
+    onGlobalFilterChange: setNormalizedGlobalFilter,
     onPaginationChange: setPagination,
     onRowSelectionChange: setRowSelection,
     onExpandedChange: setExpanded,
@@ -405,8 +506,15 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     manualFiltering,
     manualPagination,
     ...(pageCount !== undefined) && { pageCount },
-    ...manualPagination && { autoResetPageIndex: false },
-    filterFns: ledgerFilterFns,
+    ...manualPagination && {
+      // `autoResetAll` outranks `autoResetPageIndex` inside TanStack. Consume it here so the
+      // deterministic server reset remains authoritative, while preserving its only other
+      // upstream effect through the feature-specific expansion option.
+      autoResetAll: undefined,
+      autoResetExpanded: tableOptions?.autoResetAll ?? tableOptions?.autoResetExpanded,
+      autoResetPageIndex: false
+    },
+    filterFns: mergedFilterFns,
     getCoreRowModel: getCoreRowModel(),
     ...!manualSorting && { getSortedRowModel: getSortedRowModel() },
     ...!manualFiltering && {
@@ -423,11 +531,25 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
 
   if (isDev && tableOptions) {
     for (const key of Object.keys(tableOptions)) {
-      if (key !== "meta" && Object.hasOwn(managed, key)) {
+      const isConsumedPaginationPolicy = manualPagination
+        && (key === "autoResetAll" || key === "autoResetExpanded" || key === "autoResetPageIndex");
+
+      if (key !== "meta" && key !== "filterFns" && !isConsumedPaginationPolicy && Object.hasOwn(managed, key)) {
         warnOnce(
           `tableOptions.${key}`,
           `tableOptions.${key} is managed by ledger and has been overridden — use the first-class option instead.`
         );
+      }
+    }
+
+    if (tableOptions.filterFns) {
+      for (const filterFnId of Object.keys(ledgerFilterFns)) {
+        if (Object.hasOwn(tableOptions.filterFns, filterFnId)) {
+          warnOnce(
+            `tableOptions.filterFns.${filterFnId}`,
+            `tableOptions.filterFns.${filterFnId} is reserved by ledger and has been overridden.`
+          );
+        }
       }
     }
   }

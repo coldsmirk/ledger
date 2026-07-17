@@ -32,6 +32,7 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 - Declaring `renderDetailPanel` injects the expander column and makes every row expandable; the chevron toggles a full-width panel row (`<td colSpan={…}>` with the `detailPanel` selector) directly beneath its row.
 - Expansion state rides the `expanded` trio (TanStack `ExpandedState`); pair it with `getRowId` so panels survive refetches.
 - Under virtualization each open panel is a **synthetic display row** — exactly one `<tr>` per virtual item, so dynamic-height measurement stays correct ([virtualization.md](virtualization.md)).
+- Row pinning preserves that pair: an expanded top/bottom row renders its panel directly after it in the same measured sticky zone ([pinning.md](pinning.md)).
 - There is deliberately no expand-all affordance for detail panels — a master–detail table opens panels one at a time; expand-all belongs to trees.
 
 ## Tree data

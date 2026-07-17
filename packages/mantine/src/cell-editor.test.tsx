@@ -228,4 +228,152 @@ describe("inline editing", () => {
     expect(onEditCommit.mock.calls[0]?.[0]).toMatchObject({ value: false, previousValue: true });
     expect(screen.queryByRole("textbox")).toBeNull();
   });
+
+  it("does not leave a cell when Tab hits validation or an async rejection", async () => {
+    const onEditCommit = vi.fn(() => Promise.reject(new Error("server said no")));
+    const editableColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: {
+            variant: "text",
+            validate: value => value === "invalid" ? "invalid name" : null
+          }
+        }
+      },
+      {
+        accessorKey: "id",
+        header: "ID",
+        meta: { edit: "text" }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={editableColumns}
+        data={people}
+        getRowId={getRowId}
+        onEditCommit={onEditCommit}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "invalid" } });
+    fireEvent.keyDown(input, { key: "Tab" });
+
+    expect(screen.getByText("invalid name")).toBeTruthy();
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("invalid");
+    expect(onEditCommit).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: "Caroline" } });
+    fireEvent.keyDown(input, { key: "Tab" });
+
+    expect(await screen.findByText("server said no")).toBeTruthy();
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("Caroline");
+  });
+
+  it("waits for an async Tab commit, then skips an object-form checkbox editor", async () => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    const editableColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { edit: "text" }
+      },
+      {
+        accessorKey: "active",
+        header: "Active",
+        meta: { edit: { variant: "checkbox" } }
+      },
+      {
+        accessorKey: "id",
+        header: "ID",
+        meta: { edit: "text" }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={editableColumns}
+        data={people}
+        getRowId={getRowId}
+        onEditCommit={() => promise}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Caroline" } });
+    fireEvent.keyDown(input, { key: "Tab" });
+
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("Caroline");
+    expect(document.querySelector("[data-pending]")).toBeTruthy();
+
+    resolve();
+
+    await waitFor(() => expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("1"));
+  });
+
+  it("handles an async checkbox rejection and exposes the error without an unhandled promise", async () => {
+    const { container } = render(
+      <DataTable
+        data={people}
+        getRowId={getRowId}
+        columns={[
+          {
+            accessorKey: "active",
+            header: "Active",
+            meta: { edit: { variant: "checkbox" } }
+          }
+        ]}
+        onEditCommit={() => Promise.reject(new Error("toggle failed"))}
+      />,
+      { wrapper }
+    );
+
+    const checkbox = container.querySelector<HTMLInputElement>(":scope .ledger-cell input[type=\"checkbox\"]");
+    expect(checkbox).toBeTruthy();
+    fireEvent.click(checkbox!);
+
+    const alert = await screen.findByRole("alert");
+
+    expect(alert.textContent).toBe("toggle failed");
+    expect(checkbox?.disabled).toBe(false);
+  });
+
+  it("blocks an object-form checkbox commit when validation fails", () => {
+    const onEditCommit = vi.fn();
+
+    const { container } = render(
+      <DataTable
+        data={people}
+        getRowId={getRowId}
+        columns={[
+          {
+            accessorKey: "active",
+            header: "Active",
+            meta: {
+              edit: {
+                variant: "checkbox",
+                validate: () => "toggle not allowed"
+              }
+            }
+          }
+        ]}
+        onEditCommit={onEditCommit}
+      />,
+      { wrapper }
+    );
+
+    const checkbox = container.querySelector<HTMLInputElement>(":scope .ledger-cell input[type=\"checkbox\"]");
+    expect(checkbox).toBeTruthy();
+    fireEvent.click(checkbox!);
+
+    expect(screen.getByRole("alert").textContent).toBe("toggle not allowed");
+    expect(onEditCommit).not.toHaveBeenCalled();
+  });
 });

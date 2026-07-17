@@ -13,6 +13,20 @@ function storageStub(initial: Record<string, string> = {}) {
   };
 }
 
+function persistableState(width: number) {
+  return {
+    sorting: [],
+    columnFilters: [],
+    globalFilter: "",
+    pagination: { pageIndex: 0, pageSize: 20 },
+    columnVisibility: {},
+    columnPinning: {},
+    columnOrder: [],
+    columnSizing: { name: width },
+    grouping: []
+  };
+}
+
 describe("readPersistedState", () => {
   it("returns only shape-valid slices from the requested set", () => {
     const storage = storageStub({
@@ -40,6 +54,69 @@ describe("readPersistedState", () => {
     const storage = storageStub({ "ledger:demo": "not json{{{" });
 
     expect(readPersistedState({ key: "demo", storage })).toEqual({});
+  });
+
+  it("rejects invalid nested slice shapes", () => {
+    const storage = storageStub({
+      "ledger:demo": JSON.stringify({
+        sorting: [{ id: 1, desc: false }],
+        columnFilters: [{ id: "name" }],
+        globalFilter: 1,
+        pagination: { pageIndex: -1, pageSize: 0 },
+        columnVisibility: { age: "false" },
+        columnPinning: { left: "name", right: [] },
+        columnOrder: ["name", 1],
+        columnSizing: { name: "240" },
+        grouping: ["department", 1]
+      })
+    });
+
+    expect(readPersistedState({
+      key: "demo",
+      slices: [
+        "sorting",
+        "columnFilters",
+        "globalFilter",
+        "pagination",
+        "columnVisibility",
+        "columnPinning",
+        "columnOrder",
+        "columnSizing",
+        "grouping"
+      ],
+      storage
+    })).toEqual({});
+  });
+
+  it("accepts valid nested slice shapes", () => {
+    const persisted = {
+      sorting: [{ id: "name", desc: false }],
+      columnFilters: [{ id: "name", value: "ali" }],
+      globalFilter: "ali",
+      pagination: { pageIndex: 2, pageSize: 20 },
+      columnVisibility: { age: false },
+      columnPinning: { left: ["name"], right: ["age"] },
+      columnOrder: ["name", "age"],
+      columnSizing: { name: 240 },
+      grouping: ["department"]
+    };
+    const storage = storageStub({ "ledger:demo": JSON.stringify(persisted) });
+
+    expect(readPersistedState({
+      key: "demo",
+      slices: [
+        "sorting",
+        "columnFilters",
+        "globalFilter",
+        "pagination",
+        "columnVisibility",
+        "columnPinning",
+        "columnOrder",
+        "columnSizing",
+        "grouping"
+      ],
+      storage
+    })).toEqual(persisted);
   });
 });
 
@@ -75,5 +152,56 @@ describe("usePersistWriter", () => {
       "ledger:demo",
       JSON.stringify({ columnSizing: { name: 240 } })
     );
+  });
+
+  it("flushes the latest pending value on a real unmount", () => {
+    const storage = storageStub();
+    const persist = {
+      key: "demo",
+      slices: ["columnSizing" as const],
+      storage
+    };
+
+    const { rerender, unmount } = renderHook(
+      ({ width }: { width: number }) => usePersistWriter(persist, persistableState(width)),
+      { initialProps: { width: 120 } }
+    );
+
+    rerender({ width: 240 });
+    unmount();
+    vi.advanceTimersByTime(1);
+
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+    expect(storage.setItem).toHaveBeenCalledWith(
+      "ledger:demo",
+      JSON.stringify({ columnSizing: { name: 240 } })
+    );
+  });
+
+  it("does not flush during a StrictMode simulated unmount", () => {
+    const storage = storageStub();
+    const state = {
+      sorting: [],
+      columnFilters: [],
+      globalFilter: "",
+      pagination: { pageIndex: 0, pageSize: 20 },
+      columnVisibility: {},
+      columnPinning: {},
+      columnOrder: [],
+      columnSizing: { name: 240 },
+      grouping: []
+    };
+
+    renderHook(() => usePersistWriter({
+      key: "demo",
+      slices: ["columnSizing"],
+      storage
+    }, state), { reactStrictMode: true });
+
+    vi.advanceTimersByTime(1);
+    expect(storage.setItem).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(249);
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
   });
 });

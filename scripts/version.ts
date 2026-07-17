@@ -1,4 +1,4 @@
-// Bump the synced version across the root manifest and every publishable package, then print the
+// Bump the synced version across the root manifest and every workspace package, then print the
 // git commands to cut the release. The package set is discovered from disk (not hardcoded) so it
 // can never drift from the workspace, and writes are computed up front then flushed together so a
 // missing/malformed manifest aborts before any file is mutated. Workspace links are path-based, so
@@ -11,11 +11,10 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // Root first: it is the version source (read below) and the version the release tag is cut from.
-// Then every non-private package manifest discovered under packages/* (sorted for stable output).
+// Then every workspace package manifest discovered under packages/* (sorted for stable output).
 const rootManifest = join(root, "package.json");
 const packageManifests = globSync("packages/*/package.json", { cwd: root })
   .map(rel => join(root, rel))
-  .filter(path => JSON.parse(readFileSync(path, "utf-8")).private !== true)
   .toSorted();
 const manifests = [rootManifest, ...packageManifests];
 

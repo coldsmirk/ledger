@@ -31,9 +31,11 @@ export function toCsv<TData>(table: TableInstance<TData>, options: ToCsvOptions 
 
   const rows = rowsForScope(table, scope);
 
-  const columns = table
-    .getVisibleLeafColumns()
-    .filter(column => !isInternalColumn(column.id) && column.accessorFn !== undefined);
+  const columns = [
+    ...table.getLeftVisibleLeafColumns(),
+    ...table.getCenterVisibleLeafColumns(),
+    ...table.getRightVisibleLeafColumns()
+  ].filter(column => !isInternalColumn(column.id) && column.accessorFn !== undefined);
 
   const lines: string[] = [];
 

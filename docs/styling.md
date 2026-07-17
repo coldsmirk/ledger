@@ -77,7 +77,11 @@ Style states by attribute selector (the Mantine convention). The inventory:
 | `--ledger-striped-color`, `--ledger-hover-color` | `stripedColor` / `highlightOnHoverColor` props (or your `vars`) | Tint overrides; default to `--mantine-color-default-hover` |
 | `--ledger-header-bg` | you (optional) | Header cell background; defaults to `--mantine-color-body` |
 | `--ledger-border-color` | `borderColor` prop (or your `vars`) | Every ledger-painted line: the `withTableBorder` frame, row/column borders, and the seam overlays; defaults to `--mantine-color-default-border` |
-| `--ledger-col-<id>`, `--ledger-col-start-<id>`, `--ledger-col-after-<id>` | column geometry | Width and pinned offsets per column; the reason resizing never re-renders rows |
+| `--ledger-col-width-<id>`, `--ledger-col-start-<id>`, `--ledger-col-after-<id>` | column geometry | Width and pinned offsets per column; disjoint prefixes prevent one family from shadowing another, and resizing never re-renders rows |
+
+The column-variable `<id>` suffix is a collision-free CSS-safe encoding, not necessarily the raw
+column id: ASCII letters, digits, and hyphens stay readable, while punctuation and Unicode code
+points are escaped.
 
 The `vars` resolver accepts the two documented root variables:
 
@@ -109,6 +113,7 @@ Those rendered outside the table's tree sit outside its Styles API and carry sta
 - Everything ships inside `@layer ledger`; cross-library layer order is the application's call (declare `@layer mantine, ledger;` first if you need to arbitrate).
 - Colors and metrics are Mantine variables only → dark mode is automatic.
 - Offsets and gradients use logical properties with explicit `[dir="rtl"]` mirrors for the pinned-edge shadows → RTL is automatic.
-- Chevron rotations respect `prefers-reduced-motion: reduce`.
+- Chevron rotations and columns-panel reveals respect `prefers-reduced-motion: reduce`; on devices
+  without hover, columns-panel controls stay inline and clickable instead of relying on a reveal.
 
 The kebab-case class contract is enforced mechanically by `@coldsmirk/stylelint-config` in CI — it does not rely on discipline.

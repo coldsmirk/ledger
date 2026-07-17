@@ -21,6 +21,7 @@ Mechanics worth knowing:
 - Pinned cells read their background from the `--ledger-row-bg` pipeline: stripes, hover, and selected tints are always covered correctly ([styling.md](styling.md)).
 - The injected selection/expander columns are always pinned left, ahead of user pins, merged invisibly over the consumer's slice — they never appear in your `columnPinning` state, and neither the panel nor `column.pin()` can put them there.
 - **A pinned column's position comes from its index in `columnPinning.left` / `.right`, not from `columnOrder`** (TanStack maps the array), which is why the columns panel reorders a pinned zone by rewriting that array instead.
+- Header drag-reorder follows the same rule: center drops rewrite `columnOrder`, while left/right drops rewrite that pinning slice. A column can only drop inside its current zone; use the pin controls to move between zones.
 - `columnPinning` belongs to the default `persistState` layout set ([state.md](state.md)).
 
 ## Row pinning
@@ -36,7 +37,8 @@ Mechanics worth knowing:
 ```
 
 - State rides the `rowPinning` trio (TanStack `RowPinningState`, `{ top: string[], bottom: string[] }`). ledger provides the **state and the sticky rendering**; the trigger affordance is the page's call — typically an actions column calling `row.pin("top")` / `row.pin(false)`, since a universal per-row pin button would be noise.
-- Offsets are **measured, not assumed**: the header lives outside the body scroller ([sizing.md](sizing.md)), so the first top-pinned row sticks at the scroller's own top edge and each following one offsets by the measured heights of the pinned rows above it (ResizeObserver-tracked); bottom rows mirror upward. Multiple pinned rows therefore stack instead of piling onto one edge, and row-height changes re-measure automatically.
+- Offsets are **measured, not assumed**: the header lives outside the body scroller ([sizing.md](sizing.md)), so the first top-pinned item sticks at the scroller's own top edge and each following one offsets by the measured heights above it (ResizeObserver-tracked); bottom items mirror upward. Multiple pinned rows therefore stack instead of piling onto one edge, row-height changes re-measure automatically, and replacing/reordering rows rebinds observation even when the item count stays unchanged.
 - Pinned rows render outside the virtual window — always mounted, even with `virtualized` on; only center rows virtualize.
+- An expanded pinned row's detail panel is the next measured item in the same sticky zone, so the row and panel remain together without overlap.
 - Pinned rows are excluded from stripe parity and carry `data-pinned-row="top" | "bottom"` plus an opaque background so scrolling content passes beneath them.
 - Pinned rows never render twice — the body draws the top set, the center (unpinned) rows, then the bottom set. TanStack's `keepPinnedRows` default (`true`) keeps a pinned row visible even when filtering or pagination would exclude it; pass `tableOptions={{ keepPinnedRows: false }}` to hide it with the rest ([state.md](state.md)).

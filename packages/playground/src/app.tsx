@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 
-import { AppShell, NavLink, ScrollArea, Stack, Text, Title } from "@mantine/core";
-import { useState } from "react";
+import { AppShell, Burger, Group, NavLink, ScrollArea, Stack, Text, Title, useMatches } from "@mantine/core";
+import { useRef, useState } from "react";
 
 import { AppearanceDemo } from "./demos/appearance";
 import { BasicDemo } from "./demos/basic";
@@ -133,8 +133,20 @@ const ALL_DEMOS = GROUPS.flatMap(group => group.demos);
 
 export function App() {
   const [activeId, setActiveId] = useState("basic");
+  const [mobileNavOpened, setMobileNavOpened] = useState(false);
+  const desktop = useMatches({ base: false, xs: true }, { getInitialValueInEffect: false });
+  const burgerRef = useRef<HTMLButtonElement>(null);
   const active = ALL_DEMOS.find(demo => demo.id === activeId) ?? ALL_DEMOS[0]!;
   const ActiveComponent = active.component;
+
+  const selectDemo = (id: string) => {
+    setActiveId(id);
+    setMobileNavOpened(false);
+
+    if (!desktop) {
+      burgerRef.current?.focus();
+    }
+  };
 
   const navSections = GROUPS.map(group => (
     <div key={group.title}>
@@ -146,17 +158,49 @@ export function App() {
         <NavLink
           key={demo.id}
           active={demo.id === activeId}
+          aria-current={demo.id === activeId ? "page" : undefined}
+          component="button"
           description={demo.description}
           label={demo.label}
-          onClick={() => setActiveId(demo.id)}
+          type="button"
+          onClick={() => selectDemo(demo.id)}
         />
       ))}
     </div>
   ));
 
   return (
-    <AppShell navbar={{ width: 240, breakpoint: "xs" }} padding="md">
-      <AppShell.Navbar p="xs">
+    <AppShell
+      header={{ height: { base: 52, xs: 0 } }}
+      padding="md"
+      navbar={{
+        breakpoint: "xs",
+        collapsed: { mobile: !mobileNavOpened },
+        width: 240
+      }}
+    >
+      <AppShell.Header hiddenFrom="xs">
+        <Group h="100%" px="md">
+          <Burger
+            ref={burgerRef}
+            aria-controls="playground-navigation"
+            aria-expanded={mobileNavOpened}
+            aria-label="Toggle navigation"
+            opened={mobileNavOpened}
+            size="sm"
+            onClick={() => setMobileNavOpened(opened => !opened)}
+          />
+
+          <Text fw={600}>ledger playground</Text>
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Navbar
+        aria-hidden={!desktop && !mobileNavOpened ? true : undefined}
+        id="playground-navigation"
+        inert={!desktop && !mobileNavOpened}
+        p="xs"
+      >
         <Title order={4} px="sm" py="xs">
           ledger playground
         </Title>

@@ -386,10 +386,10 @@ function ColumnsPanelItem<TData>({
           covers them while revealed, and the touch stylesheet drops them outright — there the
           real controls sit inline and already say the same thing. */}
       {(grouped || width !== undefined) && (
-        <Group c="dimmed" className="ledger-columns-panel-indicators" gap={6} wrap="nowrap">
+        <div className="ledger-columns-panel-indicators">
           {grouped && <IconGroup size={12} />}
           {width !== undefined && <Text size="xs">{width}</Text>}
-        </Group>
+        </div>
       )}
 
       {(canResize || canGroup || canPin) && (

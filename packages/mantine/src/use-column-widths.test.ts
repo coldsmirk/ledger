@@ -1,8 +1,12 @@
+import type { ColumnDef } from "@tanstack/react-table";
+
 import type { ColumnWidthSpec } from "./use-column-widths";
 
+import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { resolveColumnWidths } from "./use-column-widths";
+import { resolveColumnWidths, useColumnWidths } from "./use-column-widths";
+import { useDataTable } from "./use-data-table";
 
 function spec(id: string, sizing: { size?: number; minSize?: number; maxSize?: number } = {}): ColumnWidthSpec {
   return {
@@ -71,6 +75,57 @@ describe("resolveColumnWidths", () => {
     expect(widths.total).toBe(800);
   });
 
+  it("respects maxSize while redistributing grow-column surplus", () => {
+    const widths = resolveColumnWidths(
+      [
+        spec("a", { minSize: 100, maxSize: 110 }),
+        spec("b", { minSize: 100 }),
+        spec("c", { minSize: 300 })
+      ],
+      {},
+      1000
+    );
+
+    expect(widths.byId).toEqual({
+      a: 110,
+      b: 223,
+      c: 667
+    });
+    expect(widths.total).toBe(1000);
+  });
+
+  it("never expands fixed columns past maxSize just to fill the viewport", () => {
+    const widths = resolveColumnWidths(
+      [
+        spec("select", {
+          size: 40,
+          minSize: 40,
+          maxSize: 40
+        }),
+        spec("name", { size: 160, maxSize: 240 })
+      ],
+      {},
+      1000
+    );
+
+    expect(widths.byId).toEqual({
+      select: 40,
+      name: 240
+    });
+    expect(widths.total).toBe(280);
+  });
+
+  it("falls back to equal distribution when every grow basis is zero", () => {
+    const widths = resolveColumnWidths(
+      [spec("a", { minSize: 0 }), spec("b", { minSize: 0 })],
+      {},
+      100
+    );
+
+    expect(widths.byId).toEqual({ a: 50, b: 50 });
+    expect(widths.total).toBe(100);
+  });
+
   it("lets columnSizing entries override the definition and clamps to min/max", () => {
     const widths = resolveColumnWidths(
       [
@@ -99,5 +154,57 @@ describe("resolveColumnWidths", () => {
       b: 200
     });
     expect(widths.total).toBe(280);
+  });
+});
+
+describe("useColumnWidths", () => {
+  it("does not reuse geometry when delimiter-bearing column ids change", () => {
+    interface RowData {
+      value: string;
+    }
+
+    const firstColumns: Array<ColumnDef<RowData>> = [
+      {
+        id: "a",
+        accessorKey: "value",
+        size: 20
+      },
+      {
+        id: "b:20,c",
+        accessorKey: "value",
+        size: 30
+      }
+    ];
+    const secondColumns: Array<ColumnDef<RowData>> = [
+      {
+        id: "a:20,b",
+        accessorKey: "value",
+        size: 20
+      },
+      {
+        id: "c",
+        accessorKey: "value",
+        size: 30
+      }
+    ];
+    const { result, rerender } = renderHook(
+      ({ columns }: { columns: Array<ColumnDef<RowData>> }) => {
+        const table = useDataTable({ columns, data: [] });
+        const displayColumns = [
+          ...table.getLeftVisibleLeafColumns(),
+          ...table.getCenterVisibleLeafColumns(),
+          ...table.getRightVisibleLeafColumns()
+        ];
+
+        return useColumnWidths(table, displayColumns, null, undefined);
+      },
+      { initialProps: { columns: firstColumns } }
+    );
+
+    expect(result.current.byId).toEqual({ a: 20, "b:20,c": 30 });
+
+    rerender({ columns: secondColumns });
+
+    expect(result.current.byId).toEqual({ "a:20,b": 20, c: 30 });
   });
 });

@@ -14,7 +14,7 @@ helper.accessor("age",    { header: "Age",    meta: { filter: "range" } }),
 helper.accessor("hired",  { header: "Hired",  meta: { filter: "date-range" } }),
 ```
 
-The funnel trigger renders subtle while inactive and filled (`data-active`) while a value is applied; an active popover gains a clear button; clearing sets the filter value back to `undefined`.
+The funnel trigger renders subtle while inactive and filled (`data-active`) while a value is applied; an active popover gains a clear button; clearing sets the filter value back to `undefined`. Text input follows external clears, and closing its popover flushes any pending debounced value before unmounting.
 
 ### Variants
 
@@ -28,8 +28,8 @@ The funnel trigger renders subtle while inactive and filled (`data-active`) whil
 
 Two functions are ledger-registered because TanStack's built-ins have the wrong semantics:
 
-- **`ledger-one-of`** — "the cell value is one of the chosen options", exactly. TanStack's `arrIncludesSome` expects an array row value and degrades to substring matching on scalars (choosing `active` would also match `inactive`).
-- **`ledger-date-range`** — inclusive `[from, to]` over anything `new Date()` can parse; the `to` bound covers its entire day, so `2026-07-16 → 2026-07-16` matches every timestamp within that date. Rows whose value is missing or unparseable never match.
+- **`ledger-one-of`** — a scalar cell equals one of the chosen options, or an array cell contains at least one of them, exactly. TanStack's `arrIncludesSome` expects an array row value and degrades to substring matching on scalars (choosing `active` would also match `inactive`).
+- **`ledger-date-range`** — inclusive `[from, to]` over anything `new Date()` can parse. Date-only strings and picker bounds are local calendar days; their upper boundary is the next local midnight, so the complete day is included without assuming every day is 24 hours across DST. Full timestamp bounds retain their exact instant. Rows whose value is missing or unparseable never match.
 
 Both auto-remove when emptied (clearing every option or both bounds removes the filter entirely).
 
@@ -58,6 +58,8 @@ helper.accessor("owner", {
   meta: { filter: "select" }
 });
 ```
+
+Custom registries passed through `tableOptions.filterFns` merge with ledger's functions. The ids `ledger-one-of` and `ledger-date-range` are reserved; ledger keeps its implementation and warns if either is redefined. Raw `ColumnDef.filterFn` keeps TanStack's strict id typing: use a function directly, or declaration-merge a custom string id into TanStack's `FilterFns` interface as its guide prescribes.
 
 ### Faceted options
 
@@ -94,7 +96,7 @@ const table = useDataTable({ …, enableGlobalFilter: true });
 <DataTable.Search table={table} w={260} debounce={200} />
 ```
 
-- Accepts every `TextInput` prop except the value trio; `debounce` (default 200 ms) delays application, a clear button appears while non-empty, and the input follows external resets (a programmatic `setGlobalFilter("")`, a controlled slice).
+- Accepts every `TextInput` prop except the value trio; `debounce` (default 200 ms) delays application, a clear button appears while non-empty, and the input follows external resets (a programmatic `setGlobalFilter("")`, a controlled slice). Clearing or receiving an external reset cancels any older pending search so it cannot reappear later, even when the table slice already equals the reset value.
 - Columns opt out with `enableGlobalFilter: false` on their def; a custom matcher goes through `tableOptions.globalFilterFn`.
 - State rides the `globalFilter` trio (`globalFilter` / `defaultGlobalFilter` / `onGlobalFilterChange`).
 

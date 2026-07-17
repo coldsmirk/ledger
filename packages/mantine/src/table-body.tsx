@@ -12,7 +12,7 @@ import type { MouseEvent, ReactNode, RefObject } from "react";
 import { ActionIcon, Loader, Table as MantineTable, Skeleton } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useEffect } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor } from "./cell-editor";
@@ -108,25 +108,90 @@ function GroupCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
  * The checkbox edit variant never enters edit mode — toggling commits immediately (docs/editing.md).
  */
 function CheckboxCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
+  const { labels } = useDataTableContext();
   const { table } = cell.getContext();
   const ledger = table.options.meta?.ledger;
   const checked = Boolean(cell.getValue());
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pendingRef = useRef(false);
+  const errorId = useId();
+
+  const commitToggle = () => {
+    if (!ledger?.onEditCommit || pendingRef.current) {
+      return;
+    }
+
+    setError(null);
+
+    const edit = cell.column.columnDef.meta?.edit;
+
+    try {
+      if (typeof edit === "object" && edit.validate) {
+        const validationError = edit.validate(!checked, cell.row);
+
+        if (validationError !== null) {
+          setError(validationError);
+
+          return;
+        }
+      }
+    } catch (validationError) {
+      setError(validationError instanceof Error ? validationError.message : String(validationError));
+
+      return;
+    }
+
+    let result: void | Promise<void>;
+
+    try {
+      result = ledger.onEditCommit({
+        row: cell.row,
+        column: cell.column,
+        value: !checked,
+        previousValue: checked
+      });
+    } catch (commitError) {
+      setError(commitError instanceof Error ? commitError.message : String(commitError));
+
+      return;
+    }
+
+    if (result && typeof result.then === "function") {
+      pendingRef.current = true;
+      setPending(true);
+
+      void Promise.resolve(result).then(
+        () => {
+          pendingRef.current = false;
+          setPending(false);
+        },
+        (commitError: unknown) => {
+          pendingRef.current = false;
+          setPending(false);
+          setError(commitError instanceof Error ? commitError.message : String(commitError));
+        }
+      );
+    }
+  };
 
   return (
-    <input
-      checked={checked}
-      type="checkbox"
-      onChange={() => {
-        void ledger?.onEditCommit?.({
-          row: cell.row,
-          column: cell.column,
-          value: !checked,
-          previousValue: checked
-        });
-      }}
-      onClick={event => event.stopPropagation()}
-      onDoubleClick={event => event.stopPropagation()}
-    />
+    <>
+      <input
+        aria-busy={pending || undefined}
+        aria-describedby={error ? errorId : undefined}
+        aria-invalid={error ? true : undefined}
+        checked={checked}
+        disabled={pending}
+        type="checkbox"
+        onChange={commitToggle}
+        onClick={event => event.stopPropagation()}
+        onDoubleClick={event => event.stopPropagation()}
+      />
+
+      {pending && <Loader aria-label={labels.editPending} size={12} />}
+      {error && <span id={errorId} role="alert">{error}</span>}
+    </>
   );
 }
 
@@ -234,6 +299,11 @@ interface DataRowProps<TData> {
   depth: number;
   pinKey: string;
   columnsKey: string;
+  /**
+   * Stable memo token for column definitions and editing behavior that cells read indirectly
+   * through the stable TanStack table instance.
+   */
+  renderVersion: object;
   pinnedPosition?: "top" | "bottom";
   /**
    * Sticky offset for pinned rows — measured cumulative height of the pinned rows before it.
@@ -315,21 +385,41 @@ const DataRow = memo(DataRowImpl) as typeof DataRowImpl;
 interface DetailRowProps<TData> {
   row: Row<TData>;
   colSpan: number;
+  pinnedPosition?: "top" | "bottom";
+  pinnedOffset?: number;
   virtualIndex?: number;
   measureRef?: (element: Element | null) => void;
+  ariaRowIndex?: number;
 }
 
 function DetailRow<TData>({
   row,
   colSpan,
+  pinnedPosition,
+  pinnedOffset,
   virtualIndex,
-  measureRef
+  measureRef,
+  ariaRowIndex
 }: DetailRowProps<TData>) {
   const { table, getStyles } = useDataTableContext();
   const renderDetailPanel = table.options.meta?.ledger?.renderDetailPanel;
+  const pinnedStyle
+    = pinnedPosition === "top"
+      ? { top: `${pinnedOffset ?? 0}px` }
+      : pinnedPosition === "bottom"
+        ? { bottom: `${pinnedOffset ?? 0}px` }
+        : undefined;
 
   return (
-    <MantineTable.Tr ref={measureRef} data-detail-row data-index={virtualIndex} role="row" {...getStyles("row")}>
+    <MantineTable.Tr
+      ref={measureRef}
+      data-detail-row
+      aria-rowindex={ariaRowIndex}
+      data-index={virtualIndex}
+      data-pinned-row={pinnedPosition}
+      role="row"
+      {...getStyles("row", { style: pinnedStyle })}
+    >
       <MantineTable.Td colSpan={colSpan} role="cell" {...getStyles("detailPanel")}>
         {renderDetailPanel?.(row)}
       </MantineTable.Td>
@@ -341,13 +431,26 @@ function DetailRow<TData>({
 // Loading rows
 // ------------------------------------------------------------------------------------------------
 
-function SkeletonRows({ rowCount, columnCount }: { rowCount: number; columnCount: number }) {
+function SkeletonRows({
+  rowCount,
+  columnCount,
+  ariaRowIndexStart
+}: {
+  rowCount: number;
+  columnCount: number;
+  ariaRowIndexStart?: number;
+}) {
   const { getStyles } = useDataTableContext();
 
   return (
     <>
       {Array.from({ length: rowCount }, (_, rowIndex) => (
-        <MantineTable.Tr key={rowIndex} role="row" {...getStyles("row")}>
+        <MantineTable.Tr
+          key={rowIndex}
+          aria-rowindex={ariaRowIndexStart === undefined ? undefined : ariaRowIndexStart + rowIndex}
+          role="row"
+          {...getStyles("row")}
+        >
           {Array.from({ length: columnCount }, (_, columnIndex) => (
             <MantineTable.Td key={columnIndex} role="cell" {...getStyles("cell")}>
               <Skeleton height={10} radius="sm" />
@@ -359,11 +462,11 @@ function SkeletonRows({ rowCount, columnCount }: { rowCount: number; columnCount
   );
 }
 
-function LoaderRow({ colSpan }: { colSpan: number }) {
+function LoaderRow({ colSpan, ariaRowIndex }: { colSpan: number; ariaRowIndex?: number }) {
   const { getStyles, labels } = useDataTableContext();
 
   return (
-    <MantineTable.Tr role="row" {...getStyles("loaderRow")}>
+    <MantineTable.Tr aria-rowindex={ariaRowIndex} role="row" {...getStyles("loaderRow")}>
       <MantineTable.Td colSpan={colSpan} role="cell">
         <Loader size="xs" />
         <span>{labels.loadingMore}</span>
@@ -400,22 +503,25 @@ export function TableBody<TData>({
 
   const withDetailPanels = Boolean(ledger?.renderDetailPanel);
   const rowPinningActive = table.options.enableRowPinning === true;
-  const topRows = rowPinningActive ? table.getTopRows() : undefined;
-  const bottomRows = rowPinningActive ? table.getBottomRows() : undefined;
+  const topRows = rowPinningActive ? table.getTopRows() : [];
+  const bottomRows = rowPinningActive ? table.getBottomRows() : [];
   const centerRows = rowPinningActive ? table.getCenterRows() : table.getRowModel().rows;
-  const pinnedRowOffsets = usePinnedRowOffsets(topRows?.length ?? 0, bottomRows?.length ?? 0);
 
-  // Linear synthesis per render — the row list already changes identity whenever it matters.
-  const displayRows = buildDisplayRows(centerRows, withDetailPanels);
+  // Every zone uses the same synthesis: an expanded pinned row owns a detail item just like a
+  // center row, and the sticky offset engine measures both items independently.
+  const topDisplayRows = buildDisplayRows(topRows, withDetailPanels);
+  const centerDisplayRows = buildDisplayRows(centerRows, withDetailPanels);
+  const bottomDisplayRows = buildDisplayRows(bottomRows, withDetailPanels);
+  const pinnedRowOffsets = usePinnedRowOffsets(topDisplayRows.length, bottomDisplayRows.length);
 
   /* aria-rowindex numbers header rows first (docs/virtualization.md). */
   const headerRowCount = table.getHeaderGroups().length;
 
   const virtualizer = useVirtualizer({
-    count: displayRows.length,
+    count: centerDisplayRows.length,
     enabled: virtualization !== null,
     estimateSize: () => virtualization?.estimateRowHeight ?? DEFAULT_ESTIMATED_ROW_HEIGHT,
-    getItemKey: index => displayRows[index]?.key ?? index,
+    getItemKey: index => centerDisplayRows[index]?.key ?? index,
     getScrollElement: () => viewportRef.current,
     overscan: virtualization?.overscan ?? DEFAULT_OVERSCAN
   });
@@ -429,33 +535,68 @@ export function TableBody<TData>({
   }, [virtualEnabled, virtualizer, onVirtualizerChange]);
 
   const leafColumnCount = table.getVisibleLeafColumns().length;
+  const totalDisplayRowCount = topDisplayRows.length + centerDisplayRows.length + bottomDisplayRows.length;
+  const renderVersion = useMemo(
+    () => {
+      return {
+        columns: table.options.columns,
+        editTrigger: ledger?.editTrigger,
+        enableEditing: ledger?.enableEditing,
+        onEditCommit: ledger?.onEditCommit
+      };
+    },
+    [table.options.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.onEditCommit]
+  );
 
-  if (loading && displayRows.length === 0) {
+  if (loading && totalDisplayRowCount === 0) {
     return (
       <MantineTable.Tbody {...getStyles("tbody")}>
-        <SkeletonRows columnCount={leafColumnCount} rowCount={skeletonRowCount} />
+        <SkeletonRows
+          ariaRowIndexStart={virtualEnabled ? headerRowCount + 1 : undefined}
+          columnCount={leafColumnCount}
+          rowCount={skeletonRowCount}
+        />
       </MantineTable.Tbody>
     );
   }
 
   /* Memo-busting signatures: rows re-render when pinning or the visible column set changes. */
   const pinning = table.getState().columnPinning;
-  const pinKey = `${(pinning.left ?? []).join(",")}|${(pinning.right ?? []).join(",")}`;
-  const columnsKey = table.getVisibleLeafColumns().map(column => column.id).join(",");
+  const pinKey = JSON.stringify([pinning.left ?? [], pinning.right ?? []]);
+  const columnsKey = JSON.stringify(table.getVisibleLeafColumns().map(column => column.id));
   const editingCell = ledger?.editing.cell ?? null;
+
+  interface DisplayRowRenderOptions {
+    displayIndex: number;
+    pinnedPosition?: "top" | "bottom";
+    pinnedOffset?: number;
+    virtualIndex?: number;
+    measureRef?: (element: Element | null) => void;
+  }
 
   const renderDisplayRow = (
     displayRow: DisplayRow<TData>,
-    virtualProps?: { index: number; measureRef: (element: Element | null) => void }
+    options: DisplayRowRenderOptions
   ): ReactNode => {
+    const zoneStart
+      = options.pinnedPosition === "top"
+        ? headerRowCount
+        : options.pinnedPosition === "bottom"
+          ? headerRowCount + topDisplayRows.length + centerDisplayRows.length
+          : headerRowCount + topDisplayRows.length;
+    const ariaRowIndex = virtualEnabled ? zoneStart + options.displayIndex + 1 : undefined;
+
     if (displayRow.kind === "detail") {
       return (
         <DetailRow
           key={displayRow.key}
+          ariaRowIndex={ariaRowIndex}
           colSpan={leafColumnCount}
-          measureRef={virtualProps?.measureRef}
+          measureRef={options.measureRef}
+          pinnedOffset={options.pinnedOffset}
+          pinnedPosition={options.pinnedPosition}
           row={displayRow.row}
-          virtualIndex={virtualProps?.index}
+          virtualIndex={options.virtualIndex}
         />
       );
     }
@@ -465,17 +606,20 @@ export function TableBody<TData>({
     return (
       <DataRow
         key={displayRow.key}
-        ariaRowIndex={virtualEnabled ? dataIndex + headerRowCount + 1 : undefined}
+        ariaRowIndex={ariaRowIndex}
         columnsKey={columnsKey}
-        dataIndex={dataIndex}
+        dataIndex={options.pinnedPosition ? -1 : dataIndex}
         depth={row.depth}
         editingColumnId={editingCell?.rowId === row.id ? editingCell.columnId : null}
         expanded={row.getIsExpanded()}
-        measureRef={virtualProps?.measureRef}
+        measureRef={options.measureRef}
         pinKey={pinKey}
+        pinnedOffset={options.pinnedOffset}
+        pinnedPosition={options.pinnedPosition}
+        renderVersion={renderVersion}
         row={row}
         selected={row.getIsSelected()}
-        virtualIndex={virtualProps?.index}
+        virtualIndex={options.virtualIndex}
       />
     );
   };
@@ -494,10 +638,14 @@ export function TableBody<TData>({
         {topSpace > 0 && <tr aria-hidden data-ledger-spacer style={{ height: topSpace }} />}
 
         {items.map(item => {
-          const displayRow = displayRows[item.index];
+          const displayRow = centerDisplayRows[item.index];
 
           return displayRow
-            ? renderDisplayRow(displayRow, { index: item.index, measureRef: virtualizer.measureElement })
+            ? renderDisplayRow(displayRow, {
+                displayIndex: item.index,
+                virtualIndex: item.index,
+                measureRef: virtualizer.measureElement
+              })
             : null;
         })}
 
@@ -505,48 +653,33 @@ export function TableBody<TData>({
       </>
     );
   } else {
-    center = displayRows.map(displayRow => renderDisplayRow(displayRow));
+    center = centerDisplayRows.map((displayRow, displayIndex) => renderDisplayRow(displayRow, { displayIndex }));
   }
 
   return (
     <MantineTable.Tbody {...getStyles("tbody")}>
-      {topRows?.map((row, index) => (
-        <DataRow
-          key={row.id}
-          columnsKey={columnsKey}
-          dataIndex={-1}
-          depth={0}
-          editingColumnId={editingCell?.rowId === row.id ? editingCell.columnId : null}
-          expanded={false}
-          measureRef={pinnedRowOffsets.registerTopRow(index)}
-          pinKey={pinKey}
-          pinnedOffset={pinnedRowOffsets.offsets.top[index]}
-          pinnedPosition="top"
-          row={row}
-          selected={row.getIsSelected()}
-        />
-      ))}
+      {topDisplayRows.map((displayRow, displayIndex) => renderDisplayRow(displayRow, {
+        displayIndex,
+        measureRef: pinnedRowOffsets.registerTopRow(displayIndex),
+        pinnedOffset: pinnedRowOffsets.offsets.top[displayIndex],
+        pinnedPosition: "top"
+      }))}
 
       {center}
 
-      {bottomRows?.map((row, index) => (
-        <DataRow
-          key={row.id}
-          columnsKey={columnsKey}
-          dataIndex={-1}
-          depth={0}
-          editingColumnId={editingCell?.rowId === row.id ? editingCell.columnId : null}
-          expanded={false}
-          measureRef={pinnedRowOffsets.registerBottomRow(index)}
-          pinKey={pinKey}
-          pinnedOffset={pinnedRowOffsets.offsets.bottom[index]}
-          pinnedPosition="bottom"
-          row={row}
-          selected={row.getIsSelected()}
-        />
-      ))}
+      {bottomDisplayRows.map((displayRow, displayIndex) => renderDisplayRow(displayRow, {
+        displayIndex,
+        measureRef: pinnedRowOffsets.registerBottomRow(displayIndex),
+        pinnedOffset: pinnedRowOffsets.offsets.bottom[displayIndex],
+        pinnedPosition: "bottom"
+      }))}
 
-      {loadingMore && <LoaderRow colSpan={leafColumnCount} />}
+      {loadingMore && (
+        <LoaderRow
+          ariaRowIndex={virtualEnabled ? headerRowCount + totalDisplayRowCount + 1 : undefined}
+          colSpan={leafColumnCount}
+        />
+      )}
     </MantineTable.Tbody>
   );
 }

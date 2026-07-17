@@ -1,14 +1,26 @@
 import { useCallback, useInsertionEffect, useRef } from "react";
 
+const CSS_SAFE_CHARACTER = /^[a-z0-9-]$/i;
+
 /**
  * Column ids are consumer-supplied; CSS custom property names must stay ident-safe.
  */
 function cssSafeColumnId(columnId: string): string {
-  return columnId.replaceAll(/[^\w-]/g, "_");
+  let encoded = "";
+
+  for (const character of columnId) {
+    encoded += CSS_SAFE_CHARACTER.test(character)
+      ? character
+      : `_${character.codePointAt(0)!.toString(16)}_`;
+  }
+
+  // TanStack column ids are normally non-empty, but keeping the encoder total avoids emitting an
+  // invalid custom-property suffix if a custom feature supplies an empty id.
+  return encoded || "_empty_";
 }
 
 export function columnWidthVar(columnId: string): string {
-  return `--ledger-col-${cssSafeColumnId(columnId)}`;
+  return `--ledger-col-width-${cssSafeColumnId(columnId)}`;
 }
 
 /**

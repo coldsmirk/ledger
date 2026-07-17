@@ -1,8 +1,8 @@
 /**
- * Sticky offsets for pinned rows: each top-pinned row sticks below the header PLUS the measured
- * heights of the pinned rows above it (bottom rows mirror upward). One shared `top` value would
- * stack every pinned row onto the same edge. Heights are measured, not assumed — row height
- * follows content and spacing.
+ * Sticky offsets for pinned display items: each top item sticks at the body edge plus the measured
+ * heights above it (bottom items mirror upward). One shared `top` value would stack every pinned
+ * row/detail item onto the same edge. Heights are measured, not assumed — they follow content and
+ * spacing.
  */
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
@@ -23,6 +23,9 @@ export function usePinnedRowOffsets(topCount: number, bottomCount: number): Pinn
   const [offsets, setOffsets] = useState<PinnedRowOffsets>(NONE);
   const topRows = useRef<Array<Element | null>>([]);
   const bottomRows = useRef<Array<Element | null>>([]);
+  const topCallbacks = useRef<Array<(element: Element | null) => void>>([]);
+  const bottomCallbacks = useRef<Array<(element: Element | null) => void>>([]);
+  const observerRef = useRef<ResizeObserver | null>(null);
 
   topRows.current.length = topCount;
   bottomRows.current.length = bottomCount;
@@ -59,13 +62,8 @@ export function usePinnedRowOffsets(topCount: number, bottomCount: number): Pinn
   }, []);
 
   useLayoutEffect(() => {
-    if (topCount === 0 && bottomCount === 0) {
-      return;
-    }
-
-    measure();
-
     const observer = new ResizeObserver(measure);
+    observerRef.current = observer;
 
     for (const element of [...topRows.current, ...bottomRows.current]) {
       if (element) {
@@ -73,21 +71,65 @@ export function usePinnedRowOffsets(topCount: number, bottomCount: number): Pinn
       }
     }
 
-    return () => observer.disconnect();
-  }, [topCount, bottomCount, measure]);
+    measure();
+
+    return () => {
+      observerRef.current = null;
+      observer.disconnect();
+    };
+  }, [measure]);
+
+  const register = useCallback(
+    (
+      elements: { current: Array<Element | null> },
+      callbacks: { current: Array<(element: Element | null) => void> },
+      index: number
+    ) => {
+      const existing = callbacks.current[index];
+
+      if (existing) {
+        return existing;
+      }
+
+      let currentElement: Element | null = null;
+
+      const callback = (element: Element | null) => {
+        if (element === currentElement) {
+          return;
+        }
+
+        if (currentElement) {
+          observerRef.current?.unobserve(currentElement);
+        }
+
+        currentElement = element;
+
+        if (index < elements.current.length) {
+          elements.current[index] = element;
+        }
+
+        if (element) {
+          observerRef.current?.observe(element);
+        }
+
+        measure();
+      };
+
+      callbacks.current[index] = callback;
+
+      return callback;
+    },
+    [measure]
+  );
 
   const registerTopRow = useCallback(
-    (index: number) => (element: Element | null) => {
-      topRows.current[index] = element;
-    },
-    []
+    (index: number) => register(topRows, topCallbacks, index),
+    [register]
   );
 
   const registerBottomRow = useCallback(
-    (index: number) => (element: Element | null) => {
-      bottomRows.current[index] = element;
-    },
-    []
+    (index: number) => register(bottomRows, bottomCallbacks, index),
+    [register]
   );
 
   return {

@@ -352,6 +352,32 @@ interface RoutedProps<TData> {
   table: Table<TData>;
 }
 
+/**
+ * Resolve a row against the exact list owned by the virtualizer. Pinned rows are mounted outside
+ * that list, so they deliberately have no scroll index.
+ */
+export function resolveVirtualDisplayIndex<TData>(
+  table: Table<TData>,
+  rowId: string,
+  withDetailPanels: boolean
+): number | null {
+  const rowPinningActive = table.options.enableRowPinning === true;
+
+  if (rowPinningActive) {
+    const pinned = [...table.getTopRows(), ...table.getBottomRows()].some(row => row.id === rowId);
+
+    if (pinned) {
+      return null;
+    }
+  }
+
+  const rows = rowPinningActive ? table.getCenterRows() : table.getRowModel().rows;
+  const index = buildDisplayRows(rows, withDetailPanels)
+    .findIndex(displayRow => displayRow.kind === "data" && displayRow.row.id === rowId);
+
+  return index === -1 ? null : index;
+}
+
 function DataTableFromOptions<TData>({ props }: { props: DataTableProps<TData> }) {
   const options: Record<string, unknown> = {};
   const presentation: Record<string, unknown> = {};
@@ -450,7 +476,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
     ...table.getCenterVisibleLeafColumns(),
     ...table.getRightVisibleLeafColumns()
   ];
-  const displayOrderSignature = displayColumns.map(column => column.id).join(",");
+  const displayOrderSignature = JSON.stringify(displayColumns.map(column => column.id));
   // eslint-disable-next-line @eslint-react/exhaustive-deps -- the signature encodes order/composition; columns identity covers definition swaps
   const visibleLeafColumns = useMemo(() => displayColumns, [displayOrderSignature, table.options.columns]);
   const columnWidths = useColumnWidths(table, visibleLeafColumns, viewport, tableMinWidth);
@@ -608,6 +634,22 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
   const headerViewportRef = useRef<HTMLDivElement | null>(null);
   const footerViewportRef = useRef<HTMLDivElement | null>(null);
   const hasFooter = tableHasFooter(table);
+  const headerRowCount = table.getHeaderGroups().length;
+  const withDetailPanels = Boolean(table.options.meta?.ledger?.renderDetailPanel);
+  const rowPinningActive = table.options.enableRowPinning === true;
+  const logicalDisplayRowCount
+    = rowPinningActive
+      ? buildDisplayRows(table.getTopRows(), withDetailPanels).length
+      + buildDisplayRows(table.getCenterRows(), withDetailPanels).length
+      + buildDisplayRows(table.getBottomRows(), withDetailPanels).length
+      : buildDisplayRows(table.getRowModel().rows, withDetailPanels).length;
+  const bodyAriaRowCount
+    = loading && logicalDisplayRowCount === 0
+      ? skeletonRowCount
+      : logicalDisplayRowCount + (loadingMore ? 1 : 0);
+  const footerRowCount = hasFooter ? table.getFooterGroups().length : 0;
+  const ariaRowCount = headerRowCount + bodyAriaRowCount + footerRowCount;
+  const footerAriaRowIndexStart = headerRowCount + bodyAriaRowCount + 1;
 
   const mirrorBodyScrollLeft = useEventCallback(() => {
     const element = viewportRef.current;
@@ -699,10 +741,9 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
 
           if (virtualizer) {
             const withDetail = Boolean(table.options.meta?.ledger?.renderDetailPanel);
-            const displayRows = buildDisplayRows(rows, withDetail);
-            const index = displayRows.findIndex(displayRow => displayRow.kind === "data" && displayRow.row.id === id);
+            const index = resolveVirtualDisplayIndex(table, id, withDetail);
 
-            if (index !== -1) {
+            if (index !== null) {
               virtualizer.scrollToIndex(index, {
                 align: options?.align ?? "auto",
                 behavior: options?.behavior
@@ -756,7 +797,6 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
 
   /* ---- render ---- */
   const stripedMode = striped === true ? "odd" : striped || undefined;
-  const headerRowCount = table.getHeaderGroups().length;
 
   // Header and body render as separate tables so the vertical scroller owns only the body:
   // identical props, colgroup, and root-level column variables keep their layouts pixel-equal.
@@ -801,7 +841,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
         {...others}
       >
         <div
-          aria-rowcount={virtualEnabled ? rowsLength + headerRowCount : undefined}
+          aria-rowcount={virtualEnabled ? ariaRowCount : undefined}
           role="table"
           {...getStyles("main")}
         >
@@ -862,7 +902,11 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
             <div ref={footerViewportRef} {...getStyles("footer")}>
               <MantineTable {...sharedTableProps} {...tableStyleProps()}>
                 <colgroup>{colElements}</colgroup>
-                <TableFooter table={table} />
+
+                <TableFooter
+                  ariaRowIndexStart={virtualEnabled ? footerAriaRowIndexStart : undefined}
+                  table={table}
+                />
               </MantineTable>
             </div>
           )}

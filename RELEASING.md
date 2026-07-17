@@ -13,13 +13,15 @@ That is all the workflow needs — `GITHUB_TOKEN` is provided automatically.
 
 ## Cutting a release
 
-All packages share one version, bumped together:
+The root and every workspace package share one version, bumped together. Private packages such as
+`ledger-playground` participate in the lockstep even though only `@coldsmirk/*` packages publish:
 
 ```bash
 pnpm version:patch      # 0.1.0 -> 0.1.1   (or version:minor / version:major / an explicit x.y.z)
 ```
 
-This updates the root manifest and every package's `version`. Then review, commit, tag, and push — the script prints these exact commands:
+This updates the root manifest and every workspace package's `version`. Then review, commit, tag,
+and push — the script prints these exact commands:
 
 ```bash
 git add package.json packages/*/package.json

@@ -9,9 +9,49 @@ import type { DataTableFilterVariant } from "./types";
 
 export type DateRangeFilterValue = [string | null, string | null];
 
+const DATE_ONLY = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/;
+
+function localDayStart(value: string): number | undefined {
+  const match = DATE_ONLY.exec(value);
+
+  if (!match) {
+    return undefined;
+  }
+
+  const year = Number(match.groups?.year);
+  const month = Number(match.groups?.month) - 1;
+  const day = Number(match.groups?.day);
+  const date = new Date(year, month, day);
+
+  if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+    return undefined;
+  }
+
+  return date.getTime();
+}
+
+function dateValueTime(value: string | number | Date): number {
+  if (typeof value === "string") {
+    const localTime = localDayStart(value);
+
+    if (localTime !== undefined) {
+      return localTime;
+    }
+  }
+
+  return new Date(value).getTime();
+}
+
+function parsedTime(value: string): number | undefined {
+  const time = new Date(value).getTime();
+
+  return Number.isNaN(time) ? undefined : time;
+}
+
 /**
- * Inclusive [from, to] match over anything `new Date()` can parse; the `to` bound covers its
- * entire day so "2026-07-16 → 2026-07-16" matches every timestamp within that date.
+ * Inclusive [from, to] match over anything `new Date()` can parse. Date-only values and bounds
+ * use local calendar days; their upper bound is the next local midnight so DST days stay exact.
+ * Full timestamp bounds retain their exact instant.
  */
 const dateRange: FilterFn<unknown> = (row, columnId, filterValue: DateRangeFilterValue) => {
   const raw = row.getValue(columnId);
@@ -20,7 +60,11 @@ const dateRange: FilterFn<unknown> = (row, columnId, filterValue: DateRangeFilte
     return false;
   }
 
-  const time = new Date(raw as string | number | Date).getTime();
+  if (!Array.isArray(filterValue)) {
+    return false;
+  }
+
+  const time = dateValueTime(raw as string | number | Date);
 
   if (Number.isNaN(time)) {
     return false;
@@ -29,18 +73,29 @@ const dateRange: FilterFn<unknown> = (row, columnId, filterValue: DateRangeFilte
   const [from, to] = filterValue;
 
   if (from) {
-    const fromTime = new Date(from).getTime();
+    const fromTime = localDayStart(from) ?? parsedTime(from);
 
-    if (!Number.isNaN(fromTime) && time < fromTime) {
+    if (fromTime !== undefined && time < fromTime) {
       return false;
     }
   }
 
   if (to) {
-    const toTime = new Date(to).getTime() + 86_399_999;
+    const localToTime = localDayStart(to);
 
-    if (!Number.isNaN(toTime) && time > toTime) {
-      return false;
+    if (localToTime === undefined) {
+      const toTime = parsedTime(to);
+
+      if (toTime !== undefined && time > toTime) {
+        return false;
+      }
+    } else {
+      const nextDay = new Date(localToTime);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      if (time >= nextDay.getTime()) {
+        return false;
+      }
     }
   }
 
@@ -52,16 +107,18 @@ dateRange.autoRemove = (value: DateRangeFilterValue | undefined) => !value || (!
 /**
  * Strict set membership for the multi-select variant. TanStack's `arrIncludesSome` expects an
  * array row value and degrades to substring matching on scalars ("active" would match
- * "inactive") — the variant's semantics are "value is one of the chosen options", exactly.
+ * "inactive") — the variant's semantics are exact membership for scalar and array cells.
  */
 const oneOf: FilterFn<unknown> = (row, columnId, filterValue: string[]) => {
   const raw = row.getValue(columnId);
 
-  if (raw === null || raw === undefined) {
+  if (raw === null || raw === undefined || !Array.isArray(filterValue)) {
     return false;
   }
 
-  return filterValue.includes(String(raw));
+  const values = Array.isArray(raw) ? raw : [raw];
+
+  return values.some(value => value !== null && value !== undefined && filterValue.includes(String(value)));
 };
 
 oneOf.autoRemove = (value: string[] | undefined) => !value || value.length === 0;

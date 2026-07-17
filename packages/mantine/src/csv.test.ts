@@ -64,4 +64,15 @@ describe("toCsv", () => {
 
     expect(csv).toBe("Plain;3");
   });
+
+  it("exports columns in pinned-aware display order", () => {
+    const { result } = renderHook(() => useDataTable({
+      data: orders,
+      columns,
+      getRowId: order => order.id,
+      defaultColumnPinning: { right: ["customer"] }
+    }));
+
+    expect(toCsv(result.current).split("\r\n", 1)[0]).toBe("Total,Customer");
+  });
 });

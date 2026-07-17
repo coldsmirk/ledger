@@ -100,7 +100,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | Option | Type | Notes |
 | --- | --- | --- |
 | `persistState` | [`DataTablePersistState`](#persistence-types) | [state.md](state.md#persisted-state) |
-| `tableOptions` | `Partial<TableOptions<TData>>` | Base layer; managed keys override with a dev warning |
+| `tableOptions` | `Omit<Partial<TableOptions<TData>>, "filterFns" \| "globalFilterFn"> & { filterFns?: Record<string, FilterFn<TData>>; globalFilterFn?: FilterFnOption<TData> \| string }` | Base layer; managed keys override with a dev warning. Filter functions merge by id; ledger's two ids are reserved |
 
 ## `DataTableProps<TData>`
 
@@ -172,7 +172,7 @@ interface DataTableEditContext<TData, TValue> {
   column: Column<TData, TValue>;
   value: TValue;
   setValue: (value: TValue) => void;
-  commit: () => void;
+  commit: () => boolean | Promise<boolean>;  // false = validation/application commit failed; editor stays active
   cancel: () => void;
   error: string | null;
 }
@@ -185,6 +185,11 @@ interface DataTableEditCommit<TData> {
 }
 
 interface DataTableEditingCell { rowId: string; columnId: string }
+
+interface ActiveCellEditor {
+  commit: () => boolean | Promise<boolean>;  // true only when it is safe to leave the cell
+  cancel: () => void;
+}
 ```
 
 ## Filter types
@@ -199,7 +204,7 @@ interface DataTableFilterConfig {
 }
 ```
 
-Registered filter functions (usable as `filterFn` ids anywhere): `ledger-one-of` (strict set membership) and `ledger-date-range` (inclusive ISO date range) — see [filtering.md](filtering.md#variants).
+Registered filter functions (usable as `filterFn` ids anywhere): `ledger-one-of` (strict scalar/array set membership) and `ledger-date-range` (inclusive local calendar-date range) — see [filtering.md](filtering.md#variants). `tableOptions.filterFns` merges custom ids beneath these two reserved implementations. Raw `ColumnDef.filterFn` retains TanStack's strict id typing, so custom string ids require its standard `FilterFns` declaration merging; a function needs no augmentation.
 
 ## Persistence types
 
@@ -240,7 +245,7 @@ All take the `table` instance, compose anywhere, and are individually themeable 
 
 | Component | Props | Notes |
 | --- | --- | --- |
-| `DataTable.Search` | `{ table, debounce?: number /* 200 */, labels? }` + every `TextInputProps` except the value trio | Global filter input ([filtering.md](filtering.md#global-filter)) |
+| `DataTable.Search` | `{ table, debounce?: number /* 200 */, labels? }` + every `TextInputProps` except the value trio | Global filter input; clear/external reset cancels pending input ([filtering.md](filtering.md#global-filter)) |
 | `DataTable.ColumnsPanel` | `{ table, children?, popoverProps?, labels?, className?, style? }` | Order / visibility / pinning / width / grouping. `children` is the trigger and the panel opens from it in a Popover; without one it renders bare ([columns.md](columns.md#the-columns-panel)) |
 | `DataTable.Pagination` | `{ table, pageSizeOptions?, labels?, className?, style? }` | Standalone bar ([pagination.md](pagination.md)) |
 | `DataTable.SelectionBar` | `{ table, labels?, children?, className?, style? }` | Renders only while rows are selected; `children` = bulk actions ([selection.md](selection.md)) |
@@ -267,4 +272,4 @@ RFC 4180 quoting, CRLF line ends. Exports accessor columns only, in their curren
 
 ## `meta.ledger`
 
-`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the editing controller (`cell` / `start` / `stop` / `clear` / `registerEditor`), `editTrigger`, `enableEditing`, `onEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), the shift-selection `selectionAnchor`, `totalRowCount`, `enableColumnOrdering`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
+`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the editing controller (`cell` / `start` / `stop` / `clear` / `registerEditor`), filter-set subscriptions (`subscribeColumnFilters` / `subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), the shift-selection `selectionAnchor`, `totalRowCount`, `enableColumnOrdering`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.

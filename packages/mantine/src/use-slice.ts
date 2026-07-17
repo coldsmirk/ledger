@@ -16,6 +16,11 @@ export interface UseSliceInput<T> {
   value: T | undefined;
   defaultValue: T | undefined;
   onChange: ((value: T) => void) | undefined;
+  /**
+   * Internal notification for every resolved set attempt, including no-op values that React does
+   * not render. Used by debounced controls to observe an external reset to the current value.
+   */
+  onSet?: (value: T) => void;
   fallback: T;
 }
 
@@ -23,6 +28,7 @@ export function useSlice<T>({
   value,
   defaultValue,
   onChange,
+  onSet,
   fallback
 }: UseSliceInput<T>): readonly [T, SliceSetter<T>] {
   const [current, setCurrent] = useUncontrolled<T>({
@@ -39,10 +45,13 @@ export function useSlice<T>({
 
   const setCurrentRef = useRef(setCurrent);
   setCurrentRef.current = setCurrent;
+  const onSetRef = useRef(onSet);
+  onSetRef.current = onSet;
 
   const set = useCallback<SliceSetter<T>>(updater => {
     const next = functionalUpdate(updater, currentRef.current);
     currentRef.current = next;
+    onSetRef.current?.(next);
     setCurrentRef.current(next);
   }, []);
 

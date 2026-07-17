@@ -35,7 +35,7 @@ const columns = [
 | `text` | unstyled `TextInput` | Enter / blur commits |
 | `number` | unstyled `NumberInput` (`hideControls`); an emptied input commits `null` | Enter / blur commits |
 | `select` | unstyled `Select`, dropdown opens immediately | **picking an option commits at once** |
-| `checkbox` | none — the cell renders a live checkbox | **toggling commits immediately**, never enters edit mode |
+| `checkbox` | none — the cell renders a live checkbox | **toggling commits immediately**, never enters edit mode; validation or rejection is shown inline, and async commits disable it while pending |
 
 Editors are borderless Mantine inputs filling the cell (a boxed input inside a table cell is visual noise) and focus automatically.
 
@@ -50,9 +50,10 @@ meta: {
 }
 ```
 
-- `validate(value, row)` runs before commit; a non-null message blocks the commit and shows on the editor. Returning `null` approves.
+- `validate(value, row)` runs before commit; a non-null message blocks the commit and shows on the editor (or the live checkbox cell). Returning `null` approves.
 - A commit with an **unchanged value** (`Object.is` against the value at edit start) skips `onEditCommit` entirely and just closes the editor.
 - If `onEditCommit` returns a **Promise**, the cell enters a pending state (disabled input, small loader, `data-pending`, `aria-busy`) until it settles. Resolution closes the editor; **rejection returns the cell to editing** with the error message shown — the same presentation as a `validate` failure.
+- Commit attempts are idempotent while pending: every caller waits on the same result. A validation failure, synchronous exception, or async rejection reports failure and keeps the current editor mounted; navigation only continues after success.
 
 `onEditCommit` receives `{ row, column, value, previousValue }` — the live TanStack `Row`/`Column` instances plus both values.
 
@@ -62,9 +63,9 @@ meta: {
 | --- | --- |
 | Enter | Commit |
 | Escape | Cancel (restore the original value) |
-| Tab / Shift+Tab | Commit, then move to the row's next/previous editable cell (checkbox cells are skipped; past the row's edge, editing stops with a commit) |
+| Tab / Shift+Tab | Commit, wait for success, then move to the row's next/previous editable cell (checkbox cells are skipped in shorthand and object form; past the row's edge, editing stops with a commit) |
 | Blur | Commit — unless focus moved elsewhere *inside* the editor (e.g. onto a select option) |
-| Starting to edit another cell | Commits the cell being left (spreadsheet semantics) |
+| Starting to edit another cell | Commits the cell being left and switches only after success (spreadsheet semantics); if several destinations are requested while pending, the latest one wins |
 | Scrolling the editing row out of the virtual window | **Commits** (equivalent to blur), never discards — a validation failure has nowhere left to display and degrades to discard |
 
 Event boundaries: on an editable column, the double-click that enters editing does **not** fire `onRowDoubleClick`, and an editing cell swallows clicks so `onRowClick` never fires through it.
@@ -87,7 +88,7 @@ meta: {
 }
 ```
 
-The context is `DataTableEditContext`: `row`, `column`, the draft `value`, `setValue`, `commit`, `cancel`, and the current `error`. The host still provides the keyboard map, blur-commit, pending state, and lifecycle above — the function only replaces the input.
+The context is `DataTableEditContext`: `row`, `column`, the draft `value`, `setValue`, `commit`, `cancel`, and the current `error`. `commit()` returns `boolean | Promise<boolean>` — `true` means it is safe to leave the cell; `false` means validation or the application commit failed. The host still provides the keyboard map, blur-commit, pending state, and lifecycle above — the function only replaces the input.
 
 ## Programmatic control
 

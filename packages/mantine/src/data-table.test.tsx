@@ -1,12 +1,14 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 
+import type { DataTableHandle } from "./types";
+
 import { MantineProvider } from "@mantine/core";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { StrictMode } from "react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { createRef, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { DataTable } from "./data-table";
+import { DataTable, resolveVirtualDisplayIndex } from "./data-table";
 
 interface Person {
   id: string;
@@ -259,7 +261,7 @@ describe("DataTable", () => {
     const colOrder = [...container.querySelectorAll<HTMLTableColElement>(":scope .ledger-header col")].map(
       col => col.style.width
     );
-    expect(colOrder).toEqual(["var(--ledger-col-age)", "var(--ledger-col-name)"]);
+    expect(colOrder).toEqual(["var(--ledger-col-width-age)", "var(--ledger-col-width-name)"]);
   });
 
   it("renders column footers in an always-visible region outside the scroller", () => {
@@ -284,6 +286,211 @@ describe("DataTable", () => {
     const footerCell = container.querySelector(":scope .ledger-footer .ledger-footer-cell");
     expect(footerCell?.textContent).toBe("Total");
     expect(footerCell?.getAttribute("role")).toBe("cell");
+  });
+
+  it("does not render a footer region when every footer-bearing column is hidden", () => {
+    const withFooter: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        footer: "Total"
+      },
+      { accessorKey: "age", header: "Age" }
+    ];
+
+    const { container } = render(
+      <DataTable
+        columns={withFooter}
+        data={people}
+        defaultColumnVisibility={{ name: false }}
+        getRowId={getRowId}
+      />,
+      { wrapper }
+    );
+
+    expect(container.querySelectorAll(".ledger-table")).toHaveLength(2);
+    expect(container.querySelector(".ledger-footer")).toBeNull();
+  });
+
+  it("invalidates memoized rows for same-id definitions and editing option changes", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const firstCommit = vi.fn();
+    const secondCommit = vi.fn();
+    const firstColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: context => `first:${context.getValue()}`,
+        meta: { edit: "text" }
+      }
+    ];
+    const secondColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: context => `second:${context.getValue()}`,
+        meta: { edit: "text" }
+      }
+    ];
+
+    const { rerender } = render(
+      <DataTable
+        columns={firstColumns}
+        data={people}
+        editTrigger="click"
+        enableEditing={false}
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={firstCommit}
+      />,
+      { wrapper }
+    );
+
+    expect(screen.getByText("first:Carol")).toBeTruthy();
+    fireEvent.click(screen.getByText("first:Carol"));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    // Same ids, new renderer/meta definition: the row must not retain its old cells.
+    rerender(
+      <DataTable
+        columns={secondColumns}
+        data={people}
+        editTrigger="click"
+        enableEditing={false}
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={firstCommit}
+      />
+    );
+    expect(screen.getByText("second:Carol")).toBeTruthy();
+
+    // Keep the column definition stable from here onward so each editing option is independently
+    // responsible for invalidating the memoized row.
+    rerender(
+      <DataTable
+        enableEditing
+        columns={secondColumns}
+        data={people}
+        editTrigger="double-click"
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={firstCommit}
+      />
+    );
+    fireEvent.click(screen.getByText("second:Carol"));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    rerender(
+      <DataTable
+        enableEditing
+        columns={secondColumns}
+        data={people}
+        editTrigger="click"
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={firstCommit}
+      />
+    );
+    fireEvent.click(screen.getByText("second:Carol"));
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+
+    rerender(
+      <DataTable
+        enableEditing
+        columns={secondColumns}
+        data={people}
+        editTrigger="click"
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={secondCommit}
+      />
+    );
+
+    fireEvent.click(screen.getByText("second:Carol"));
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Caroline" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(firstCommit).not.toHaveBeenCalled();
+    expect(secondCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps memoized data rows out of column-resize renders", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const renderCell = vi.fn((value: string) => value);
+    const measuredColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: context => renderCell(context.getValue())
+      }
+    ];
+
+    render(
+      <DataTable
+        enableColumnResizing
+        columns={measuredColumns}
+        data={people}
+        getRowId={getRowId}
+        handleRef={handle}
+      />,
+      { wrapper }
+    );
+    const rendersBeforeResize = renderCell.mock.calls.length;
+
+    act(() => handle.current?.table.setColumnSizing({ name: 320 }));
+
+    expect(renderCell).toHaveBeenCalledTimes(rendersBeforeResize);
+  });
+
+  it("invalidates column geometry and rows when delimiter-bearing visible ids change", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const collisionColumns: Array<ColumnDef<Person, any>> = [
+      {
+        id: "a",
+        accessorFn: person => person.name,
+        header: "A",
+        cell: context => `a:${context.getValue()}`
+      },
+      {
+        id: "b,c",
+        accessorFn: person => person.name,
+        header: "B,C",
+        cell: context => `b,c:${context.getValue()}`
+      },
+      {
+        id: "a,b",
+        accessorFn: person => person.name,
+        header: "A,B",
+        cell: context => `a,b:${context.getValue()}`
+      },
+      {
+        id: "c",
+        accessorFn: person => person.name,
+        header: "C",
+        cell: context => `c:${context.getValue()}`
+      }
+    ];
+    const { container } = render(
+      <DataTable
+        columns={collisionColumns}
+        data={people}
+        defaultColumnVisibility={{ "a,b": false, c: false }}
+        getRowId={getRowId}
+        handleRef={handle}
+      />,
+      { wrapper }
+    );
+    const firstRowText = () => [...container.querySelectorAll(":scope .ledger-tbody .ledger-row:first-child td")]
+      .map(cell => cell.textContent);
+
+    expect(firstRowText()).toEqual(["a:Carol", "b,c:Carol"]);
+
+    act(() => handle.current?.table.setColumnVisibility({ a: false, "b,c": false }));
+
+    expect(firstRowText()).toEqual(["a,b:Carol", "c:Carol"]);
+    expect([...container.querySelectorAll<HTMLTableColElement>(":scope .ledger-header col")].map(col => col.style.width))
+      .toEqual(["var(--ledger-col-width-a_2c_b)", "var(--ledger-col-width-c)"]);
   });
 
   it("renders tree expander toggles and the author's cell on parent rows", () => {
@@ -355,5 +562,79 @@ describe("DataTable", () => {
 
     expect(screen.getByText("detail:Carol")).toBeTruthy();
     expect(container.querySelector("[data-detail-row]")).toBeTruthy();
+  });
+
+  it("renders expanded detail rows inside top and bottom pinned zones", () => {
+    const { container } = render(
+      <DataTable
+        enableRowPinning
+        columns={columns}
+        data={people}
+        defaultExpanded={{ 1: true, 3: true }}
+        defaultRowPinning={{ top: ["1"], bottom: ["3"] }}
+        getRowId={getRowId}
+        renderDetailPanel={row => `detail:${row.original.name}`}
+      />,
+      { wrapper }
+    );
+
+    expect(screen.getByText("detail:Carol").closest("tr")?.dataset.pinnedRow).toBe("top");
+    expect(screen.getByText("detail:Bob").closest("tr")?.dataset.pinnedRow).toBe("bottom");
+    expect(container.querySelectorAll("[data-row-id=\"1\"]")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-row-id=\"3\"]")).toHaveLength(1);
+  });
+
+  it("counts every logical virtual row and assigns continuous ARIA indexes across regions", () => {
+    const ariaColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        footer: "Total"
+      },
+      { accessorKey: "age", header: "Age" }
+    ];
+    const { container } = render(
+      <DataTable
+        defaultExpanded
+        enableRowPinning
+        loadingMore
+        virtualized
+        columns={ariaColumns}
+        data={people}
+        defaultRowPinning={{ top: ["1"], bottom: ["3"] }}
+        getRowId={getRowId}
+        renderDetailPanel={row => `detail:${row.original.name}`}
+      />,
+      { wrapper }
+    );
+
+    expect(container.querySelector(".ledger-main")?.getAttribute("aria-rowcount")).toBe("9");
+    expect(container.querySelector(".ledger-header-row")?.getAttribute("aria-rowindex")).toBe("1");
+    expect(container.querySelector("[data-row-id=\"1\"]")?.getAttribute("aria-rowindex")).toBe("2");
+    expect(screen.getByText("detail:Carol").closest("tr")?.getAttribute("aria-rowindex")).toBe("3");
+    expect(container.querySelector("[data-row-id=\"3\"]")?.getAttribute("aria-rowindex")).toBe("6");
+    expect(screen.getByText("detail:Bob").closest("tr")?.getAttribute("aria-rowindex")).toBe("7");
+    expect(container.querySelector(".ledger-loader-row")?.getAttribute("aria-rowindex")).toBe("8");
+    expect(container.querySelector(".ledger-footer-row")?.getAttribute("aria-rowindex")).toBe("9");
+  });
+
+  it("resolves virtual scroll indexes from center rows and ignores pinned targets", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+
+    render(
+      <DataTable
+        enableRowPinning
+        virtualized
+        columns={columns}
+        data={people}
+        defaultRowPinning={{ top: ["1"] }}
+        getRowId={getRowId}
+        handleRef={handle}
+      />,
+      { wrapper }
+    );
+
+    expect(resolveVirtualDisplayIndex(handle.current!.table, "2", false)).toBe(0);
+    expect(resolveVirtualDisplayIndex(handle.current!.table, "1", false)).toBeNull();
   });
 });

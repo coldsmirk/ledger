@@ -9,11 +9,11 @@ import type { Column, Table } from "@tanstack/react-table";
  * - a column with an explicit width (user-resized `columnSizing` entry, else the author's
  * `size`, else `defaultColumn.size`) is fixed at that width, clamped to its declared min/max;
  * - a column without one is a grow column with basis `minSize ?? 80`; container surplus is
- * distributed proportionally to the bases (integer floor, remainder to the first grow
- * column), and when the container is too small every grow column falls back to its basis
- * and the table overflows into horizontal scroll;
- * - with no grow columns at all, surplus distributes proportionally over every column, so the
- * table still fills its viewport exactly.
+ * distributed proportionally to the bases (integer floor, remainder in display order), capped
+ * by maxSize; when the container is too small every grow column falls back to its basis and the
+ * table overflows into horizontal scroll;
+ * - with no grow columns at all, surplus distributes proportionally over every column up to each
+ * maxSize. Hard maximums win over filling the viewport.
  *
  * Author sizing comes from the raw-definition registry (`rawColumnSizing`), never from
  * `column.columnDef` — TanStack merges `size: 150, minSize: 20` defaults into every resolved
@@ -46,8 +46,100 @@ export interface ColumnWidths {
   total: number;
 }
 
+function finiteNumber(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizedBound(value: number | undefined): number | undefined {
+  const finite = finiteNumber(value);
+
+  return finite === undefined ? undefined : Math.max(0, Math.round(finite));
+}
+
 function clampWidth(value: number, min: number | undefined, max: number | undefined): number {
-  return Math.min(Math.max(value, min ?? 0), max ?? Number.MAX_SAFE_INTEGER);
+  const rounded = Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+
+  return Math.min(
+    Math.max(rounded, normalizedBound(min) ?? 0),
+    normalizedBound(max) ?? Number.MAX_SAFE_INTEGER
+  );
+}
+
+interface SurplusRecipient {
+  id: string;
+  weight: number;
+  max: number | undefined;
+}
+
+/**
+ * Weighted water-filling over integer pixels. Columns that hit maxSize leave the active set and
+ * the remaining space is redistributed over columns that can still grow. If every column reaches
+ * its cap, maxSize wins and the table intentionally stops short of the viewport.
+ */
+function distributeSurplus(
+  byId: Record<string, number>,
+  recipients: SurplusRecipient[],
+  surplus: number
+): void {
+  let remaining = surplus;
+
+  while (remaining > 0) {
+    const active = recipients.filter(
+      recipient => recipient.max === undefined || byId[recipient.id]! < recipient.max
+    );
+
+    if (active.length === 0) {
+      return;
+    }
+
+    const positiveWeightTotal = active.reduce(
+      (total, recipient) => total + Math.max(0, recipient.weight),
+      0
+    );
+    const equalWeight = positiveWeightTotal === 0;
+    const weightTotal = equalWeight ? active.length : positiveWeightTotal;
+    let distributed = 0;
+
+    for (const recipient of active) {
+      const current = byId[recipient.id]!;
+      const capacity = recipient.max === undefined
+        ? Infinity
+        : recipient.max - current;
+      const weight = equalWeight ? 1 : Math.max(0, recipient.weight);
+      const share = Math.min(capacity, Math.floor((remaining * weight) / weightTotal));
+
+      if (share > 0) {
+        byId[recipient.id] = current + share;
+        distributed += share;
+      }
+    }
+
+    remaining -= distributed;
+
+    if (remaining === 0) {
+      return;
+    }
+
+    // Every proportional share rounded to zero. Hand the integer remainder out in display order;
+    // this preserves the engine's established "remainder to the first columns" determinism.
+    if (distributed === 0) {
+      for (const recipient of active) {
+        const current = byId[recipient.id]!;
+        const capacity = recipient.max === undefined
+          ? Infinity
+          : recipient.max - current;
+
+        if (capacity > 0) {
+          byId[recipient.id] = current + 1;
+          remaining -= 1;
+        }
+
+        if (remaining === 0) {
+          return;
+        }
+      }
+    }
+  }
 }
 
 export function resolveColumnWidths(
@@ -56,75 +148,43 @@ export function resolveColumnWidths(
   availableWidth: number
 ): ColumnWidths {
   const byId: Record<string, number> = {};
-  const growColumns: Array<{ id: string; basis: number }> = [];
-  let fixedTotal = 0;
-  let basisTotal = 0;
+  const growColumns: SurplusRecipient[] = [];
 
   for (const column of columns) {
-    const sized = columnSizing[column.id] ?? column.size;
+    const sized = finiteNumber(columnSizing[column.id]) ?? finiteNumber(column.size);
 
     if (sized === undefined) {
-      const basis = Math.round(column.minSize ?? DEFAULT_FLEX_BASIS);
-      growColumns.push({ id: column.id, basis });
-      basisTotal += basis;
+      const basis = clampWidth(column.minSize ?? DEFAULT_FLEX_BASIS, column.minSize, column.maxSize);
+      byId[column.id] = basis;
+      growColumns.push({
+        id: column.id,
+        weight: basis,
+        max: normalizedBound(column.maxSize)
+      });
     } else {
-      const fixed = clampWidth(Math.round(sized), column.minSize, column.maxSize);
-      byId[column.id] = fixed;
-      fixedTotal += fixed;
+      byId[column.id] = clampWidth(sized, column.minSize, column.maxSize);
     }
   }
 
-  const surplus = availableWidth - fixedTotal - basisTotal;
+  const baseTotal = columns.reduce((total, column) => total + (byId[column.id] ?? 0), 0);
+  const targetWidth = Number.isFinite(availableWidth) ? Math.max(0, Math.round(availableWidth)) : 0;
+  const surplus = targetWidth - baseTotal;
 
-  if (growColumns.length > 0) {
-    if (surplus > 0) {
-      // Weighted distribution; the first grow column absorbs the integer remainder.
-      let distributed = 0;
+  if (surplus > 0) {
+    const recipients = growColumns.length > 0
+      ? growColumns
+      : columns.map(column => {
+          return {
+            id: column.id,
+            weight: byId[column.id] ?? 0,
+            max: normalizedBound(column.maxSize)
+          };
+        });
 
-      for (const [index, grow] of growColumns.entries()) {
-        if (index === 0) {
-          continue;
-        }
-
-        const share = Math.floor((surplus * grow.basis) / basisTotal);
-        byId[grow.id] = grow.basis + share;
-        distributed += share;
-      }
-
-      const first = growColumns[0]!;
-      byId[first.id] = first.basis + surplus - distributed;
-    } else {
-      for (const grow of growColumns) {
-        byId[grow.id] = grow.basis;
-      }
-    }
-  } else if (surplus > 0 && fixedTotal > 0) {
-    // No grow columns: spread the surplus proportionally so the table still fills exactly,
-    // instead of leaving a dead gap (all-fixed sets keep their ratios).
-    let distributed = 0;
-    let firstId: string | null = null;
-
-    for (const column of columns) {
-      if (firstId === null) {
-        firstId = column.id;
-        continue;
-      }
-
-      const share = Math.floor((surplus * byId[column.id]!) / fixedTotal);
-      byId[column.id]! += share;
-      distributed += share;
-    }
-
-    if (firstId !== null) {
-      byId[firstId]! += surplus - distributed;
-    }
+    distributeSurplus(byId, recipients, surplus);
   }
 
-  let total = 0;
-
-  for (const column of columns) {
-    total += byId[column.id] ?? 0;
-  }
+  const total = columns.reduce((sum, column) => sum + (byId[column.id] ?? 0), 0);
 
   return { byId, total };
 }
@@ -209,9 +269,7 @@ export function useColumnWidths<TData>(
   );
 
   /* Stable identity while the numbers are unchanged — downstream memos depend on it. */
-  const signature = `${resolved.total}|${Object.entries(resolved.byId)
-    .map(([id, width]) => `${id}:${width}`)
-    .join(",")}`;
+  const signature = JSON.stringify([resolved.total, Object.entries(resolved.byId)]);
 
   // eslint-disable-next-line @eslint-react/exhaustive-deps -- `signature` fully encodes `resolved`
   return useMemo(() => resolved, [signature]);

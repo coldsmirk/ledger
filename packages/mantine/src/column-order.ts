@@ -1,5 +1,7 @@
 import type { Table } from "@tanstack/react-table";
 
+import { isInternalColumn } from "./build-columns";
+
 /**
  * Pure edits over TanStack's flat `columnOrder` array, shared by the two affordances that
  * reorder columns: the header drag (`use-column-reorder.ts`) and the columns panel
@@ -36,6 +38,14 @@ export interface ColumnDropTarget {
   side: "before" | "after";
 }
 
+export type ColumnZone = "left" | "center" | "right";
+
+export function getColumnZone<TData>(table: Table<TData>, columnId: string): ColumnZone | null {
+  const pinned = table.getColumn(columnId)?.getIsPinned();
+
+  return pinned === "left" || pinned === "right" ? pinned : pinned === false ? "center" : null;
+}
+
 /**
  * Move `columnId` to sit immediately before or after `target.id`. Returns the input untouched
  * when the target is no longer part of the order.
@@ -64,4 +74,47 @@ export function applyCenterOrder(order: string[], nextCenterIds: string[]): stri
   const queue = [...nextCenterIds];
 
   return order.map(id => centerIds.has(id) ? queue.shift()! : id);
+}
+
+/**
+ * Reorder a header inside its current display zone. Pin controls are the only way to cross a
+ * zone boundary; a drop across one is rejected so the visual affordance never lies.
+ */
+export function reorderColumnWithinZone<TData>(
+  table: Table<TData>,
+  columnId: string,
+  target: ColumnDropTarget
+): boolean {
+  const zone = getColumnZone(table, columnId);
+
+  if (!zone || getColumnZone(table, target.id) !== zone) {
+    return false;
+  }
+
+  if (zone === "center") {
+    const centerIds = table.getCenterLeafColumns()
+      .map(column => column.id)
+      .filter(id => !isInternalColumn(id));
+    const nextCenterIds = moveColumnBeside(centerIds, columnId, target);
+
+    table.setColumnOrder(applyCenterOrder(resolveColumnOrder(table), nextCenterIds));
+
+    return true;
+  }
+
+  const left = table.getLeftLeafColumns()
+    .map(column => column.id)
+    .filter(id => !isInternalColumn(id));
+  const right = table.getRightLeafColumns()
+    .map(column => column.id)
+    .filter(id => !isInternalColumn(id));
+  const zoneOrder = zone === "left" ? left : right;
+  const nextZoneOrder = moveColumnBeside(zoneOrder, columnId, target);
+
+  table.setColumnPinning({
+    left: zone === "left" ? nextZoneOrder : left,
+    right: zone === "right" ? nextZoneOrder : right
+  });
+
+  return true;
 }

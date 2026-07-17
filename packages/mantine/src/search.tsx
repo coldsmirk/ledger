@@ -44,13 +44,23 @@ export function DataTableSearch<TData>(props: DataTableSearchProps<TData>) {
   const [value, setValue] = useState(globalFilter);
 
   const apply = useDebouncedCallback((next: string) => table.setGlobalFilter(next), debounce);
+  const subscribeGlobalFilter = table.options.meta?.ledger?.filtering.subscribeGlobalFilter;
+
+  // A reset to the current table value is invisible to React state. Subscribe to set attempts so
+  // it still cancels a pending local value before that value can write itself back later.
+  useEffect(() => subscribeGlobalFilter?.(next => {
+    apply.cancel();
+    setValue(next);
+  }), [apply, subscribeGlobalFilter]);
 
   // Follow external changes (a programmatic reset, a controlled slice) once they settle.
   useEffect(() => {
+    apply.cancel();
     setValue(globalFilter);
-  }, [globalFilter]);
+  }, [apply, globalFilter]);
 
   const clear = () => {
+    apply.cancel();
     setValue("");
     table.setGlobalFilter("");
   };

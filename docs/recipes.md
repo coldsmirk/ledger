@@ -128,6 +128,8 @@ import { rankItem } from "@tanstack/match-sorter-utils";   // app-side dependenc
 />;
 ```
 
+`tableOptions.filterFns` is merged with ledger's registry; only the reserved `ledger-one-of` and `ledger-date-range` ids cannot be replaced. This global recipe accepts the registry id through `tableOptions.globalFilterFn`; a custom string id on a raw `ColumnDef.filterFn` still uses TanStack's standard `FilterFns` declaration merging (or pass the function directly).
+
 ## A row-actions column
 
 A `display` column, propagation-stopped like every injected control ([rows.md](rows.md#row-interaction)):

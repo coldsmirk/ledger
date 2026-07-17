@@ -12,7 +12,7 @@ import type { ColumnDropTarget } from "./column-order";
 import { useRef, useState } from "react";
 
 import { isInternalColumn } from "./build-columns";
-import { moveColumnBeside, resolveColumnOrder } from "./column-order";
+import { getColumnZone, reorderColumnWithinZone } from "./column-order";
 import { warnOnce } from "./env";
 
 const DRAG_THRESHOLD_PX = 5;
@@ -64,7 +64,7 @@ export function useColumnReorder<TData>(table: Table<TData>): ColumnReorder {
   const enabled = enabledOption && !hasGroupedHeaders;
 
   const commitReorder = (draggedId: string, target: ColumnDropTarget) => {
-    table.setColumnOrder(moveColumnBeside(resolveColumnOrder(table), draggedId, target));
+    reorderColumnWithinZone(table, draggedId, target);
   };
 
   const getHeaderProps: ColumnReorder["getHeaderProps"] = columnId => {
@@ -100,7 +100,13 @@ export function useColumnReorder<TData>(table: Table<TData>): ColumnReorder {
 
           let target: DragSession["target"] = null;
 
-          if (headerCell && targetId && targetId !== current.columnId && !isInternalColumn(targetId)) {
+          if (
+            headerCell
+            && targetId
+            && targetId !== current.columnId
+            && !isInternalColumn(targetId)
+            && getColumnZone(table, targetId) === getColumnZone(table, current.columnId)
+          ) {
             const rect = headerCell.getBoundingClientRect();
             target = { id: targetId, side: move.clientX < rect.left + rect.width / 2 ? "before" : "after" };
           }

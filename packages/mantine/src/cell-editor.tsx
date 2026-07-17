@@ -20,6 +20,16 @@ type NormalizedEdit<TData>
   = | { kind: "variant"; config: DataTableEditConfig<TData, unknown> }
     | { kind: "custom"; render: (ctx: DataTableEditContext<TData, unknown>) => ReactNode };
 
+type CommitResult = boolean | Promise<boolean>;
+
+function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLike<T> {
+  return typeof value === "object" && value !== null && "then" in value && typeof value.then === "function";
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function normalizeEdit<TData>(
   edit: NonNullable<Cell<TData, unknown>["column"]["columnDef"]["meta"]>["edit"]
 ): NormalizedEdit<TData> | null {
@@ -54,6 +64,12 @@ export function canEditCell<TData>(cell: Cell<TData, unknown>, row: Row<TData>):
   return !(typeof edit === "object" && edit.enabled && !edit.enabled(row));
 }
 
+export function isCheckboxEdit<TData>(cell: Cell<TData, unknown>): boolean {
+  const normalized = normalizeEdit<TData>(cell.column.columnDef.meta?.edit);
+
+  return normalized?.kind === "variant" && normalized.config.variant === "checkbox";
+}
+
 export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
   const { labels, getStyles } = useDataTableContext();
   const { table } = cell.getContext();
@@ -66,6 +82,9 @@ export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
   const [editError, setEditError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
+  const pendingCommitRef = useRef<Promise<boolean> | null>(null);
+  const completedRef = useRef(false);
+  const mountedRef = useRef(true);
 
   const setValue = useEventCallback((value: unknown) => {
     draftRef.current = value;
@@ -88,61 +107,119 @@ export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
     }
   });
 
-  const commit = useEventCallback(() => {
-    if (pendingRef.current || !ledger) {
-      return;
+  const commit = useEventCallback<[], CommitResult>(() => {
+    if (completedRef.current) {
+      return true;
+    }
+
+    if (pendingCommitRef.current) {
+      return pendingCommitRef.current;
+    }
+
+    if (!ledger) {
+      return false;
     }
 
     const previousValue = initialValue.current;
     const value = draftRef.current;
 
     if (Object.is(value, previousValue)) {
+      completedRef.current = true;
       clearIfCurrent();
-      return;
+      return true;
     }
 
-    if (normalized?.kind === "variant" && normalized.config.validate) {
-      const validationError = normalized.config.validate(value, cell.row);
+    try {
+      if (normalized?.kind === "variant" && normalized.config.validate) {
+        const validationError = normalized.config.validate(value, cell.row);
 
-      if (validationError !== null) {
-        setEditError(validationError);
-        return;
+        if (validationError !== null) {
+          if (mountedRef.current) {
+            setEditError(validationError);
+          }
+
+          return false;
+        }
       }
+    } catch (error) {
+      if (mountedRef.current) {
+        setEditError(errorMessage(error));
+      }
+
+      return false;
     }
 
-    const result = ledger.onEditCommit?.({
-      row: cell.row,
-      column: cell.column,
-      value,
-      previousValue
-    });
+    let result: void | Promise<void>;
 
-    if (result instanceof Promise) {
+    try {
+      result = ledger.onEditCommit?.({
+        row: cell.row,
+        column: cell.column,
+        value,
+        previousValue
+      });
+    } catch (error) {
+      if (mountedRef.current) {
+        setEditError(errorMessage(error));
+      }
+
+      return false;
+    }
+
+    if (isPromiseLike(result)) {
       pendingRef.current = true;
-      setPending(true);
 
-      result.then(
+      if (mountedRef.current) {
+        setPending(true);
+      }
+
+      const pendingCommit = Promise.resolve(result).then(
         () => {
+          completedRef.current = true;
           pendingRef.current = false;
+
+          if (mountedRef.current) {
+            setPending(false);
+          }
+
           clearIfCurrent();
+
+          return true;
         },
         (error: unknown) => {
           pendingRef.current = false;
-          setPending(false);
-          setEditError(error instanceof Error ? error.message : String(error));
-        }
-      );
 
+          if (mountedRef.current) {
+            setPending(false);
+            setEditError(errorMessage(error));
+          }
+
+          return false;
+        }
+      ).finally(() => {
+        if (pendingCommitRef.current === pendingCommit) {
+          pendingCommitRef.current = null;
+        }
+      });
+
+      pendingCommitRef.current = pendingCommit;
+
+      return pendingCommit;
+    }
+
+    completedRef.current = true;
+    clearIfCurrent();
+
+    return true;
+  }) as () => CommitResult;
+
+  const cancel = useEventCallback(() => {
+    if (pendingRef.current) {
       return;
     }
 
+    completedRef.current = true;
     clearIfCurrent();
-  });
-
-  const cancel = useEventCallback(() => {
-    if (!pendingRef.current) {
-      clearIfCurrent();
-    }
   });
 
   /**
@@ -154,6 +231,8 @@ export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
   const unmountCommitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    mountedRef.current = true;
+
     if (unmountCommitTimer.current !== null) {
       clearTimeout(unmountCommitTimer.current);
       unmountCommitTimer.current = null;
@@ -163,6 +242,7 @@ export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
     editing?.registerEditor({ commit, cancel });
 
     return () => {
+      mountedRef.current = false;
       editing?.registerEditor(null);
 
       const latest = table.options.meta?.ledger?.editing;
@@ -174,8 +254,13 @@ export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
       ) {
         unmountCommitTimer.current = setTimeout(() => {
           unmountCommitTimer.current = null;
-          commit();
-          latest.clear();
+          const result = commit();
+
+          if (isPromiseLike(result)) {
+            void Promise.resolve(result).then(() => clearIfCurrent());
+          } else {
+            clearIfCurrent();
+          }
         }, 0);
       }
     };
@@ -190,7 +275,7 @@ export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
     switch (event.key) {
       case "Enter": {
         event.preventDefault();
-        commit();
+        void commit();
 
         break;
       }
@@ -205,7 +290,17 @@ export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
 
       case "Tab": {
         event.preventDefault();
-        moveToAdjacentEditableCell(cell, event.shiftKey);
+        const result = commit();
+
+        if (isPromiseLike(result)) {
+          void Promise.resolve(result).then(succeeded => {
+            if (succeeded) {
+              moveToAdjacentEditableCell(cell, event.shiftKey);
+            }
+          });
+        } else if (result) {
+          moveToAdjacentEditableCell(cell, event.shiftKey);
+        }
 
         break;
       }
@@ -263,7 +358,7 @@ interface VariantEditorProps<TData> {
   error: string | null;
   pending: boolean;
   onValueChange: (value: unknown) => void;
-  onCommit: () => void;
+  onCommit: () => CommitResult;
 }
 
 function VariantEditor<TData>({
@@ -353,7 +448,7 @@ function moveToAdjacentEditableCell<TData>(cell: Cell<TData, unknown>, backwards
     if (
       candidate
       && canEditCell(candidate, candidate.row)
-      && candidate.column.columnDef.meta?.edit !== "checkbox"
+      && !isCheckboxEdit(candidate)
     ) {
       editing.start({ rowId: candidate.row.id, columnId: candidate.column.id });
       return;

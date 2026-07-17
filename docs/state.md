@@ -14,7 +14,7 @@ onXChange(v) — observer: receives the RESOLVED next value (never an updater fu
 
 Controlled and uncontrolled cannot be double-sourced — `x` wins whenever present, exactly like `value` / `defaultValue` on an input. Internally TanStack's functional updaters are resolved before your callback sees them, and chained updates within one event resolve against fresh state.
 
-`defaultX` is also what a **reset** returns to. TanStack's `table.resetColumnOrder()` / `resetColumnVisibility()` / `resetColumnPinning()` / `resetColumnSizing()` — the four the [columns panel](columns.md#the-columns-panel)'s reset button calls — restore `table.initialState`, which ledger seeds from these four `defaultX` options. So a reset lands on the layout your application declared, not on an empty slice. Persisted values are excluded from that seeding on purpose: if a restored layout became the reset target, a reset after a refresh would do nothing. `initialState` is ledger-managed and never reaches a read path (`table.getState()` returns the controlled `state` verbatim); passing your own through `tableOptions.initialState` is overridden with a dev warning, per the merge rule below — the per-slice `defaultX` trio is the way in.
+`defaultX` is also what a **reset** returns to. Every TanStack slice reset API (`resetSorting()`, `resetPagination()`, `resetColumnOrder()`, …) restores `table.initialState`, which ledger seeds from that slice's `defaultX` or the fallback in the table below. So a reset lands on the state ledger or the application declared, not on TanStack's unrelated built-in defaults. Persisted values are excluded from that seeding on purpose: if a restored value became the reset target, a reset after a refresh would do nothing. `initialState` is ledger-managed and never reaches a read path (`table.getState()` returns the controlled `state` verbatim); passing your own through `tableOptions.initialState` is overridden with a dev warning, per the merge rule below — the per-slice `defaultX` trio is the way in.
 
 ### The slices
 
@@ -46,11 +46,11 @@ Controlled and uncontrolled cannot be double-sourced — `x` wins whenever prese
 
 ### The auto-reset policy
 
-In **client** mode TanStack's defaults stand (e.g. a filter change resets `pageIndex`). In **server** mode those auto-resets misfire around manual row models, so ledger disables `autoResetPageIndex` and performs the one equivalent deterministic reset itself: a `columnFilters`, `globalFilter`, or `sorting` change resets `pageIndex` to 0 (never on mount, and a no-op when already 0). Override either side through `tableOptions`.
+In **client** mode TanStack's defaults stand (e.g. a filter change resets `pageIndex`). In **server** mode ledger keeps TanStack's upstream page reset disabled and performs the one equivalent deterministic reset itself: a `columnFilters`, `globalFilter`, or `sorting` change resets `pageIndex` to 0 (never on mount, including a root `StrictMode` mount, and a no-op when already 0). The deterministic reset follows `tableOptions.autoResetAll ?? tableOptions.autoResetPageIndex ?? true`: `autoResetAll` wins when present; otherwise `autoResetPageIndex: false` disables it. Because TanStack otherwise gives `autoResetAll` priority and can queue a reset to `initialState.pagination`, server mode consumes that global option and forwards its non-pagination effect through `autoResetExpanded`; ledger's zero reset therefore remains authoritative.
 
 ## `tableOptions` — the escape hatch
 
-Everything `useReactTable` accepts can be passed through `tableOptions`. It is the **base layer**: ledger-managed keys (row models, `state`, the `on*Change` wiring, `manualX` translations, injected columns, `columnResizeMode`, `filterFns`, …) override it, and each collision logs a dev-mode warning naming the first-class option to use instead. `manualSorting` and `sortingMode` can never silently fight — the mode wins, audibly.
+Everything `useReactTable` accepts can be passed through `tableOptions`. It is the **base layer**: ledger-managed keys (row models, `state`, the `on*Change` wiring, `manualX` translations, injected columns, `columnResizeMode`, …) override it, and each collision logs a dev-mode warning naming the first-class option to use instead. `manualSorting` and `sortingMode` can never silently fight — the mode wins, audibly. `filterFns` is the registry exception: consumer entries are merged, while the reserved `ledger-one-of` and `ledger-date-range` ids win with a warning if redefined.
 
 ```tsx
 tableOptions={{
@@ -65,7 +65,7 @@ tableOptions={{
 
 ## `meta.ledger` and the bare instance
 
-`useDataTable` returns the **bare TanStack `Table<TData>`** — no wrapper type, so hook mode loses nothing and every TanStack API works. Ledger-private configuration and the editing controller ride `table.options.meta.ledger` (TanStack's sanctioned extension point, typed via declaration merging as `LedgerMeta<TData>`): the editing controller, `editTrigger`, `enableEditing`, `onEditCommit`, `renderDetailPanel`, the select-all scope, the shift-selection anchor, `totalRowCount`, `enableColumnOrdering`, and `enablePagination`. Compound components and advanced consumers may read it; treat it as read-mostly plumbing.
+`useDataTable` returns the **bare TanStack `Table<TData>`** — no wrapper type, so hook mode loses nothing and every TanStack API works. Ledger-private configuration and controllers ride `table.options.meta.ledger` (TanStack's sanctioned extension point, typed via declaration merging as `LedgerMeta<TData>`): the editing controller, filter-set subscriptions used by debounced controls, `editTrigger`, `enableEditing`, `onEditCommit`, `renderDetailPanel`, the select-all scope, the shift-selection anchor, `totalRowCount`, `enableColumnOrdering`, and `enablePagination`. Compound components and advanced consumers may read it; treat it as read-mostly plumbing.
 
 ## The imperative handle
 
@@ -101,7 +101,7 @@ const handle = useRef<DataTableHandle<Person>>(null);
 - `key` namespaces one table per entry (`ledger:<key>`); `storage` defaults to `localStorage` (guarded — persistence degrades to a no-op where storage is unavailable or throws).
 - Persistable slices: `sorting`, `columnFilters`, `globalFilter`, `pagination`, `columnVisibility`, `columnPinning`, `columnOrder`, `columnSizing`, `grouping`. The default set is the **layout** four: `columnSizing`, `columnVisibility`, `columnOrder`, `columnPinning`.
 - Hydration happens once, synchronously, feeding the **uncontrolled** side — the first render already shows the restored layout, restored values outrank `defaultX`, and a controlled slice always wins over both.
-- Writes are debounced (250 ms). Storage content is treated as a trust boundary: each slice is shape-checked on read, and a stale or corrupt entry degrades to defaults instead of crashing the table.
+- Writes are debounced (250 ms), with the latest pending value flushed on real unmount (StrictMode's simulated unmount is ignored). Storage content is treated as a trust boundary: each slice and its nested TanStack fields are shape-checked on read, and a stale or corrupt slice degrades to its default instead of crashing the table.
 
 ## Dev-mode guard rails
 
@@ -112,6 +112,7 @@ Warnings are development-only and fire once per session each:
 | `getRowId` missing | selection or expansion enabled without stable row ids |
 | Column identity churn | `columns` has a new identity on almost every render |
 | `tableOptions` collision | a ledger-managed key passed through the escape hatch |
+| Reserved filter function | `tableOptions.filterFns` redefines `ledger-one-of` or `ledger-date-range` |
 | Pagination + `onEndReached` | the two paging models configured together |
 | Unconstrained virtualization | `virtualized` while the viewport cannot scroll |
 | Reordering with header groups | `enableColumnOrdering` ignored under grouped headers |

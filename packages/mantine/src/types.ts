@@ -13,6 +13,8 @@ import type {
   ColumnPinningState,
   ColumnSizingState,
   ExpandedState,
+  FilterFn,
+  FilterFnOption,
   GroupingState,
   PaginationState,
   Row,
@@ -73,7 +75,11 @@ export interface DataTableEditContext<TData, TValue> {
   column: Column<TData, TValue>;
   value: TValue;
   setValue: (value: TValue) => void;
-  commit: () => void;
+  /**
+   * Returns whether validation and the application commit succeeded. Async commits resolve to
+   * the same result; rejection is presented as an editor error rather than rethrown.
+   */
+  commit: () => boolean | Promise<boolean>;
   cancel: () => void;
   error: string | null;
 }
@@ -215,7 +221,10 @@ export interface UseDataTableOptions<TData> {
   /**
    * Full escape hatch, merged first; ledger-managed keys override with a dev warning (docs/state.md).
    */
-  tableOptions?: Partial<TableOptions<TData>>;
+  tableOptions?: Omit<Partial<TableOptions<TData>>, "filterFns" | "globalFilterFn"> & {
+    filterFns?: Record<string, FilterFn<TData>>;
+    globalFilterFn?: FilterFnOption<TData> | string;
+  };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -243,7 +252,7 @@ export interface DataTableHandle<TData> {
 // ----------------------------------------------------------------------------------------------
 
 export interface ActiveCellEditor {
-  commit: () => void;
+  commit: () => boolean | Promise<boolean>;
   cancel: () => void;
 }
 
@@ -251,7 +260,8 @@ export interface LedgerEditingController {
   cell: DataTableEditingCell | null;
   start: (cell: DataTableEditingCell) => void;
   /**
-   * Delegates to the mounted editor, then clears the slice. Default `commit: true`.
+   * Delegates to the mounted editor. A successful commit clears the slice; failure keeps the
+   * editor active. Default `commit: true`.
    */
   stop: (options?: { commit?: boolean }) => void;
   /**
@@ -266,6 +276,10 @@ export interface LedgerEditingController {
 
 export interface LedgerMeta<TData> {
   editing: LedgerEditingController;
+  filtering: {
+    subscribeColumnFilters: (listener: (value: ColumnFiltersState) => void) => () => void;
+    subscribeGlobalFilter: (listener: (value: string) => void) => () => void;
+  };
   editTrigger: DataTableEditTrigger;
   enableEditing: boolean;
   onEditCommit?: (change: DataTableEditCommit<TData>) => void | Promise<void>;

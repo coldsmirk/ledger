@@ -1,9 +1,14 @@
 import type { ColumnDef } from "@tanstack/react-table";
 
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { applyCenterOrder, moveColumnBeside, resolveColumnOrder } from "./column-order";
+import {
+  applyCenterOrder,
+  moveColumnBeside,
+  reorderColumnWithinZone,
+  resolveColumnOrder
+} from "./column-order";
 import { useDataTable } from "./use-data-table";
 
 interface Person {
@@ -75,5 +80,40 @@ describe("resolveColumnOrder", () => {
     }));
 
     expect(resolveColumnOrder(result.current)).toEqual(["age", "name", "email"]);
+  });
+});
+
+describe("reorderColumnWithinZone", () => {
+  it("rewrites the pinning slice for a pinned zone", () => {
+    const { result } = renderHook(() => useDataTable({
+      data: people,
+      columns,
+      getRowId,
+      defaultColumnPinning: { left: ["name", "email"] }
+    }));
+
+    act(() => {
+      expect(reorderColumnWithinZone(result.current, "email", { id: "name", side: "before" })).toBe(true);
+    });
+
+    expect(result.current.getState().columnPinning.left).toEqual(["email", "name"]);
+  });
+
+  it("rejects cross-zone drops without changing either order slice", () => {
+    const { result } = renderHook(() => useDataTable({
+      data: people,
+      columns,
+      getRowId,
+      defaultColumnPinning: { left: ["email"] }
+    }));
+    const previousOrder = result.current.getState().columnOrder;
+    const previousPinning = result.current.getState().columnPinning;
+
+    act(() => {
+      expect(reorderColumnWithinZone(result.current, "name", { id: "email", side: "before" })).toBe(false);
+    });
+
+    expect(result.current.getState().columnOrder).toBe(previousOrder);
+    expect(result.current.getState().columnPinning).toBe(previousPinning);
   });
 });

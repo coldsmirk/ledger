@@ -14,7 +14,7 @@ import type { DataTableFilterConfig } from "./types";
 import { ActionIcon, Group, MultiSelect, NumberInput, Popover, Select, Stack, TextInput } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { useDebouncedCallback } from "@mantine/hooks";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useDataTableContext } from "./context";
 import { warnOnce } from "./env";
@@ -158,11 +158,26 @@ function VariantFilterControl<TData>({
 }
 
 function TextFilter<TData>({ column, placeholder }: { column: Column<TData, unknown>; placeholder: string }) {
-  const [value, setValue] = useState((column.getFilterValue() as string | undefined) ?? "");
+  const { table } = useDataTableContext();
+  const filterValue = (column.getFilterValue() as string | undefined) ?? "";
+  const [value, setValue] = useState(filterValue);
   const apply = useDebouncedCallback(
     (next: string) => column.setFilterValue(next === "" ? undefined : next),
-    200
+    { delay: 200, flushOnUnmount: true }
   );
+  const subscribeColumnFilters = table.options.meta?.ledger?.filtering.subscribeColumnFilters;
+
+  useEffect(() => subscribeColumnFilters?.(filters => {
+    const next = filters.find(filter => filter.id === column.id)?.value;
+
+    apply.cancel();
+    setValue(typeof next === "string" ? next : "");
+  }), [apply, column.id, subscribeColumnFilters]);
+
+  useEffect(() => {
+    apply.cancel();
+    setValue(filterValue);
+  }, [apply, filterValue]);
 
   return (
     <TextInput

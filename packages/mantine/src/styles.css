@@ -14,43 +14,6 @@
 
 @layer ledger {
   /* ------------------------------------------------------------------------------------------
-   * Motion respect
-   * ------------------------------------------------------------------------------------------ */
-  @media (prefers-reduced-motion: reduce) {
-    .ledger-expander-cell button svg,
-    [data-group-cell] button svg,
-    .ledger-header-cell button[data-expanded] svg,
-    .ledger-columns-panel-handle,
-    .ledger-columns-panel-controls {
-      transition: none;
-    }
-  }
-
-  /* No hover, no reveal: the toolbar lives inline and the rest-state marks stand down — the
-     controls sitting right there already say the same thing. */
-  @media (hover: none) {
-    .ledger-columns-panel-handle {
-      opacity: 1;
-    }
-
-    .ledger-columns-panel-indicators {
-      display: none;
-    }
-
-    .ledger-columns-panel-controls {
-      position: static;
-      padding-inline: 0;
-      pointer-events: auto;
-      background-color: transparent;
-      opacity: 1;
-    }
-
-    .ledger-columns-panel-controls::before {
-      content: none;
-    }
-  }
-
-  /* ------------------------------------------------------------------------------------------
    * Adaptive sizing (docs/sizing.md): the root fills whatever the parent gives it and
    * degrades to content height when the parent is indefinite. min-width/min-height: 0
    * pre-defuse the flex/grid min-size:auto shrink trap; overflow only ever appears on the
@@ -513,7 +476,7 @@
      grouped column, a dimmed hidden name). The machinery — handle, width field, pin segment,
      group toggle — reveals on the hovered or keyboard-focused row as an overlaid toolbar, so
      resting names keep the full row width. Where hover does not exist the toolbar sits inline
-     (the hover-none block at the top of this layer). */
+     (the hover-none block after the base panel rules). */
   .ledger-columns-panel {
     display: flex;
     flex-direction: column;
@@ -612,7 +575,13 @@
   }
 
   .ledger-columns-panel-indicators {
+    display: flex;
+    flex: none;
+    gap: 6px;
+    align-items: center;
     font-variant-numeric: tabular-nums;
+    color: var(--mantine-color-dimmed);
+    white-space: nowrap;
   }
 
   /* The revealed toolbar. Overlaid rather than inline so resting rows spend the space on the
@@ -709,5 +678,45 @@
     pointer-events: none;
     content: "";
     background-color: var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+}
+
+/* Interaction overrides reopen the same layer after every base rule, so equal-specificity base
+   declarations cannot win through source order. */
+@layer ledger {
+  /* No hover, no reveal: the toolbar lives inline and the rest-state marks stand down — the
+     controls sitting right there already say the same thing. */
+  @media (hover: none) {
+    .ledger-columns-panel-handle {
+      opacity: 1;
+    }
+
+    .ledger-columns-panel-indicators {
+      display: none;
+    }
+
+    .ledger-columns-panel-controls {
+      position: static;
+      flex: none;
+      padding-inline: 0;
+      pointer-events: auto;
+      background-color: transparent;
+      opacity: 1;
+    }
+
+    .ledger-columns-panel-controls::before {
+      content: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ledger-expander-cell button svg,
+    [data-group-cell] button svg,
+    .ledger-expander-cell button[data-expanded] svg,
+    .ledger-header-cell button[data-expanded] svg,
+    .ledger-columns-panel-handle,
+    .ledger-columns-panel-controls {
+      transition: none;
+    }
   }
 }
