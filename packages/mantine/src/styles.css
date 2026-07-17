@@ -481,10 +481,15 @@
      last row's border occupies the viewport's LAST pixel, so any line stacked outside the
      scroller would read as one thick border. Seam lines therefore paint as inset overlays that
      COINCIDE with that pixel — never as leading borders on the next region. */
+
+  /* z-index 2 = the pinned-cell tier: the overlay is generated after every cell, so it paints
+     over scrolling pinned cells (their opaque backgrounds would erase the line mid-scroll)
+     while staying under the scrollbars (3). */
   .ledger-root[data-with-row-borders] .ledger-scroller::after {
     position: absolute;
     inset-block-end: 0;
     inset-inline: 0;
+    z-index: 2;
     height: 1px;
     pointer-events: none;
     content: "";
@@ -508,6 +513,7 @@
     position: absolute;
     inset-block-end: 0;
     inset-inline: 0;
+    z-index: 2;
     height: 1px;
     pointer-events: none;
     content: "";
