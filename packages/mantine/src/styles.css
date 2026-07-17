@@ -235,6 +235,13 @@
     opacity: 1;
   }
 
+  /* The resizer owns the cell's trailing strip (8px, z-index above the actions), so actions
+     clear out of it entirely: without this the filter button's outer pixels LOOK clickable but
+     hit the invisible resizer, and the button crowds within 1px of the drag line. */
+  .ledger-header-cell:has(.ledger-resizer) .ledger-header-actions {
+    inset-inline-end: 12px;
+  }
+
   /* Resize handle on the trailing edge; the visible line appears on hover or while dragging. */
   .ledger-resizer {
     position: absolute;
