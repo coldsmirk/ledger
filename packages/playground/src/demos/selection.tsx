@@ -39,7 +39,14 @@ export function SelectionDemo() {
         </Button>
       </DataTable.SelectionBar>
 
-      <DataTable highlightOnHover withTableBorder flex={1} mih={0} table={table} />
+      <DataTable
+        highlightOnHover
+        withTableBorder
+        flex={1}
+        labels={zhCN}
+        mih={0}
+        table={table}
+      />
     </Stack>
   );
 }

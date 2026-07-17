@@ -35,6 +35,46 @@ export interface MenuItem {
   children?: MenuItem[];
 }
 
+export interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  spec: string;
+  warehouse: string;
+  price: number;
+  stock: number;
+  listed: boolean;
+}
+
+export interface OrderItem {
+  id: string;
+  product: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+export interface Order {
+  id: string;
+  orderNo: string;
+  customer: string;
+  channel: "web" | "app" | "store" | "phone";
+  status: "pending" | "paid" | "shipped" | "completed" | "cancelled";
+  quantity: number;
+  amount: number;
+  placedAt: string;
+  items: OrderItem[];
+}
+
+export interface LogEntry {
+  id: string;
+  time: string;
+  level: "info" | "warn" | "error";
+  actor: string;
+  action: string;
+  target: string;
+  ip: string;
+}
+
 const FIRST_NAMES = ["林", "陈", "黄", "张", "李", "王", "吴", "刘", "蔡", "杨", "许", "郑", "谢", "郭", "洪"];
 const LAST_NAMES = ["伟", "芳", "娜", "敏", "静", "磊", "军", "洋", "勇", "艳", "杰", "涛", "明", "超", "秀兰"];
 const ROLES = ["工程师", "设计师", "产品经理", "运营", "测试"];
@@ -84,6 +124,109 @@ function isoDate(rng: () => number): string {
   const day = 1 + Math.floor(rng() * 28);
 
   return new Date(Date.UTC(2023, month, day)).toISOString().slice(0, 10);
+}
+
+const PRODUCT_NAMES = [
+  "无线鼠标",
+  "机械键盘",
+  "显示器支架",
+  "降噪耳机",
+  "便携硬盘",
+  "网络摄像头",
+  "扩展坞",
+  "电竞椅",
+  "升降桌",
+  "会议音箱",
+  "激光打印机",
+  "碎纸机",
+  "投影仪",
+  "白板套装",
+  "文件柜"
+];
+const PRODUCT_SPECS = ["标准版", "专业版", "旗舰版", "青春版"];
+const WAREHOUSES = ["A-01", "A-02", "B-01", "B-02", "C-01"];
+
+export function makeProducts(count: number, seed = 23): Product[] {
+  const rng = makeRng(seed);
+
+  return Array.from({ length: count }, (_, index) => {
+    return {
+      id: `sku-${index + 1}`,
+      sku: `SKU-${String(index + 1).padStart(4, "0")}`,
+      name: pick(rng, PRODUCT_NAMES),
+      spec: pick(rng, PRODUCT_SPECS),
+      warehouse: pick(rng, WAREHOUSES),
+      price: Math.round(rng() * 200_000) / 100,
+      stock: Math.floor(rng() * 500),
+      listed: rng() > 0.25
+    };
+  });
+}
+
+const ORDER_CHANNELS: Array<Order["channel"]> = ["web", "app", "store", "phone"];
+const ORDER_STATUSES: Array<Order["status"]> = ["pending", "paid", "shipped", "completed", "cancelled"];
+
+export function makeOrders(count: number, seed = 31): Order[] {
+  const rng = makeRng(seed);
+
+  return Array.from({ length: count }, (_, index) => {
+    const itemCount = 1 + Math.floor(rng() * 4);
+    const items: OrderItem[] = Array.from({ length: itemCount }, (_, itemIndex) => {
+      return {
+        id: `oi-${index + 1}-${itemIndex + 1}`,
+        product: pick(rng, PRODUCT_NAMES),
+        unitPrice: Math.round(rng() * 80_000) / 100,
+        quantity: 1 + Math.floor(rng() * 5)
+      };
+    });
+
+    return {
+      id: `o-${index + 1}`,
+      orderNo: `SO-2025-${String(index + 1).padStart(5, "0")}`,
+      customer: `${pick(rng, FIRST_NAMES)}${pick(rng, LAST_NAMES)}`,
+      channel: pick(rng, ORDER_CHANNELS),
+      status: pick(rng, ORDER_STATUSES),
+      quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+      amount: Math.round(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100) / 100,
+      placedAt: isoDate(rng),
+      items
+    };
+  });
+}
+
+const LOG_LEVELS: Array<LogEntry["level"]> = ["info", "info", "info", "info", "warn", "warn", "error"];
+const LOG_ACTIONS = [
+  "登录系统",
+  "导出报表",
+  "更新配置",
+  "删除记录",
+  "新建流程",
+  "审批通过",
+  "驳回申请",
+  "重置密码",
+  "调整权限",
+  "归档项目"
+];
+const LOG_TARGETS = ["订单模块", "用户中心", "报表中心", "工作流引擎", "消息网关", "计费系统"];
+
+export function makeLogs(count: number, seed = 47): LogEntry[] {
+  const rng = makeRng(seed);
+  // A fixed anchor keeps the stream deterministic; entries walk backwards a few seconds each.
+  let cursor = Date.UTC(2025, 6, 17, 12, 0, 0);
+
+  return Array.from({ length: count }, (_, index) => {
+    cursor -= Math.floor(rng() * 20_000) + 1000;
+
+    return {
+      id: `log-${index + 1}`,
+      time: new Date(cursor).toISOString().slice(0, 19).replace("T", " "),
+      level: pick(rng, LOG_LEVELS),
+      actor: `${pick(rng, FIRST_NAMES)}${pick(rng, LAST_NAMES)}`,
+      action: pick(rng, LOG_ACTIONS),
+      target: pick(rng, LOG_TARGETS),
+      ip: `10.${Math.floor(rng() * 255)}.${Math.floor(rng() * 255)}.${Math.floor(rng() * 255)}`
+    };
+  });
 }
 
 /**

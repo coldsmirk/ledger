@@ -176,15 +176,19 @@ onEditCommit={async ({ row, column, value, previousValue }) => {
 
 ## Playground demo map
 
-| Demo (`packages/playground/src/demos/`) | Exercises |
-| --- | --- |
-| `basic` | sorting, filter variants, column menu, stripes |
-| `virtualized` | 10k rows, infinite loading, adaptive height |
-| `selection` | multi-select, shift ranges, selection bar, CSV export |
-| `editing` | all four editors, validation, async commits |
-| `master-detail` | detail panels |
-| `tree` | sub-rows, indentation, expand-all |
-| `menu-tree` | a business tree (menu management): many columns, pinned tree column, horizontal scroll |
-| `pinning` | column pinning, resize, drag reorder, `persistState` |
-| `grouping` | grouping + aggregation, row pinning |
-| `hook-toolbar` | hook mode + compound components, `zhCN` |
+Ordered simple → complex, each themed as a real business scene:
+
+| Demo (`packages/playground/src/demos/`) | Scene | Exercises |
+| --- | --- | --- |
+| `basic` | 员工名册 | the minimal table: raw column defs + data, sorting, hover |
+| `appearance` | 价目表 | the three border shapes (frame + rows / grid / horizontal-only), stripes, spacing, loading, empty state |
+| `orders` | 订单中心 | all five filter variants, pagination, footer totals, `onRowClick`, `zhCN` |
+| `selection` | 批量操作 | multi-select, shift ranges, selection bar, CSV export, per-row selectability |
+| `editing` | 库存盘点 | all four editors, validation, async commits |
+| `master-detail` | 订单明细 | detail panels (nested line-item table) |
+| `tree` | 区域营收 | sub-rows, indentation, expand-all |
+| `menu-tree` | 菜单管理 | a business tree: many columns, pinned tree column, horizontal scroll |
+| `pinning` | 宽表报表 | column pinning, resize, drag reorder, `persistState` |
+| `grouping` | 销售业绩 | grouping + aggregation, row pinning |
+| `virtualized` | 操作日志 | 50k rows, virtualization, infinite loading, adaptive height |
+| `hook-toolbar` | 自定义工具栏 | hook mode + compound components (`Search` / `ColumnsMenu` / `Pagination`) |
