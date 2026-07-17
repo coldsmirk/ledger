@@ -150,7 +150,10 @@ function DataCell<TData>({
   const { meta } = column.columnDef;
 
   const grouped = cell.getIsGrouped();
-  const aggregated = cell.getIsAggregated();
+  // getIsAggregated() is true for ANY row with subRows — a grouping concept that leaks into
+  // trees (getSubRows) and would swallow the expander button and the author's cell renderer
+  // on every parent row. Aggregated rendering only exists on real grouping rows.
+  const aggregated = cell.getIsAggregated() && row.getIsGrouped();
   const placeholder = cell.getIsPlaceholder();
   const editable = !editing && !grouped && !aggregated && !placeholder && canEditCell(cell, row);
   const checkboxVariant = meta?.edit === "checkbox" || (typeof meta?.edit === "object" && meta.edit.variant === "checkbox");

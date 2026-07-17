@@ -277,6 +277,50 @@ describe("DataTable", () => {
     expect(footerCell?.getAttribute("role")).toBe("cell");
   });
 
+  it("renders tree expander toggles and the author's cell on parent rows", () => {
+    interface Node {
+      id: string;
+      name: string;
+      children?: Node[];
+    }
+
+    const treeData: Node[] = [
+      {
+        id: "a",
+        name: "A",
+        children: [{ id: "a1", name: "A1" }]
+      }
+    ];
+    const treeColumns: Array<ColumnDef<Node, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: context => `cell:${context.getValue()}`
+      }
+    ];
+
+    const { container } = render(
+      <DataTable
+        columns={treeColumns}
+        data={treeData}
+        getRowId={node => node.id}
+        getSubRows={node => node.children}
+      />,
+      { wrapper }
+    );
+
+    // Regression: TanStack's cell.getIsAggregated() is true for ANY row with subRows — a
+    // grouping concept leaking into trees — and the aggregated branch swallowed the expander
+    // button and bypassed the author's cell renderer on every parent row.
+    expect(screen.getByText("cell:A")).toBeTruthy();
+
+    const expander = container.querySelector(":scope .ledger-expander-cell button");
+    expect(expander).toBeTruthy();
+
+    fireEvent.click(expander as Element);
+    expect(screen.getByText("cell:A1")).toBeTruthy();
+  });
+
   it("expands a detail panel as its own row", () => {
     const { container } = render(
       <DataTable
