@@ -98,8 +98,8 @@ const GROUPS: DemoGroup[] = [
     demos: [
       {
         id: "pinning",
-        label: "钉列 / 列宽 / 重排",
-        description: "宽表：拖拽改宽、拖拽排序、布局持久化",
+        label: "列设置 / 钉列 / 列宽",
+        description: "宽表：表头齿轮开列设置面板、抽屉里的裸面板、布局持久化",
         component: PinningDemo
       },
       {

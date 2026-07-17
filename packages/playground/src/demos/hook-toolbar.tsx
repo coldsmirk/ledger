@@ -1,6 +1,6 @@
 import { DataTable, useDataTable } from "@coldsmirk/ledger-mantine";
 import { zhCN } from "@coldsmirk/ledger-mantine/locales";
-import { Group, Stack } from "@mantine/core";
+import { Button, Group, Stack } from "@mantine/core";
 import { useMemo } from "react";
 
 import { makePeople } from "../data";
@@ -22,7 +22,13 @@ export function HookToolbarDemo() {
     <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
       <Group justify="space-between">
         <DataTable.Search labels={zhCN} table={table} w={260} />
-        <DataTable.ColumnsMenu labels={zhCN} table={table} />
+
+        {/* children IS the trigger — the panel never assumes what opens it. */}
+        <DataTable.ColumnsPanel labels={zhCN} table={table}>
+          <Button size="xs" variant="default">
+            列设置
+          </Button>
+        </DataTable.ColumnsPanel>
       </Group>
 
       <DataTable
