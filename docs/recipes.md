@@ -184,6 +184,7 @@ onEditCommit={async ({ row, column, value, previousValue }) => {
 | `editing` | all four editors, validation, async commits |
 | `master-detail` | detail panels |
 | `tree` | sub-rows, indentation, expand-all |
+| `menu-tree` | a business tree (menu management): many columns, pinned tree column, horizontal scroll |
 | `pinning` | column pinning, resize, drag reorder, `persistState` |
 | `grouping` | grouping + aggregation, row pinning |
 | `hook-toolbar` | hook mode + compound components, `zhCN` |

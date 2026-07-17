@@ -8,6 +8,7 @@ import { EditingDemo } from "./demos/editing";
 import { GroupingDemo } from "./demos/grouping";
 import { HookToolbarDemo } from "./demos/hook-toolbar";
 import { MasterDetailDemo } from "./demos/master-detail";
+import { MenuTreeDemo } from "./demos/menu-tree";
 import { PinningDemo } from "./demos/pinning";
 import { SelectionDemo } from "./demos/selection";
 import { TreeDemo } from "./demos/tree";
@@ -56,6 +57,12 @@ const DEMOS: Demo[] = [
     label: "树形数据",
     description: "子行缩进 + 展开全部",
     component: TreeDemo
+  },
+  {
+    id: "menu-tree",
+    label: "菜单管理",
+    description: "树形业务示例：多列、钉住树列、横向滚动",
+    component: MenuTreeDemo
   },
   {
     id: "pinning",
