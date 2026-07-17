@@ -14,6 +14,8 @@ onXChange(v) — observer: receives the RESOLVED next value (never an updater fu
 
 Controlled and uncontrolled cannot be double-sourced — `x` wins whenever present, exactly like `value` / `defaultValue` on an input. Internally TanStack's functional updaters are resolved before your callback sees them, and chained updates within one event resolve against fresh state.
 
+`defaultX` is also what a **reset** returns to. TanStack's `table.resetColumnOrder()` / `resetColumnVisibility()` / `resetColumnPinning()` / `resetColumnSizing()` — the four the [columns panel](columns.md#the-columns-panel)'s reset button calls — restore `table.initialState`, which ledger seeds from these four `defaultX` options. So a reset lands on the layout your application declared, not on an empty slice. Persisted values are excluded from that seeding on purpose: if a restored layout became the reset target, a reset after a refresh would do nothing. `initialState` is ledger-managed and never reaches a read path (`table.getState()` returns the controlled `state` verbatim); passing your own through `tableOptions.initialState` is overridden with a dev warning, per the merge rule below — the per-slice `defaultX` trio is the way in.
+
 ### The slices
 
 | Slice | Shape (TanStack) | Uncontrolled fallback |

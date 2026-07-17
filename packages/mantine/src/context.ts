@@ -9,8 +9,8 @@ import type { DataTableLabels } from "./labels";
  * Internal context for everything rendered inside the <DataTable> tree. The data generic is
  * erased at this boundary — the single deliberate erasure in the package, mirroring the family
  * convention (one documented boundary instead of casts scattered through the tree). Cells and
- * menus receive their strongly-typed TanStack objects (`Row<TData>`, `Column<TData>`) directly
- * as props; the context only carries table-wide plumbing.
+ * filter popovers receive their strongly-typed TanStack objects (`Row<TData>`, `Column<TData>`)
+ * directly as props; the context only carries table-wide plumbing.
  */
 import { createSafeContext } from "@mantine/core";
 
@@ -18,7 +18,6 @@ export interface DataTableContextValue {
   table: Table<any>;
   getStyles: GetStylesApi<DataTableFactory>;
   labels: DataTableLabels;
-  withColumnMenu: boolean;
   filterMode: "client" | "server";
   /**
    * Row virtualization active — rows must then carry aria-rowindex (header rows included).

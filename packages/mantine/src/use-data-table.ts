@@ -340,12 +340,26 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     setPagination(previous => previous.pageIndex === 0 ? previous : { ...previous, pageIndex: 0 });
   }, [columnFilters, globalFilter, sorting, manualPagination, setPagination]);
 
+  // ---- reset targets ----
+  // Every TanStack `resetColumnX()` restores `table.initialState.x`, and the columns panel's
+  // reset is built out of them. `state` here is fully controlled, so `initialState` never
+  // reaches a read (`table.getState()` returns `options.state` verbatim) — it exists purely so a
+  // reset lands on what the application declared instead of on an empty slice. Persisted values
+  // are excluded deliberately: seeding those would make a reset a no-op after a refresh.
+  const layoutInitialState = {
+    ...options.defaultColumnOrder && { columnOrder: options.defaultColumnOrder },
+    ...options.defaultColumnVisibility && { columnVisibility: options.defaultColumnVisibility },
+    ...options.defaultColumnPinning && { columnPinning: options.defaultColumnPinning },
+    ...options.defaultColumnSizing && { columnSizing: options.defaultColumnSizing }
+  };
+
   /* ---- assemble: tableOptions is the base layer, ledger-managed keys override (docs/state.md) ---- */
   const managed = {
     data,
     columns: processedColumns,
     ...getRowId && { getRowId },
     ...defaultColumn && { defaultColumn },
+    initialState: layoutInitialState,
     state: {
       sorting,
       columnFilters,

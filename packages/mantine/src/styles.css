@@ -19,8 +19,34 @@
   @media (prefers-reduced-motion: reduce) {
     .ledger-expander-cell button svg,
     [data-group-cell] button svg,
-    .ledger-header-cell button[data-expanded] svg {
+    .ledger-header-cell button[data-expanded] svg,
+    .ledger-columns-panel-handle,
+    .ledger-columns-panel-controls {
       transition: none;
+    }
+  }
+
+  /* No hover, no reveal: the toolbar lives inline and the rest-state marks stand down — the
+     controls sitting right there already say the same thing. */
+  @media (hover: none) {
+    .ledger-columns-panel-handle {
+      opacity: 1;
+    }
+
+    .ledger-columns-panel-indicators {
+      display: none;
+    }
+
+    .ledger-columns-panel-controls {
+      position: static;
+      padding-inline: 0;
+      pointer-events: auto;
+      background-color: transparent;
+      opacity: 1;
+    }
+
+    .ledger-columns-panel-controls::before {
+      content: none;
     }
   }
 
@@ -468,6 +494,155 @@
 
   .ledger-selection-bar {
     padding: var(--mantine-spacing-xs) 0;
+  }
+
+  /* The columns panel (docs/columns.md) is bare content whose host owns its box: it fills a
+     definite one (a drawer) and degrades to content height in an indefinite one (a popover) —
+     the same adaptive contract the table root follows. The list is the only elastic region, so
+     a long column set scrolls inside the panel instead of overflowing it.
+
+     Presentation contract: at rest a row is identity — checkbox and name — plus dimmed marks
+     where the layout deviates from default (captions over pinned zones, an overridden width, a
+     grouped column, a dimmed hidden name). The machinery — handle, width field, pin segment,
+     group toggle — reveals on the hovered or keyboard-focused row as an overlaid toolbar, so
+     resting names keep the full row width. Where hover does not exist the toolbar sits inline
+     (the hover-none block at the top of this layer). */
+  .ledger-columns-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 280px;
+    max-height: 100%;
+    padding: var(--mantine-spacing-xs);
+  }
+
+  .ledger-columns-panel-header {
+    padding: 2px 4px 8px;
+  }
+
+  .ledger-columns-panel-list {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .ledger-columns-panel-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* Zones are drag boundaries (a column sorts only among its own kind), so consecutive ones get
+     a visible seam. Nothing pinned means one zone and zero chrome. */
+  .ledger-columns-panel-zone + .ledger-columns-panel-zone {
+    padding-block-start: 6px;
+    margin-block-start: 6px;
+    border-block-start: 1px solid var(--mantine-color-default-border);
+  }
+
+  .ledger-columns-panel-zone-label {
+    padding: 2px 6px 0;
+  }
+
+  .ledger-columns-panel-item {
+    position: relative;
+    min-height: 36px;
+    padding: 2px 6px;
+    border-radius: var(--mantine-radius-sm);
+  }
+
+  /* focus-within matches :hover because the toolbar below reveals on both. */
+  .ledger-columns-panel-item:hover,
+  .ledger-columns-panel-item:focus-within {
+    background-color: var(--mantine-color-default-hover);
+  }
+
+  /* The row keeps its seat, greyed, while dnd-kit's clone follows the pointer. */
+  .ledger-columns-panel-item[data-dragging] {
+    opacity: 0.4;
+  }
+
+  /* A translucent grip is enough of a "this list reorders" hint; the hovered row sharpens it. */
+  .ledger-columns-panel-handle {
+    cursor: grab;
+    opacity: 0.4;
+    transition: opacity 120ms ease;
+  }
+
+  .ledger-columns-panel-item:hover .ledger-columns-panel-handle,
+  .ledger-columns-panel-item:focus-within .ledger-columns-panel-handle {
+    opacity: 1;
+  }
+
+  .ledger-columns-panel-item[data-dragging] .ledger-columns-panel-handle {
+    cursor: grabbing;
+  }
+
+  /* The checkbox's label wrapper. Mantine already clears min-width on the body between them, so
+     this is the last link in the chain that must be allowed to shrink; without it the nowrap
+     title below sets an unshrinkable floor and shoves the rest of the row out of alignment. */
+  .ledger-columns-panel-label {
+    min-width: 0;
+  }
+
+  /* Long titles ellipse rather than wrap — a two-line row among one-line rows reads as a break
+     in the list. */
+  .ledger-columns-panel-label > label {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Hidden columns stay listed — bringing them back is the point — but read as absent. The
+     color sits on OUR wrapper, not on Mantine's label: that label declares `color: inherit` in
+     a stylesheet the host may load unlayered, where it would beat anything the ledger layer
+     says — but inheritance it can only obey. */
+  .ledger-columns-panel-item[data-hidden] .ledger-columns-panel-label {
+    color: var(--mantine-color-dimmed);
+  }
+
+  .ledger-columns-panel-indicators {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The revealed toolbar. Overlaid rather than inline so resting rows spend the space on the
+     name; its own backdrop matches the hovered row and fades in over the name's tail. */
+  .ledger-columns-panel-controls {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding-inline: 4px 6px;
+    pointer-events: none;
+    background-color: var(--mantine-color-default-hover);
+    border-start-end-radius: var(--mantine-radius-sm);
+    border-end-end-radius: var(--mantine-radius-sm);
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+
+  .ledger-columns-panel-controls::before {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: -14px;
+    width: 14px;
+    content: "";
+    background: linear-gradient(to right, transparent, var(--mantine-color-default-hover));
+  }
+
+  [dir="rtl"] .ledger-columns-panel-controls::before {
+    background: linear-gradient(to left, transparent, var(--mantine-color-default-hover));
+  }
+
+  .ledger-columns-panel-item:hover .ledger-columns-panel-controls,
+  .ledger-columns-panel-item:focus-within .ledger-columns-panel-controls {
+    pointer-events: auto;
+    opacity: 1;
   }
 
   /* ------------------------------------------------------------------------------------------

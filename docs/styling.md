@@ -33,7 +33,7 @@ All the border and background props are rendered by ledger itself rather than Ma
 | `headerActions` | `.ledger-header-actions` | The hover-revealed action cluster |
 | `sortIndicator` | `.ledger-sort-indicator` | Chevron + multi-sort badge |
 | `resizer` | `.ledger-resizer` | The resize handle |
-| `columnMenu` / `filterPopover` | `.ledger-column-menu` / `.ledger-filter-popover` | Dropdown surfaces |
+| `filterPopover` | `.ledger-filter-popover` | The filter dropdown surface |
 | `row` / `cell` | `.ledger-row` / `.ledger-cell` | Data rows and `<td>`s |
 | `selectionCell` / `expanderCell` | `.ledger-selection-cell` / `.ledger-expander-cell` | Injected column cells |
 | `detailPanel` | `.ledger-detail-panel` | Master–detail panel cell |
@@ -100,7 +100,9 @@ const theme = createTheme({
 });
 ```
 
-The compound components register their own theme keys the same way: `DataTableSearch`, `DataTableColumnsMenu`, `DataTablePagination`, `DataTableSelectionBar`.
+The compound components register their own theme keys the same way: `DataTableSearch`, `DataTableColumnsPanel`, `DataTablePagination`, `DataTableSelectionBar`.
+
+Those rendered outside the table's tree sit outside its Styles API and carry static classes instead, styleable directly: `.ledger-pagination-bar`, `.ledger-selection-bar`, and the columns panel's `.ledger-columns-panel` — with `-header`, `-list`, `-zone`, `-zone-label`, `-item`, `-handle`, `-label`, `-indicators` (the dimmed rest-state marks), and `-controls` (the toolbar revealed on the hovered/focused row); the row being dragged carries `data-dragging`, a hidden column's row `data-hidden`.
 
 ## Layering, dark mode, RTL, motion
 

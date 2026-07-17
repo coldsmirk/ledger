@@ -188,7 +188,7 @@ Ordered simple → complex, each themed as a real business scene:
 | `master-detail` | 订单明细 | detail panels (nested line-item table) |
 | `tree` | 区域营收 | sub-rows, indentation, expand-all |
 | `menu-tree` | 菜单管理 | a business tree: many columns, pinned tree column, horizontal scroll |
-| `pinning` | 宽表报表 | column pinning, resize, drag reorder, `persistState` |
+| `pinning` | 宽表报表 | `ColumnsPanel` (header cog + bare panel in a drawer), pinning, resize, drag reorder, `persistState` |
 | `grouping` | 销售业绩 | grouping + aggregation, row pinning |
 | `virtualized` | 操作日志 | 50k rows, virtualization, infinite loading, adaptive height |
-| `hook-toolbar` | 自定义工具栏 | hook mode + compound components (`Search` / `ColumnsMenu` / `Pagination`) |
+| `hook-toolbar` | 自定义工具栏 | hook mode + compound components (`Search` / `ColumnsPanel` / `Pagination`) |

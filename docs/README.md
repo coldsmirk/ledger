@@ -10,7 +10,7 @@ Start with [getting-started.md](getting-started.md); the guides are grounded in 
 | --- | --- |
 | [getting-started.md](getting-started.md) | Install, stylesheet, first table, sugar vs hook mode, app-wide defaults |
 | [sizing.md](sizing.md) | The adaptive sizing contract, the header/body split, column width model, `tableMinWidth` |
-| [columns.md](columns.md) | `ColumnDef`s, the `meta` extension, header groups/footers, resizing, drag reordering, visibility, the column menu, injected columns |
+| [columns.md](columns.md) | `ColumnDef`s, the `meta` extension, header groups/footers, resizing, drag reordering, visibility, the columns panel, injected columns |
 | [sorting.md](sorting.md) | Sort cycle, multi-sort, per-column knobs, server mode |
 | [filtering.md](filtering.md) | Filter variants, faceted options, custom filter functions and UIs, global search, server mode |
 | [pagination.md](pagination.md) | The pagination bar, standalone compound, server mode and the reset policy |

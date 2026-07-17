@@ -3,15 +3,15 @@ import type { MouseEvent } from "react";
 
 /**
  * The header: sortable labels (full-area button, shift for multi-sort, order badges), the
- * hover-revealed actions (filter popover, column menu), the resize handle on the trailing edge,
- * and drag-reorder plumbing. Every state is a data-attribute; every class is a Styles API
- * selector.
+ * hover-revealed filter popover, the resize handle on the trailing edge, and drag-reorder
+ * plumbing. Every state is a data-attribute; every class is a Styles API selector. Column
+ * layout — order, visibility, pinning, width, grouping — belongs to `DataTable.ColumnsPanel`,
+ * not to the header (docs/columns.md).
  */
 import { Table as MantineTable } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 
 import { isInternalColumn } from "./build-columns";
-import { ColumnMenu } from "./column-menu";
 import { useDataTableContext } from "./context";
 import { FilterPopover } from "./filter-popover";
 import { IconChevronDown, IconChevronUp, IconSortable } from "./icons";
@@ -57,11 +57,7 @@ function HeaderCell<TData>({
   reorder,
   resize
 }: HeaderCellProps<TData>) {
-  const {
-    getStyles,
-    labels,
-    withColumnMenu
-  } = useDataTableContext();
+  const { getStyles, labels } = useDataTableContext();
   const { column } = header;
   const { meta } = column.columnDef;
   const internal = isInternalColumn(column.id);
@@ -140,10 +136,9 @@ function HeaderCell<TData>({
                       </div>
                     )}
 
-                {(meta?.filter !== undefined || (withColumnMenu && !internal)) && (
+                {meta?.filter !== undefined && (
                   <div {...getStyles("headerActions")} data-ledger-no-drag>
-                    {meta?.filter !== undefined && <FilterPopover column={column} />}
-                    {withColumnMenu && !internal && <ColumnMenu column={column} table={table} />}
+                    <FilterPopover column={column} />
                   </div>
                 )}
 

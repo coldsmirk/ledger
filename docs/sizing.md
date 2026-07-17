@@ -57,6 +57,12 @@ The engine re-resolves on container resize (ResizeObserver on the body viewport,
 
 Dragging a resize handle writes a `columnSizing` entry — from then on that column is explicit. Drags are exactly 1:1 because they start from the engine-resolved rendered width (a grow column's first drag never jumps); double-clicking the handle clears the entry, returning the column to grow behavior. See [columns.md](columns.md#resizing).
 
+### The panel's width control
+
+With `enableColumnResizing` on, each row of the [columns panel](columns.md#the-columns-panel) also carries a width field — the same `columnSizing` entry, reached numerically instead of by drag, clamped to the column's `minSize`/`maxSize` exactly as the handle is.
+
+The field holds the **override**, and empty means there is none: clearing it *drops* the entry rather than zeroing it, returning the column to whatever its definition prescribes. The placeholder says which that is — the author's `size`, or `labels.columnWidthAuto` (`Auto`) for a column that declares none and therefore grows. So a `size: 130` column reads `130` when unset, never a made-up "auto".
+
 ### `tableMinWidth`
 
 `tableMinWidth` (same semantic as Mantine `Table.ScrollContainer`'s `minWidth`) sets a floor on the distribution width, so narrow containers produce a horizontal scrollbar at that point rather than compressing grow columns toward their bases:

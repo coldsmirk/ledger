@@ -19,7 +19,7 @@ The complete public surface of `@coldsmirk/ledger-mantine`, as implemented. Feat
 
 ```ts
 import {
-  DataTable,            // the component (+ .Search / .ColumnsMenu / .Pagination / .SelectionBar)
+  DataTable,            // the component (+ .Search / .ColumnsPanel / .Pagination / .SelectionBar)
   useDataTable,         // options → bare TanStack Table instance
   toCsv,                // CSV export over a table instance
   defaultLabels,        // English label set
@@ -35,7 +35,7 @@ Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, 
 
 ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTablePersistState`, `DataTablePersistableSlice`, `LedgerMeta`, `LedgerEditingController`, `ActiveCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
 
-Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2. Direct dependencies: `@tanstack/react-table` ^8.21, `@tanstack/react-virtual` ^3.14, `clsx`.
+Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2. Direct dependencies: `@tanstack/react-table` ^8.21, `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
 ## `UseDataTableOptions<TData>`
 
@@ -129,7 +129,6 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `loadingMore` | `boolean` | `false` | Trailing loader row |
 | `loading` | `boolean` | `false` | Skeletons (no rows) or overlay (rows present) |
 | `emptyState` | `ReactNode` | Mantine `EmptyState` titled `labels.empty` | Overlaid and centered in the visible body region |
-| `withColumnMenu` | `boolean` | `true` | Per-column menu trigger |
 | `withPaginationBar` | `boolean` | `true` | Renders only while pagination is enabled |
 | `pageSizeOptions` | `number[]` | `[10, 20, 50, 100]` | |
 | `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | [rows.md](rows.md) |
@@ -237,12 +236,12 @@ interface DataTableScrollToRowOptions {
 
 ## Compound components
 
-All take the `table` instance, compose anywhere, and are individually themeable (`DataTableSearch`, `DataTableColumnsMenu`, `DataTablePagination`, `DataTableSelectionBar` theme keys):
+All take the `table` instance, compose anywhere, and are individually themeable (`DataTableSearch`, `DataTableColumnsPanel`, `DataTablePagination`, `DataTableSelectionBar` theme keys):
 
 | Component | Props | Notes |
 | --- | --- | --- |
 | `DataTable.Search` | `{ table, debounce?: number /* 200 */, labels? }` + every `TextInputProps` except the value trio | Global filter input ([filtering.md](filtering.md#global-filter)) |
-| `DataTable.ColumnsMenu` | `{ table, labels? }` | Visibility menu; stays open while toggling; renders nothing when no column can hide |
+| `DataTable.ColumnsPanel` | `{ table, children?, popoverProps?, labels?, className?, style? }` | Order / visibility / pinning / width / grouping. `children` is the trigger and the panel opens from it in a Popover; without one it renders bare ([columns.md](columns.md#the-columns-panel)) |
 | `DataTable.Pagination` | `{ table, pageSizeOptions?, labels?, className?, style? }` | Standalone bar ([pagination.md](pagination.md)) |
 | `DataTable.SelectionBar` | `{ table, labels?, children?, className?, style? }` | Renders only while rows are selected; `children` = bulk actions ([selection.md](selection.md)) |
 

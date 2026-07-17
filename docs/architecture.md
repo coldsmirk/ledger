@@ -13,7 +13,9 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `build-columns.tsx` | Injected selection/expander columns; `meta.filter` → `filterFn` gap-filling |
 | `table-header.tsx` / `table-body.tsx` / `table-footer.tsx` | Renderers: header (sort/actions/resize/reorder), body (display rows, virtualization, pinned rows, group cells, skeletons), footer |
 | `cell-editor.tsx` | Editing host: draft, validation, async commit lifecycle, keyboard map, deferred unmount-commit |
-| `column-menu.tsx` / `columns-menu.tsx` / `filter-popover.tsx` | Header dropdown surfaces |
+| `filter-popover.tsx` | The header's filter dropdown surface |
+| `columns-panel.tsx` | `DataTable.ColumnsPanel`: zoned column list, dnd-kit sortable rows, visibility / pinning / width / grouping controls, reset |
+| `column-order.ts` | Pure edits over the flat `columnOrder` array, shared by the header drag and the panel |
 | `search.tsx` / `pagination-bar.tsx` / `selection-bar.tsx` | Compound components |
 | `selection.tsx` / `expander.tsx` | Injected column cells (stop-propagation covenant, shift ranges, expand-all) |
 | `use-column-widths.ts` | The width engine: raw sizing specs → exact integer pixel widths (weighted grow, proportional fill) |
@@ -33,7 +35,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 
 **Option partition with compile-time exhaustiveness.** Sugar mode splits props into behavior options vs presentation by the `OPTION_KEYS` list; `AssertNever<MissingOptionKeys>` makes *forgetting to list a new `UseDataTableOptions` key* a type error at the `Set` construction site. Add an option → add it to `OPTION_KEYS` or the build fails.
 
-**One erasure boundary.** `context.ts` erases `TData` (`Table<any>`) for table-wide plumbing (styles getter, labels, row handlers); cells and menus receive their strongly-typed TanStack objects as props. Any new cast belongs *at that boundary*, not scattered through the tree.
+**One erasure boundary.** `context.ts` erases `TData` (`Table<any>`) for table-wide plumbing (styles getter, labels, row handlers); cells and filter popovers receive their strongly-typed TanStack objects as props. Any new cast belongs *at that boundary*, not scattered through the tree.
 
 **Header, body, and footer are separate tables under one ARIA table.** The header (and, when any column declares a `footer`, the totals region) sits in an `overflow: hidden` viewport outside the body ScrollArea, so the vertical scrollbar spans exactly the rows (never occluded, never bounced by overscroll) and totals stay visible. Three invariants keep the tables pixel-equal: identical Mantine props, identical `<colgroup>`s, and the shared root-level column variables — which requires `table-layout: fixed` on all, always (auto layout would distribute each table independently). Horizontal sync is one assignment — the body's scroll event mirrors `scrollLeft` onto the header and footer viewports in the same frame; native non-passive wheel listeners forward **dominantly horizontal** deltas (`|deltaX| > |deltaY|`, so vertical-leaning wheels keep scrolling the page) from those regions to the body. The body viewport is `overscroll-behavior: none` (inline via `viewportProps`): rubber-band overscroll translates the body past the clamped scroll position the mirrors read, shearing the regions apart for the duration of the bounce. Because the native tables would split the semantics, all are `role="presentation"` and the explicit ARIA table lives on `main` with `row` / `columnheader` / `cell` roles on the parts — keep those roles when adding new row kinds.
 
@@ -63,7 +65,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 
 Vitest 4 + jsdom + Testing Library; specs colocated as `<name>.test.{ts,tsx}`; component wrappers render under **`StrictMode`** (its simulated unmounts caught a live editor bug that plain jsdom tests missed). Behavior tests drive the public API — sorting cycles, slice contracts, selection semantics, editing commit/cancel/validate, merge-order warnings — plus regression tests for every browser-found bug jsdom can express (strict `ledger-one-of` matching, the popover-stays-open flow, the deferred unmount-commit, the zero-height `onEndReached` guard, `isDev` without `process`).
 
-What jsdom cannot express — real geometry (pinned-row stacking, scroll windows, adaptive resize, edge shadows) — is verified interactively in the playground with a real browser. When touching those areas, run the relevant playground demo and scroll/drag it.
+What jsdom cannot express — real geometry (pinned-row stacking, scroll windows, adaptive resize, edge shadows) — is verified interactively in the playground with a real browser. When touching those areas, run the relevant playground demo and scroll/drag it. **Dragging is in that category**: dnd-kit's pointer sensor needs layout, so the columns panel's specs drive everything *but* the drag (its bare shape needs no popover to open first) and the pure order math lives in `column-order.test.ts`; the drag itself belongs to the browser pass.
 
 Gates (all must stay green): `pnpm test`, `pnpm typecheck`, `pnpm lint:check`, `pnpm lint:css:check` (mechanical kebab-case enforcement), `pnpm build`, `pnpm check:package` (publint + attw on the packed output; `.attw.json` excludes the typeless `styles.css` entrypoint and pins the `node16` profile). Tests run against TS source via the `source` export condition — a green suite does not prove the build; the last two gates do.
 

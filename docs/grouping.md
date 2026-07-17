@@ -17,7 +17,7 @@
 />
 ```
 
-`enableGrouping` (default `false`) wires TanStack's grouped + expanded row models and adds "Group by this column / Ungroup" to the per-column menu (columns opt out with `enableGrouping: false` on their def).
+`enableGrouping` (default `false`) wires TanStack's grouped + expanded row models and adds a group toggle to each eligible row of the [columns panel](columns.md#the-columns-panel) — the only built-in trigger (columns opt out with `enableGrouping: false` on their def). Page-owned triggers reach the same state through `column.toggleGrouping()`.
 
 ## Rendering
 

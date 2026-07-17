@@ -42,7 +42,7 @@ import {
 } from "@mantine/core";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
-import { DataTableColumnsMenu } from "./columns-menu";
+import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
 import { warnOnce } from "./env";
 import { IconInbox } from "./icons";
@@ -77,7 +77,6 @@ export type DataTableStylesNames
     | "headerActions"
     | "sortIndicator"
     | "resizer"
-    | "columnMenu"
     | "filterPopover"
     | "row"
     | "cell"
@@ -114,7 +113,6 @@ const classes: Record<DataTableStylesNames, string> = {
   headerActions: "ledger-header-actions",
   sortIndicator: "ledger-sort-indicator",
   resizer: "ledger-resizer",
-  columnMenu: "ledger-column-menu",
   filterPopover: "ledger-filter-popover",
   row: "ledger-row",
   cell: "ledger-cell",
@@ -170,7 +168,6 @@ export interface DataTableBaseProps<TData>
   emptyState?: ReactNode;
 
   /* Chrome */
-  withColumnMenu?: boolean;
   withPaginationBar?: boolean;
   pageSizeOptions?: number[];
 
@@ -205,7 +202,7 @@ export type DataTableFactory = Factory<{
   signature: <TData>(props: DataTableProps<TData>) => JSX.Element;
   staticComponents: {
     Search: typeof DataTableSearch;
-    ColumnsMenu: typeof DataTableColumnsMenu;
+    ColumnsPanel: typeof DataTableColumnsPanel;
     Pagination: typeof DataTablePagination;
     SelectionBar: typeof DataTableSelectionBar;
   };
@@ -224,7 +221,6 @@ const defaultProps = {
   endReachedOffset: 240,
   loadingMore: false,
   loading: false,
-  withColumnMenu: true,
   withPaginationBar: true,
   pageSizeOptions: DEFAULT_PAGE_SIZE_OPTIONS
 } satisfies Partial<DataTableProps>;
@@ -393,7 +389,6 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
     loadingMore,
     loading,
     emptyState,
-    withColumnMenu,
     withPaginationBar,
     pageSizeOptions,
     onRowClick,
@@ -489,7 +484,6 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
         table: table as Table<unknown>,
         getStyles: stableGetStyles,
         labels,
-        withColumnMenu: withColumnMenu === true,
         filterMode,
         virtualized: virtualEnabled,
         columnWidths: columnWidthsRef,
@@ -507,7 +501,6 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
       table,
       stableGetStyles,
       labels,
-      withColumnMenu,
       filterMode,
       virtualEnabled,
       onRowClick,
@@ -887,6 +880,6 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
 DataTable.displayName = "@coldsmirk/ledger-mantine/DataTable";
 DataTable.classes = classes;
 DataTable.Search = DataTableSearch;
-DataTable.ColumnsMenu = DataTableColumnsMenu;
+DataTable.ColumnsPanel = DataTableColumnsPanel;
 DataTable.Pagination = DataTablePagination;
 DataTable.SelectionBar = DataTableSelectionBar;

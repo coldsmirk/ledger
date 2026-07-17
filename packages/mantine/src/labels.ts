@@ -20,21 +20,26 @@ export interface DataTableLabels {
   expandAll: string;
   collapseAll: string;
 
-  /* Column menu */
-  columnMenu: string;
-  sortAscending: string;
-  sortDescending: string;
-  clearSort: string;
+  /* Columns panel */
+  columnsPanel: string;
+  resetColumns: string;
   pinLeft: string;
   pinRight: string;
   unpin: string;
-  hideColumn: string;
+  /**
+   * Zone captions the columns panel shows above its pinned columns; nouns for the state, where
+   * `pinLeft` / `pinRight` name the action.
+   */
+  pinnedLeft: string;
+  pinnedRight: string;
   groupByColumn: string;
   ungroupColumn: string;
-
-  /* Columns visibility menu */
-  columnsMenu: string;
-  showAllColumns: string;
+  columnWidth: string;
+  /**
+   * Width placeholder for a column whose definition declares no `size` — it grows to share the
+   * leftover viewport. A column that declares one shows that number instead.
+   */
+  columnWidthAuto: string;
 
   /* Column interactions */
   resizeColumn: string;
@@ -73,19 +78,17 @@ export const defaultLabels: DataTableLabels = {
   expandAll: "Expand all rows",
   collapseAll: "Collapse all rows",
 
-  columnMenu: "Column menu",
-  sortAscending: "Sort ascending",
-  sortDescending: "Sort descending",
-  clearSort: "Clear sort",
+  columnsPanel: "Columns",
+  resetColumns: "Reset",
   pinLeft: "Pin to left",
   pinRight: "Pin to right",
   unpin: "Unpin",
-  hideColumn: "Hide column",
+  pinnedLeft: "Pinned left",
+  pinnedRight: "Pinned right",
   groupByColumn: "Group by this column",
   ungroupColumn: "Ungroup",
-
-  columnsMenu: "Columns",
-  showAllColumns: "Show all columns",
+  columnWidth: "Width",
+  columnWidthAuto: "Auto",
 
   resizeColumn: "Resize column",
   reorderColumn: "Drag to reorder column",

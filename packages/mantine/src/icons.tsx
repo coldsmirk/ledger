@@ -84,50 +84,69 @@ export function IconFilter(props: IconProps) {
   );
 }
 
-export function IconDots(props: IconProps) {
+/**
+ * Drag affordance: the universal two-by-three grip.
+ */
+export function IconGripVertical(props: IconProps) {
   return (
     <Icon {...props}>
-      <circle cx="8" cy="3.25" fill="currentColor" r="0.75" stroke="none" />
-      <circle cx="8" cy="8" fill="currentColor" r="0.75" stroke="none" />
-      <circle cx="8" cy="12.75" fill="currentColor" r="0.75" stroke="none" />
+      <circle cx="6" cy="4" fill="currentColor" r="0.85" stroke="none" />
+      <circle cx="10" cy="4" fill="currentColor" r="0.85" stroke="none" />
+      <circle cx="6" cy="8" fill="currentColor" r="0.85" stroke="none" />
+      <circle cx="10" cy="8" fill="currentColor" r="0.85" stroke="none" />
+      <circle cx="6" cy="12" fill="currentColor" r="0.85" stroke="none" />
+      <circle cx="10" cy="12" fill="currentColor" r="0.85" stroke="none" />
     </Icon>
   );
 }
 
-export function IconPin(props: IconProps) {
+/**
+ * The three pin states speak one language — where the column sits relative to the table's edges.
+ * A rotated pushpin was tried first and rejected: at 16px nobody, including its author, could
+ * tell which way it pointed.
+ */
+export function IconPinLeft(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M6 2.5h4l-.5 4 2 2v1h-7v-1l2-2z" />
-      <path d="M8 9.5V14" />
+      <path d="M3 3v10" />
+      <path d="M13.5 8H6.5" />
+      <path d="M9 5.5L6.5 8l2.5 2.5" />
     </Icon>
   );
 }
 
-export function IconPinOff(props: IconProps) {
+export function IconPinRight(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M6 2.5h4l-.5 4 2 2v1h-7v-1l2-2z" />
-      <path d="M8 9.5V14" />
-      <path d="M2.5 2.5l11 11" />
+      <path d="M13 3v10" />
+      <path d="M2.5 8h7" />
+      <path d="M7 5.5L9.5 8l-2.5 2.5" />
     </Icon>
   );
 }
 
-export function IconEyeOff(props: IconProps) {
+/**
+ * Neither edge: the column floats free between them.
+ */
+export function IconUnpin(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M2 8s2.25-3.5 6-3.5c1 0 1.9.25 2.66.62M14 8s-2.25 3.5-6 3.5c-1 0-1.9-.25-2.66-.62" />
-      <circle cx="8" cy="8" r="1.75" />
-      <path d="M2.5 2.5l11 11" />
+      <path d="M3 3v10" />
+      <path d="M13 3v10" />
+      <path d="M6.5 8h3" />
     </Icon>
   );
 }
 
-export function IconColumns(props: IconProps) {
+/**
+ * "Put it back the way it was": three quarters of a circle travelled counter-clockwise, with the
+ * arrowhead on the tangent where it closes.
+ */
+export function IconRestore(props: IconProps) {
   return (
     <Icon {...props}>
-      <rect height="11" rx="1" width="12" x="2" y="2.5" />
-      <path d="M6 2.5v11M10 2.5v11" />
+      <path d="M3 8a5 5 0 1 0 5-5" />
+      <path d="M10 1.5L8 3l2 1.5" />
     </Icon>
   );
 }

@@ -7,9 +7,12 @@
 import type { Table } from "@tanstack/react-table";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
+import type { ColumnDropTarget } from "./column-order";
+
 import { useRef, useState } from "react";
 
 import { isInternalColumn } from "./build-columns";
+import { moveColumnBeside, resolveColumnOrder } from "./column-order";
 import { warnOnce } from "./env";
 
 const DRAG_THRESHOLD_PX = 5;
@@ -39,7 +42,7 @@ interface DragSession {
   columnId: string;
   startX: number;
   started: boolean;
-  target: { id: string; side: "before" | "after" } | null;
+  target: ColumnDropTarget | null;
   cleanup: () => void;
 }
 
@@ -60,24 +63,8 @@ export function useColumnReorder<TData>(table: Table<TData>): ColumnReorder {
 
   const enabled = enabledOption && !hasGroupedHeaders;
 
-  const commitReorder = (draggedId: string, target: { id: string; side: "before" | "after" }) => {
-    const leafIds = table.getAllLeafColumns().map(column => column.id);
-    const stateOrder = table.getState().columnOrder;
-    const base = stateOrder.length > 0
-      ? [...stateOrder.filter(id => leafIds.includes(id)), ...leafIds.filter(id => !stateOrder.includes(id))]
-      : leafIds;
-
-    const withoutDragged = base.filter(id => id !== draggedId);
-    const targetIndex = withoutDragged.indexOf(target.id);
-
-    if (targetIndex === -1) {
-      return;
-    }
-
-    const insertAt = target.side === "before" ? targetIndex : targetIndex + 1;
-    const next = [...withoutDragged.slice(0, insertAt), draggedId, ...withoutDragged.slice(insertAt)];
-
-    table.setColumnOrder(next);
+  const commitReorder = (draggedId: string, target: ColumnDropTarget) => {
+    table.setColumnOrder(moveColumnBeside(resolveColumnOrder(table), draggedId, target));
   };
 
   const getHeaderProps: ColumnReorder["getHeaderProps"] = columnId => {

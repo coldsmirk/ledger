@@ -4,7 +4,7 @@ Column pinning sticks columns to the horizontal edges; row pinning sticks rows t
 
 ## Column pinning
 
-`enableColumnPinning` is **on by default**: every column's menu offers "Pin to left / Pin to right / Unpin" (per-column opt-out via `enablePinning: false` on the def). State rides the `columnPinning` trio (TanStack `ColumnPinningState`, `{ left: string[], right: string[] }`):
+`enableColumnPinning` is **on by default**: each row of the [columns panel](columns.md#the-columns-panel) carries a three-state control — pin left / unpin / pin right (per-column opt-out via `enablePinning: false` on the def). State rides the `columnPinning` trio (TanStack `ColumnPinningState`, `{ left: string[], right: string[] }`):
 
 ```tsx
 <DataTable
@@ -19,7 +19,8 @@ Mechanics worth knowing:
 - The boundary cell of each pinned block renders an **edge shadow** (`data-pinned-edge`), visible only while content is actually scrolled past that edge (`data-scrolled-start` / `data-scrolled-end` on the root) — so an unscrolled table shows no phantom shadows.
 - Every offset uses logical properties (`inset-inline-*`), so RTL mirrors for free.
 - Pinned cells read their background from the `--ledger-row-bg` pipeline: stripes, hover, and selected tints are always covered correctly ([styling.md](styling.md)).
-- The injected selection/expander columns are always pinned left, ahead of user pins, merged invisibly over the consumer's slice — they never appear in your `columnPinning` state.
+- The injected selection/expander columns are always pinned left, ahead of user pins, merged invisibly over the consumer's slice — they never appear in your `columnPinning` state, and neither the panel nor `column.pin()` can put them there.
+- **A pinned column's position comes from its index in `columnPinning.left` / `.right`, not from `columnOrder`** (TanStack maps the array), which is why the columns panel reorders a pinned zone by rewriting that array instead.
 - `columnPinning` belongs to the default `persistState` layout set ([state.md](state.md)).
 
 ## Row pinning

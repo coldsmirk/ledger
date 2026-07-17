@@ -68,31 +68,69 @@ Sized columns are fixed pixels; unsized columns grow to share the leftover viewp
 <DataTable enableColumnOrdering … />
 ```
 
-- Off by default. `enableColumnOrdering` is a ledger-owned name: TanStack has `columnOrder` state but no switch for the header affordance.
-- Pointer-based, dependency-free: a press becomes a drag after a 5px threshold (so the sortable header label keeps its click), a drop indicator marks the target edge, Escape cancels, and a completed drag suppresses the click that follows.
+- Off by default. `enableColumnOrdering` is a ledger-owned name: TanStack has `columnOrder` state but no switch for the affordance. It turns on **both** reordering affordances — the header drag and the columns panel's drag handles.
+- The header drag is pointer-based and dependency-free: a press becomes a drag after a 5px threshold (so the sortable header label keeps its click), a drop indicator marks the target edge, Escape cancels, and a completed drag suppresses the click that follows.
 - Limited to single-row headers — with column groups, sibling order inside a group is ambiguous, so the switch is ignored with a dev-mode warning.
 - The injected selection/expander columns cannot be dragged or displaced.
 - State rides the `columnOrder` slice, persistable via `persistState`.
 
 ### Visibility
 
-`enableHiding` is on by default; per-column opt-out is `enableHiding: false` on the def. Two affordances:
+`enableHiding` is on by default; per-column opt-out is `enableHiding: false` on the def, which renders the panel's checkbox disabled rather than dropping the row. State rides the `columnVisibility` slice, persistable via `persistState`.
 
-- The per-column menu's "Hide column" item.
-- `<DataTable.ColumnsMenu table={table} />` — a checkbox menu of every hideable column that stays open while toggling, plus a "Show all columns" item once anything is hidden.
+## The columns panel
 
-State rides the `columnVisibility` slice, persistable via `persistState`.
+`<DataTable.ColumnsPanel table={table} />` is the single surface for every column-layout decision. One row per leaf column, in the table's display order, each control appearing only when the column can actually do it:
 
-## The per-column menu
+| Control | Appears when | Writes |
+| --- | --- | --- |
+| Drag handle | `enableColumnOrdering`, single-row headers | `columnOrder` / `columnPinning` |
+| Visibility checkbox | always (disabled where `getCanHide()` is false) | `columnVisibility` |
+| Pin left / unpin / pin right | `enableColumnPinning` ([pinning.md](pinning.md)) | `columnPinning` |
+| Width | `enableColumnResizing` ([sizing.md](sizing.md#the-panels-width-control)) | `columnSizing` |
+| Group / ungroup | `enableGrouping` ([grouping.md](grouping.md)) | `grouping` |
 
-`withColumnMenu` (default `true`) reveals a dots trigger on header hover/focus. Each item appears only when the column can actually do it:
+**Hidden columns stay listed** — that is the point of the panel. Their checkbox is simply unchecked and their name dims, so a column can always come back.
 
-- Sort ascending / descending / clear (sortable columns)
-- Pin left / right / unpin (pinnable columns — see [pinning.md](pinning.md))
-- Group by this column / ungroup (only when `enableGrouping` is on — see [grouping.md](grouping.md))
-- Hide column (hideable columns)
+**At rest a row is identity, not machinery.** The resting panel shows the checkbox, the name, and dimmed marks only where the layout deviates from default — an overridden width as a small number, a grouped column's glyph, a hidden column's dimmed name. The controls themselves — drag handle, width field, three-state pin segment, group toggle — reveal as a toolbar over the hovered or keyboard-focused row, so resting names get the full row width. The reveal is stylesheet-only: every control is always in the DOM and the accessibility tree, and where hover does not exist (`hover: none` media) the toolbar sits inline permanently.
 
-The trigger stops propagation, so opening the menu never toggles the header sort and never reaches `onRowClick`.
+**Reset** restores order, visibility, pinning, and width — exactly the layout set `persistState` persists by default — to what the application declared through `defaultColumnOrder` / `defaultColumnVisibility` / `defaultColumnPinning` / `defaultColumnSizing`, falling back to the column definitions' own layout. Grouping is not layout and is left alone.
+
+Rows are grouped into three zones in display order — pinned left, unpinned, pinned right. An occupied pinned zone carries a caption (the `pinnedLeft` / `pinnedRight` labels) and consecutive zones get a seam; nothing pinned means one flat list with no chrome at all. **Dragging reorders within a zone only**: a pinned column's position comes from its index in `columnPinning`, an unpinned one's from `columnOrder`, so the two are different edits. Moving a column between zones is what the pin controls are for.
+
+### The trigger is yours
+
+The panel makes **no assumption about what opens it**. `children` is the trigger, wrapped as the Popover target:
+
+```tsx
+<DataTable.ColumnsPanel table={table}>
+  <Button leftSection={<IconColumns />}>Columns</Button>
+</DataTable.ColumnsPanel>
+```
+
+Pass no children and the panel renders **bare** — its primary shape, ready for a drawer, a sidebar, or a settings page of its own:
+
+```tsx
+<Drawer opened={opened} onClose={close} title="Columns">
+  <DataTable.ColumnsPanel table={table} />
+</Drawer>
+```
+
+`popoverProps` forwards to the Popover (position, width, `withinPortal`, …) and is ignored without a trigger. The dropdown caps itself at `60vh` and the panel's list scrolls inside it; bare, the panel fills whatever box its host gives it and degrades to content height in an indefinite one.
+
+For a trigger inside a header cell — a cog beside an actions column's title — put it on a column that **cannot sort**: a sortable header *is* a `<button>` covering the whole cell, and nesting a control inside it is invalid HTML. A `helper.display({ … })` column never sorts, so its header is a plain box:
+
+```tsx
+helper.display({
+  id: "actions",
+  header: ({ table }) => (
+    <DataTable.ColumnsPanel table={table}>
+      <ActionIcon variant="subtle"><IconSettings /></ActionIcon>
+    </DataTable.ColumnsPanel>
+  ),
+  cell: ({ row }) => <RowActions row={row} />
+})
+```
 
 ## Injected columns
 

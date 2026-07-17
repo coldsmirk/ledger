@@ -7,7 +7,6 @@ Sorting is on by default (`enableSorting`, default `true`); individual columns o
 - The whole header label is a button. Clicking cycles **unsorted → ascending → descending → unsorted** (the removal step is `enableSortingRemoval`, default `true`).
 - **Shift-click appends** a column to the existing sort instead of replacing it (`enableMultiSort`, default `true`). While more than one column is sorted, each sorted header shows its 1-based order badge next to the direction chevron.
 - The indicator is invisible on unsorted columns until the header is hovered or focused, then fully visible once sorted — sortable columns stay quiet until relevant.
-- The per-column menu carries explicit "Sort ascending / Sort descending / Clear sort" items (see [columns.md](columns.md)).
 - Sorted headers expose `aria-sort="ascending" | "descending"`.
 
 ## Per-column behavior

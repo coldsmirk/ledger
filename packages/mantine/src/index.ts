@@ -7,8 +7,8 @@
  */
 
 /* Compound components (also available as DataTable.*) */
-export { DataTableColumnsMenu } from "./columns-menu";
-export type { DataTableColumnsMenuProps } from "./columns-menu";
+export { DataTableColumnsPanel } from "./columns-panel";
+export type { DataTableColumnsPanelProps } from "./columns-panel";
 /* Utilities */
 export { toCsv } from "./csv";
 
