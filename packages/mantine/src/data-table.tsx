@@ -821,13 +821,20 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
 
           {/* overscroll-behavior: none — rubber-band overscroll translates the body past its
               clamped scroll position, which the mirrored header/footer can never follow; the
-              regions shear apart for the duration of the bounce. */}
+              regions shear apart for the duration of the bounce.
+              Transparent track/corner — Mantine tints them on hover through unlayered rules
+              that defeat any layered override, so inline is the only seat that wins; the thumb
+              is its own element and keeps its background. */}
           <ScrollArea
             {...getStyles("scroller")}
             scrollbars="xy"
             type="hover"
             viewportProps={{ style: { overscrollBehavior: "none" } }}
             viewportRef={assignViewport}
+            styles={{
+              corner: { backgroundColor: "transparent" },
+              scrollbar: { backgroundColor: "transparent" }
+            }}
             onScrollPositionChange={handleScrollPositionChange}
           >
             <MantineTable {...sharedTableProps} {...tableStyleProps()}>
