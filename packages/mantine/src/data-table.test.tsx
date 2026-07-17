@@ -319,6 +319,14 @@ describe("DataTable", () => {
 
     fireEvent.click(expander as Element);
     expect(screen.getByText("cell:A1")).toBeTruthy();
+
+    // Regression: injected headers are controls, not text — wrapped in the label scaffolding,
+    // the [data-truncate] span's overflow: hidden clipped the expand-all icon.
+    const headerToggle = container.querySelector(
+      ":scope .ledger-header th[data-ledger-column-id=\"ledger:expander\"] button"
+    );
+    expect(headerToggle).toBeTruthy();
+    expect(headerToggle!.closest("[data-truncate]")).toBeNull();
   });
 
   it("expands a detail panel as its own row", () => {

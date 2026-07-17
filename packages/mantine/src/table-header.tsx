@@ -94,7 +94,7 @@ function HeaderCell<TData>({
     <MantineTable.Th
       aria-sort={canSort ? ariaSort : undefined}
       colSpan={header.colSpan}
-      data-align={meta?.align}
+      data-align={internal ? "center" : meta?.align}
       data-dragging={dragged || undefined}
       data-drop-side={dropSide ?? undefined}
       data-ledger-column-id={column.id}
@@ -108,55 +108,59 @@ function HeaderCell<TData>({
     >
       {header.isPlaceholder
         ? null
-        : (
-            <>
-              {canSort
-                ? (
+        : internal
+          // Injected headers (checkbox, expand-all) are controls, not text — the label
+          // scaffolding's [data-truncate] span would clip them at the cell's content box.
+          ? label
+          : (
+              <>
+                {canSort
+                  ? (
                     // A NATIVE button, reset in ledger's layer: Mantine's UnstyledButton ships an
                     // unlayered font-size that defeats the layered `font: inherit` (styling.md).
-                    <button
-                      type="button"
-                      onClick={handleSortClick}
-                      {...getStyles("headerLabel")}
-                      data-align={meta?.align}
-                    >
-                      <span data-truncate>{label}</span>
+                      <button
+                        type="button"
+                        onClick={handleSortClick}
+                        {...getStyles("headerLabel")}
+                        data-align={meta?.align}
+                      >
+                        <span data-truncate>{label}</span>
 
-                      <span {...getStyles("sortIndicator")} data-sorted={sorted || undefined}>
-                        {sorted === "asc" && <IconChevronUp size={14} />}
-                        {sorted === "desc" && <IconChevronDown size={14} />}
-                        {sorted === false && <IconSortable size={14} />}
-                        {sorted !== false && sortCount > 1 && sortIndex >= 0 && <sup>{sortIndex + 1}</sup>}
-                      </span>
-                    </button>
-                  )
-                : (
-                    <div {...getStyles("headerLabel")} data-align={meta?.align}>
-                      <span data-truncate>{label}</span>
-                    </div>
-                  )}
+                        <span {...getStyles("sortIndicator")} data-sorted={sorted || undefined}>
+                          {sorted === "asc" && <IconChevronUp size={14} />}
+                          {sorted === "desc" && <IconChevronDown size={14} />}
+                          {sorted === false && <IconSortable size={14} />}
+                          {sorted !== false && sortCount > 1 && sortIndex >= 0 && <sup>{sortIndex + 1}</sup>}
+                        </span>
+                      </button>
+                    )
+                  : (
+                      <div {...getStyles("headerLabel")} data-align={meta?.align}>
+                        <span data-truncate>{label}</span>
+                      </div>
+                    )}
 
-              {(meta?.filter !== undefined || (withColumnMenu && !internal)) && (
-                <div {...getStyles("headerActions")} data-ledger-no-drag>
-                  {meta?.filter !== undefined && <FilterPopover column={column} />}
-                  {withColumnMenu && !internal && <ColumnMenu column={column} table={table} />}
-                </div>
-              )}
+                {(meta?.filter !== undefined || (withColumnMenu && !internal)) && (
+                  <div {...getStyles("headerActions")} data-ledger-no-drag>
+                    {meta?.filter !== undefined && <FilterPopover column={column} />}
+                    {withColumnMenu && !internal && <ColumnMenu column={column} table={table} />}
+                  </div>
+                )}
 
-              {canResize && (
-                <div
-                  data-ledger-no-drag
-                  data-ledger-resizer
-                  data-resizing={resizing || undefined}
-                  title={labels.resizeColumn}
-                  onClick={event => event.stopPropagation()}
-                  onDoubleClick={() => column.resetSize()}
-                  {...resize.getResizerProps(column.id)}
-                  {...getStyles("resizer")}
-                />
-              )}
-            </>
-          )}
+                {canResize && (
+                  <div
+                    data-ledger-no-drag
+                    data-ledger-resizer
+                    data-resizing={resizing || undefined}
+                    title={labels.resizeColumn}
+                    onClick={event => event.stopPropagation()}
+                    onDoubleClick={() => column.resetSize()}
+                    {...resize.getResizerProps(column.id)}
+                    {...getStyles("resizer")}
+                  />
+                )}
+              </>
+            )}
     </MantineTable.Th>
   );
 }
