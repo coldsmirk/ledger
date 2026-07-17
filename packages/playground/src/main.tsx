@@ -1,9 +1,12 @@
 import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
 import "@coldsmirk/ledger-mantine/styles.css";
+import "dayjs/locale/zh-cn";
 
 import { DataTable } from "@coldsmirk/ledger-mantine";
 import { zhCN } from "@coldsmirk/ledger-mantine/locales";
 import { createTheme, MantineProvider } from "@mantine/core";
+import { DatesProvider } from "@mantine/dates";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -24,7 +27,9 @@ if (rootElement) {
   createRoot(rootElement).render(
     <StrictMode>
       <MantineProvider theme={theme}>
-        <App />
+        <DatesProvider settings={{ locale: "zh-cn" }}>
+          <App />
+        </DatesProvider>
       </MantineProvider>
     </StrictMode>
   );

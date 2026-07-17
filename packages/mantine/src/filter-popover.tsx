@@ -7,10 +7,12 @@ import type { DataTableFilterConfig } from "./types";
  * Header filter UI: a funnel trigger (filled while active) opening a popover with the control
  * `meta.filter` declares. Client mode derives `select`/`multi-select` options from faceted
  * values when none are given; server mode requires explicit options and degrades to the text
- * variant (with a dev warning) when they are missing. Date bounds use native `type="date"`
- * inputs — no extra dependency, ISO-string filter values.
+ * variant (with a dev warning) when they are missing. Date bounds render an inline
+ * `@mantine/dates` range calendar (no nested popover to misread as an outside click);
+ * its values are the same `YYYY-MM-DD` strings the filter fn compares.
  */
 import { ActionIcon, Group, MultiSelect, NumberInput, Popover, Select, Stack, TextInput } from "@mantine/core";
+import { DatePicker } from "@mantine/dates";
 import { useDebouncedCallback } from "@mantine/hooks";
 import { useState } from "react";
 
@@ -208,31 +210,17 @@ function RangeFilter<TData>({ column }: { column: Column<TData, unknown> }) {
 }
 
 function DateRangeFilter<TData>({ column }: { column: Column<TData, unknown> }) {
-  const { labels } = useDataTableContext();
-  const [from, to] = (column.getFilterValue() as DateRangeFilterValue | undefined) ?? [null, null];
-
-  const setBound = (index: 0 | 1) => (raw: string) => {
-    const bound = raw === "" ? null : raw;
-    const next: DateRangeFilterValue = index === 0 ? [bound, to] : [from, bound];
-    column.setFilterValue(!next[0] && !next[1] ? undefined : next);
-  };
+  const value = (column.getFilterValue() as DateRangeFilterValue | undefined) ?? [null, null];
 
   return (
-    <Group grow gap="xs">
-      <TextInput
-        aria-label={labels.filterDateFrom}
-        type="date"
-        value={from ?? ""}
-        onChange={event => setBound(0)(event.currentTarget.value)}
-      />
-
-      <TextInput
-        aria-label={labels.filterDateTo}
-        type="date"
-        value={to ?? ""}
-        onChange={event => setBound(1)(event.currentTarget.value)}
-      />
-    </Group>
+    <DatePicker
+      allowSingleDateInRange
+      highlightToday
+      size="xs"
+      type="range"
+      value={value}
+      onChange={next => column.setFilterValue(!next[0] && !next[1] ? undefined : next)}
+    />
   );
 }
 

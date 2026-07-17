@@ -64,4 +64,48 @@ describe("filter popover", () => {
     expect(document.querySelector(".ledger-filter-popover")).toBeTruthy();
     expect(document.querySelector(".ledger-tbody .ledger-row td")?.textContent).toBe("Alice");
   });
+
+  it("filters through the inline @mantine/dates range calendar", async () => {
+    // The calendar opens on the current month — build rows around it so day clicks are
+    // deterministic on any run date.
+    const month = new Date().toISOString().slice(0, 7);
+
+    interface Entry {
+      id: string;
+      day: string;
+    }
+
+    const entries: Entry[] = [
+      { id: "1", day: `${month}-05` },
+      { id: "2", day: `${month}-15` },
+      { id: "3", day: `${month}-25` }
+    ];
+
+    const dateColumns: Array<ColumnDef<Entry, any>> = [
+      {
+        accessorKey: "day",
+        header: "Day",
+        meta: { filter: "date-range" }
+      }
+    ];
+
+    render(<DataTable columns={dateColumns} data={entries} getRowId={entry => entry.id} />, {
+      wrapper
+    });
+
+    fireEvent.click(screen.getByLabelText("Filter column"));
+    await waitFor(() => expect(document.querySelector(".ledger-filter-popover")).toBeTruthy());
+
+    const day = (label: string) => [...document.querySelectorAll<HTMLButtonElement>(".ledger-filter-popover table button")]
+      .find(button => button.textContent === label && !Object.hasOwn(button.dataset, "outside"));
+
+    fireEvent.click(day("10") as Element);
+    fireEvent.click(day("20") as Element);
+
+    await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(1));
+
+    // The calendar is inline (no nested portal), so the popover survives the interaction.
+    expect(document.querySelector(".ledger-filter-popover")).toBeTruthy();
+    expect(document.querySelector(".ledger-tbody .ledger-row td")?.textContent).toBe(`${month}-15`);
+  });
 });

@@ -73,14 +73,17 @@
   },
   "devDependencies": {
     "@mantine/core": "^9.4.1",
+    "@mantine/dates": "^9.4.1",
     "@mantine/hooks": "^9.4.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "dayjs": "^1.11.13",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "peerDependencies": {
     "@mantine/core": "^9.0.0",
+    "@mantine/dates": "^9.0.0",
     "@mantine/hooks": "^9.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

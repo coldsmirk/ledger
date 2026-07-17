@@ -45,8 +45,6 @@ export const zhCN: DataTableLabels = {
   filterPlaceholder: "筛选…",
   filterRangeMin: "最小值",
   filterRangeMax: "最大值",
-  filterDateFrom: "开始",
-  filterDateTo: "结束",
 
   searchPlaceholder: "搜索…",
 

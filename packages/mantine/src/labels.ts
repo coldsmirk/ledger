@@ -46,8 +46,6 @@ export interface DataTableLabels {
   filterPlaceholder: string;
   filterRangeMin: string;
   filterRangeMax: string;
-  filterDateFrom: string;
-  filterDateTo: string;
 
   /* Global search */
   searchPlaceholder: string;
@@ -97,8 +95,6 @@ export const defaultLabels: DataTableLabels = {
   filterPlaceholder: "Filter…",
   filterRangeMin: "Min",
   filterRangeMax: "Max",
-  filterDateFrom: "From",
-  filterDateTo: "To",
 
   searchPlaceholder: "Search…",
 

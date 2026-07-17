@@ -13,6 +13,7 @@ Peer dependencies (the host application provides them):
 | Peer | Range |
 | --- | --- |
 | `@mantine/core` | `^9.0.0` |
+| `@mantine/dates` | `^9.0.0` (+ its own `dayjs` peer) — powers the `date-range` filter calendar |
 | `@mantine/hooks` | `^9.0.0` |
 | `react` / `react-dom` | `^19.2.0` (Mantine 9's own floor) |
 
@@ -24,6 +25,7 @@ Import the stylesheet once, after Mantine's:
 
 ```tsx
 import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
 import "@coldsmirk/ledger-mantine/styles.css";
 ```
 
