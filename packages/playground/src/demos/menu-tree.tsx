@@ -115,7 +115,6 @@ export function MenuTreeDemo() {
     <DataTable
       highlightOnHover
       tabularNums
-      withTableBorder
       columns={columns}
       data={data}
       defaultColumnPinning={{ start: ["name"], end: [] }}

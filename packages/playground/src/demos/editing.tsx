@@ -57,7 +57,6 @@ export function EditingDemo() {
 
       <DataTable
         tabularNums
-        withTableBorder
         columns={columns}
         data={data}
         flex={1}

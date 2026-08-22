@@ -23,7 +23,6 @@ export function TreeDemo() {
   return (
     <DataTable
       tabularNums
-      withTableBorder
       columns={columns}
       data={data}
       defaultExpanded={{ "r-1": true }}

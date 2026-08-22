@@ -33,7 +33,6 @@ export function HookToolbarDemo() {
 
       <DataTable
         striped
-        withTableBorder
         flex={1}
         mih={0}
         table={table}

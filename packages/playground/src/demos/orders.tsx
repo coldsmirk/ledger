@@ -126,7 +126,6 @@ export function OrdersDemo() {
         enablePagination
         striped
         tabularNums
-        withTableBorder
         columns={columns}
         data={data}
         defaultPagination={{ pageIndex: 0, pageSize: 20 }}

@@ -41,7 +41,6 @@ export function SelectionDemo() {
 
       <DataTable
         highlightOnHover
-        withTableBorder
         flex={1}
         labels={zhCN}
         mih={0}

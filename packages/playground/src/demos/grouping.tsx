@@ -68,7 +68,7 @@ export function GroupingDemo() {
         </DataTable.ColumnsPanel>
       </Group>
 
-      <DataTable tabularNums withTableBorder flex={1} mih={0} table={table} />
+      <DataTable tabularNums flex={1} mih={0} table={table} />
     </>
   );
 }

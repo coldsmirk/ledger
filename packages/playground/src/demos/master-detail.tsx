@@ -88,7 +88,6 @@ export function MasterDetailDemo() {
   return (
     <DataTable
       tabularNums
-      withTableBorder
       columns={columns}
       data={data}
       flex={1}

@@ -63,7 +63,6 @@ export function VirtualizedDemo() {
       <DataTable
         tabularNums
         virtualized
-        withTableBorder
         columns={columns}
         data={data}
         flex={1}

@@ -44,7 +44,6 @@ export function BasicDemo() {
   return (
     <DataTable
       highlightOnHover
-      withTableBorder
       columns={columns}
       data={data}
       defaultSorting={[{ id: "joinedAt", desc: true }]}

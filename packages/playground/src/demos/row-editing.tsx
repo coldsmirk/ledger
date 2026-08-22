@@ -112,7 +112,6 @@ export function RowEditingDemo() {
 
       <DataTable
         enableActiveRow
-        withTableBorder
         columns={columns}
         data={data}
         editMode="row"

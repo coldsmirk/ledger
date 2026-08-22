@@ -92,7 +92,7 @@ export function PinningDemo() {
         </Button>
       </Group>
 
-      <DataTable withTableBorder flex={1} mih={0} table={table} tableMinWidth={1280} />
+      <DataTable flex={1} mih={0} table={table} tableMinWidth={1280} />
 
       {/* The very same component, no trigger: it assumes nothing about what hosts it. The panel
           brings its own heading, so the drawer does not add a second one. */}

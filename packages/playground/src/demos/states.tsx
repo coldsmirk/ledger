@@ -76,7 +76,6 @@ export function StatesDemo() {
 
       <DataTable
         enableGlobalFilter
-        withTableBorder
         columns={columns}
         data={shownData}
         error={scenario === "error"}
