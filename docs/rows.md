@@ -19,6 +19,24 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 - On editable columns, the double-click that starts editing does not fire `onRowDoubleClick` ([editing.md](editing.md)).
 - `rowClassName` (string or per-row function) lands on the `<tr>` alongside the Styles API classes.
 
+## Active row
+
+`enableActiveRow` adds a single keyboard-reachable **current row**, deliberately independent from checkbox selection (a bulk-action set and a cursor are different things):
+
+```tsx
+<DataTable
+  enableActiveRow
+  defaultActiveRowId="42"
+  onActiveRowIdChange={id => setPreviewId(id)}
+  …
+/>
+```
+
+- **Mouse**: clicking a row makes it current (before `onRowClick` fires); the injected checkbox and expander keep their stop-propagation covenant and do not move it.
+- **Keyboard**: the body viewport becomes a focus stop (visible focus ring). `↑`/`↓` move the current row (scrolling it into view, virtualized included), `Home`/`End` jump to the edges, and `Enter` fires `onRowClick` for the current row (the event is the keyboard event).
+- State rides the ledger-owned `activeRowId` trio (`activeRowId` / `defaultActiveRowId` / `onActiveRowIdChange`) — controlled works like every other slice, so a master–detail page can drive the highlight from the outside.
+- The current row renders `data-active` and `aria-current` plus an inset accent bar on its first cell — visible even inside a block of selected rows, which share the same background wash.
+
 ## Master–detail panels
 
 ```tsx

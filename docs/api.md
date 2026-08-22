@@ -67,6 +67,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | `enableColumnOrdering` | `false` (ledger-owned name) | [columns.md](columns.md) |
 | `enableHiding` | `true` | [columns.md](columns.md) |
 | `enableEditing` | `true` (columns still opt in via `meta.edit`) | [editing.md](editing.md) |
+| `enableActiveRow` | `false` (ledger-owned; keyboard-reachable current row) | [rows.md](rows.md#active-row) |
 | `enableGrouping` | `false` | [grouping.md](grouping.md) |
 | `enableRowPinning` | `false` | [pinning.md](pinning.md) |
 
@@ -93,7 +94,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 
 ### State slices
 
-One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange(resolvedValue)`; shapes verbatim TanStack v9 ([state.md](state.md)): `sorting`, `columnFilters`, `globalFilter`, `pagination`, `rowSelection`, `expanded`, `columnVisibility`, `columnPinning` (`{ start, end }`), `columnOrder`, `columnSizing`, `grouping`, `rowPinning` — plus the ledger-owned `editingCell` / `onEditingCellChange` (no default form).
+One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange(resolvedValue)`; shapes verbatim TanStack v9 ([state.md](state.md)): `sorting`, `columnFilters`, `globalFilter`, `pagination`, `rowSelection`, `expanded`, `columnVisibility`, `columnPinning` (`{ start, end }`), `columnOrder`, `columnSizing`, `grouping`, `rowPinning` — plus the ledger-owned `editingCell` / `onEditingCellChange` (no default form) and `activeRowId` / `defaultActiveRowId` / `onActiveRowIdChange` (with `enableActiveRow`, [rows.md](rows.md#active-row)).
 
 ### Persistence and escape hatch
 

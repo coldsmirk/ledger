@@ -298,6 +298,7 @@ interface DataRowProps {
   dataIndex: number;
   editingColumnId: string | null;
   selected: boolean;
+  active: boolean;
   expanded: boolean;
   depth: number;
   pinKey: string;
@@ -322,6 +323,7 @@ function DataRowImpl({
   dataIndex,
   editingColumnId,
   selected,
+  active,
   expanded,
   depth,
   pinnedPosition,
@@ -331,12 +333,14 @@ function DataRowImpl({
   ariaRowIndex
 }: DataRowProps) {
   const {
+    table,
     getStyles,
     onRowClick,
     onRowDoubleClick,
     onRowContextMenu,
     rowClassName
   } = useDataTableContext();
+  const activeRow = table.options.meta?.ledger?.activeRow;
 
   const cells = row.getVisibleCells();
   const firstDataCellIndex = cells.findIndex(cell => !isInternalColumn(cell.column.id));
@@ -352,12 +356,25 @@ function DataRowImpl({
 
   const handler = (callback?: (row: Row<any>, event: MouseEvent) => void) => callback ? (event: MouseEvent) => callback(row, event) : undefined;
 
+  // A click makes the row current before the consumer's own handler sees it.
+  const handleClick = onRowClick || activeRow?.enabled
+    ? (event: MouseEvent) => {
+        if (activeRow?.enabled) {
+          activeRow.set(row.id);
+        }
+
+        onRowClick?.(row, event);
+      }
+    : undefined;
+
   return (
     <MantineTable.Tr
       ref={measureRef}
+      aria-current={active || undefined}
       aria-rowindex={ariaRowIndex}
       aria-selected={selected || undefined}
-      data-clickable={onRowClick ? true : undefined}
+      data-active={active || undefined}
+      data-clickable={handleClick ? true : undefined}
       data-expanded={expanded || undefined}
       data-index={virtualIndex}
       data-parity={dataIndex >= 0 ? dataIndex % 2 === 0 ? "odd" : "even" : undefined}
@@ -365,7 +382,7 @@ function DataRowImpl({
       data-row-id={row.id}
       data-selected={selected || undefined}
       role="row"
-      onClick={handler(onRowClick)}
+      onClick={handleClick}
       onContextMenu={handler(onRowContextMenu)}
       onDoubleClick={handler(onRowDoubleClick)}
       {...getStyles("row", { className: resolvedRowClassName, style: pinnedStyle })}
@@ -602,6 +619,7 @@ export function TableBody({
   const pinKey = JSON.stringify([pinning.start, pinning.end]);
   const columnsKey = JSON.stringify(table.getVisibleLeafColumns().map(column => column.id));
   const editingCell = ledger?.editing.cell ?? null;
+  const activeRowId = ledger?.activeRow.enabled ? ledger.activeRow.id : null;
 
   interface DisplayRowRenderOptions {
     displayIndex: number;
@@ -643,6 +661,7 @@ export function TableBody({
     return (
       <DataRow
         key={displayRow.key}
+        active={activeRowId === row.id}
         ariaRowIndex={ariaRowIndex}
         columnsKey={columnsKey}
         dataIndex={options.pinnedPosition ? -1 : dataIndex}

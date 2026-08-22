@@ -71,6 +71,12 @@
     z-index: 3;
   }
 
+  /* With the active row enabled the body viewport is a keyboard focus stop — show it. */
+  .ledger-scroller > [tabindex="0"]:focus-visible {
+    outline: 2px solid var(--mantine-primary-color-filled);
+    outline-offset: -2px;
+  }
+
   /* The footer viewport (totals): always visible below the scroller, scrollLeft-mirrored.
      Its separators live in the Borders section — the top seam belongs to the scroller. */
   .ledger-footer {
@@ -282,6 +288,20 @@
 
   .ledger-row[data-selected] {
     --ledger-row-bg: var(--mantine-primary-color-light);
+  }
+
+  /* The active (current) row shares the selection wash; the inset start bar is what marks it
+     apart — including inside a block of selected rows. */
+  .ledger-row[data-active] {
+    --ledger-row-bg: var(--mantine-primary-color-light);
+  }
+
+  .ledger-row[data-active] > :first-child {
+    box-shadow: inset 3px 0 0 var(--mantine-primary-color-filled);
+  }
+
+  [dir="rtl"] .ledger-row[data-active] > :first-child {
+    box-shadow: inset -3px 0 0 var(--mantine-primary-color-filled);
   }
 
   .ledger-row[data-clickable] {

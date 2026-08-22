@@ -8,13 +8,14 @@ import type {
 } from "@mantine/core";
 import type { RowData } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import type { JSX, MouseEvent, ReactNode, Ref } from "react";
+import type { JSX, MouseEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from "react";
 
 import type { DataTableContextValue } from "./context";
 import type { DataTableLabels } from "./labels";
 import type { VirtualizationConfig } from "./table-body";
 import type {
   DataTableHandle,
+  DataTableScrollToRowOptions,
   Row,
   TableInstance,
   UseDataTableOptions
@@ -297,6 +298,10 @@ const OPTION_KEYS = [
   "rowCount",
   "editTrigger",
   "onEditCommit",
+  "enableActiveRow",
+  "activeRowId",
+  "defaultActiveRowId",
+  "onActiveRowIdChange",
   "sorting",
   "defaultSorting",
   "onSortingChange",
@@ -773,6 +778,41 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     []
   );
 
+  const scrollRowIntoView = useEventCallback(
+    (rowId: string | number, options?: DataTableScrollToRowOptions) => {
+      const { rows } = table.getRowModel();
+      const id = typeof rowId === "number" ? rows[rowId]?.id : rowId;
+
+      if (id === undefined) {
+        return;
+      }
+
+      const virtualizer = virtualizerRef.current;
+
+      if (virtualizer) {
+        const withDetail = Boolean(table.options.meta?.ledger?.renderDetailPanel);
+        const index = resolveVirtualDisplayIndex(table, id, withDetail);
+
+        if (index !== null) {
+          virtualizer.scrollToIndex(index, {
+            align: options?.align ?? "auto",
+            behavior: options?.behavior
+          });
+        }
+
+        return;
+      }
+
+      const selector = `[data-row-id="${typeof CSS === "undefined" ? id.replaceAll("\"", String.raw`\"`) : CSS.escape(id)}"]`;
+      const rowElement = viewportRef.current?.querySelector<HTMLElement>(`:scope ${selector}`);
+
+      rowElement?.scrollIntoView({
+        behavior: options?.behavior,
+        block: options?.align === undefined || options.align === "auto" ? "nearest" : options.align
+      });
+    }
+  );
+
   useImperativeHandle(
     handleRef,
     () => {
@@ -781,44 +821,92 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         get viewport() {
           return viewportRef.current;
         },
-        scrollToRow: (rowId, options) => {
-          const { rows } = table.getRowModel();
-          const id = typeof rowId === "number" ? rows[rowId]?.id : rowId;
-
-          if (id === undefined) {
-            return;
-          }
-
-          const virtualizer = virtualizerRef.current;
-
-          if (virtualizer) {
-            const withDetail = Boolean(table.options.meta?.ledger?.renderDetailPanel);
-            const index = resolveVirtualDisplayIndex(table, id, withDetail);
-
-            if (index !== null) {
-              virtualizer.scrollToIndex(index, {
-                align: options?.align ?? "auto",
-                behavior: options?.behavior
-              });
-            }
-
-            return;
-          }
-
-          const selector = `[data-row-id="${typeof CSS === "undefined" ? id.replaceAll("\"", String.raw`\"`) : CSS.escape(id)}"]`;
-          const rowElement = viewportRef.current?.querySelector<HTMLElement>(selector);
-
-          rowElement?.scrollIntoView({
-            behavior: options?.behavior,
-            block: options?.align === undefined || options.align === "auto" ? "nearest" : options.align
-          });
-        },
+        scrollToRow: scrollRowIntoView,
         startEditing: (rowId, columnId) => table.options.meta?.ledger?.editing.start({ rowId, columnId }),
         stopEditing: options => table.options.meta?.ledger?.editing.stop(options)
       };
     },
-    [table]
+    [table, scrollRowIntoView]
   );
+
+  /* ---- active row keyboard (docs/rows.md): the body viewport is the focus stop ---- */
+  const activeRowEnabled = table.options.meta?.ledger?.activeRow.enabled === true;
+
+  const handleActiveRowKeyDown = useEventCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const activeRow = table.options.meta?.ledger?.activeRow;
+
+    if (!activeRow?.enabled) {
+      return;
+    }
+
+    // Keys inside an interactive child (an editor, a checkbox, the retry button) belong to it.
+    if ((event.target as HTMLElement).closest("input, button, select, textarea, a, [contenteditable]")) {
+      return;
+    }
+
+    const pinningActive = table.options.enableRowPinning === true;
+    const rows = pinningActive
+      ? [...table.getTopRows(), ...table.getCenterRows(), ...table.getBottomRows()]
+      : table.getRowModel().rows;
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    const currentIndex = activeRow.id === null ? -1 : rows.findIndex(row => row.id === activeRow.id);
+
+    const moveTo = (index: number) => {
+      const row = rows[Math.min(Math.max(index, 0), rows.length - 1)];
+
+      if (row) {
+        activeRow.set(row.id);
+        scrollRowIntoView(row.id);
+      }
+    };
+
+    switch (event.key) {
+      case "ArrowDown": {
+        event.preventDefault();
+        moveTo(currentIndex + 1);
+
+        break;
+      }
+
+      case "ArrowUp": {
+        event.preventDefault();
+        moveTo(currentIndex - 1);
+
+        break;
+      }
+
+      case "Home": {
+        event.preventDefault();
+        moveTo(0);
+
+        break;
+      }
+
+      case "End": {
+        event.preventDefault();
+        moveTo(rows.length - 1);
+
+        break;
+      }
+
+      case "Enter": {
+        const row = currentIndex >= 0 ? rows[currentIndex] : null;
+
+        if (row && onRowClick) {
+          event.preventDefault();
+          // Keyboard activation reuses the row-click contract; the event is the KeyboardEvent.
+          onRowClick(row as Row<TData>, event as unknown as MouseEvent);
+        }
+
+        break;
+      }
+      // No default
+    }
+  });
 
   /* ---- dev guard rails ---- */
   if (paginationEnabled && onEndReached) {
@@ -915,11 +1003,15 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
             {...getStyles("scroller")}
             scrollbars="xy"
             type="hover"
-            viewportProps={{ style: { overscrollBehavior: "none" } }}
             viewportRef={assignViewport}
             styles={{
               corner: { backgroundColor: "transparent" },
               scrollbar: { backgroundColor: "transparent" }
+            }}
+            viewportProps={{
+              style: { overscrollBehavior: "none" },
+              // With the active row on, the body viewport is the keyboard focus stop.
+              ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
             }}
             onScrollPositionChange={handleScrollPositionChange}
           >

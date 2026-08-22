@@ -43,6 +43,7 @@ v9 also removed the whole-state `onStateChange` option; the per-slice `onXChange
 | `grouping` | `GroupingState` | `[]` |
 | `rowPinning` | `RowPinningState` | `{ top: [], bottom: [] }` |
 | `editingCell` | `DataTableEditingCell \| null` (ledger-owned) | `null` — and no `defaultEditingCell`: a default editing cell is meaningless |
+| `activeRowId` | `string \| null` (ledger-owned) | `null` ([rows.md](rows.md#active-row)) |
 
 ## Client/server modes
 

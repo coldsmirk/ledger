@@ -163,6 +163,46 @@ describe("DataTable", () => {
     expect(onEndReached).toHaveBeenCalledTimes(1);
   });
 
+  it("tracks the active row from clicks and the viewport keyboard", () => {
+    // jsdom has no scrollIntoView; the keyboard path calls it after each move.
+    Element.prototype.scrollIntoView ??= () => undefined;
+
+    const onActiveRowIdChange = vi.fn();
+    const onRowClick = vi.fn();
+    const { container } = render(
+      <DataTable
+        enableActiveRow
+        columns={columns}
+        data={people}
+        getRowId={getRowId}
+        onActiveRowIdChange={onActiveRowIdChange}
+        onRowClick={onRowClick}
+      />,
+      { wrapper }
+    );
+
+    const rowFor = (id: string) => container.querySelector<HTMLElement>(`:scope [data-row-id="${CSS.escape(id)}"]`);
+
+    fireEvent.click(rowFor("2")?.querySelector(":scope td") as Element);
+    expect(rowFor("2")?.dataset.active).toBe("true");
+    expect(onActiveRowIdChange).toHaveBeenLastCalledWith("2");
+
+    const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
+    expect(viewport).toBeTruthy();
+
+    fireEvent.keyDown(viewport, { key: "ArrowDown" });
+    expect(rowFor("3")?.dataset.active).toBe("true");
+    expect(rowFor("2")?.dataset.active).toBeUndefined();
+
+    fireEvent.keyDown(viewport, { key: "Home" });
+    expect(rowFor("1")?.dataset.active).toBe("true");
+
+    onRowClick.mockClear();
+    fireEvent.keyDown(viewport, { key: "Enter" });
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect((onRowClick.mock.calls[0]?.[0] as { id: string }).id).toBe("1");
+  });
+
   it("fires onRowClick with the row, but not from the selection checkbox", () => {
     const onRowClick = vi.fn();
     const { container } = render(

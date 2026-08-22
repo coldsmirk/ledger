@@ -219,6 +219,12 @@ export interface UseDataTableOptions<TData extends RowData> {
   editTrigger?: DataTableEditTrigger;
   onEditCommit?: (change: DataTableEditCommit<TData>) => void | Promise<void>;
 
+  /**
+   * A single keyboard-reachable current row (row click or ↑/↓/Home/End on the focused body;
+   * Enter fires `onRowClick`), independent from checkbox selection. Off by default.
+   */
+  enableActiveRow?: boolean;
+
   /* State — one independent trio per slice; callbacks receive resolved values */
   sorting?: SortingState;
   defaultSorting?: SortingState;
@@ -257,7 +263,14 @@ export interface UseDataTableOptions<TData extends RowData> {
   defaultRowPinning?: RowPinningState;
   onRowPinningChange?: (value: RowPinningState) => void;
   /**
-   * The only non-TanStack slice; editing has no meaningful default.
+   * Non-TanStack slice (like editing); the value is the active row's id.
+   */
+  activeRowId?: string | null;
+  defaultActiveRowId?: string | null;
+  onActiveRowIdChange?: (value: string | null) => void;
+
+  /**
+   * Non-TanStack slice; editing has no meaningful default.
    */
   editingCell?: DataTableEditingCell | null;
   onEditingCellChange?: (value: DataTableEditingCell | null) => void;
@@ -350,6 +363,14 @@ export interface LedgerMeta<TData extends RowData> {
    * Header checkbox scope: current page when paginated, all filtered rows otherwise (docs/selection.md).
    */
   selectAllScope: "page" | "all";
+  /**
+   * The active-row slice (docs/rows.md): a single keyboard-reachable current row.
+   */
+  activeRow: {
+    enabled: boolean;
+    id: string | null;
+    set: (id: string | null) => void;
+  };
   /**
    * Header drag-reorder affordance (ledger-owned; TanStack has state but no switch).
    */

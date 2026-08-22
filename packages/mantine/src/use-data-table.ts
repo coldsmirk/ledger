@@ -84,6 +84,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     rowCount,
     editTrigger = "double-click",
     onEditCommit,
+    enableActiveRow = false,
     persistState,
     defaultColumn,
     tableOptions
@@ -199,6 +200,16 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     onChange: options.onEditingCellChange,
     fallback: null
   });
+  const [activeRowId, setActiveRowSlice] = useSlice<string | null>({
+    value: options.activeRowId,
+    defaultValue: options.defaultActiveRowId,
+    onChange: options.onActiveRowIdChange,
+    fallback: null
+  });
+  const setActiveRowId = useCallback(
+    (id: string | null) => setActiveRowSlice(id),
+    [setActiveRowSlice]
+  );
   const setNormalizedGlobalFilter = useCallback((updater: Updater<unknown>) => {
     setGlobalFilter(previous => {
       const next = functionalUpdate(updater, previous);
@@ -321,6 +332,11 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         onEditCommit,
         renderDetailPanel,
         selectAllScope,
+        activeRow: {
+          enabled: enableActiveRow,
+          id: activeRowId,
+          set: setActiveRowId
+        },
         enableColumnOrdering,
         enableColumnResizing,
         enablePagination
@@ -340,6 +356,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       onEditCommit,
       renderDetailPanel,
       selectAllScope,
+      enableActiveRow,
+      activeRowId,
+      setActiveRowId,
       enableColumnOrdering,
       enableColumnResizing,
       enablePagination
