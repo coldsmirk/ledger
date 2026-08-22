@@ -1,5 +1,5 @@
 import type { GetStylesApi } from "@mantine/core";
-import type { MouseEvent, RefObject } from "react";
+import type { KeyboardEvent, MouseEvent, RefObject } from "react";
 
 import type { DataTableFactory } from "./data-table";
 import type { DataTableLabels } from "./labels";
@@ -29,6 +29,7 @@ export interface DataTableContextValue {
    */
   columnWidths: RefObject<Record<string, number>>;
   onRowClick?: (row: Row<any>, event: MouseEvent) => void;
+  onRowActivate?: (row: Row<any>, event: MouseEvent | KeyboardEvent) => void;
   onRowDoubleClick?: (row: Row<any>, event: MouseEvent) => void;
   onRowContextMenu?: (row: Row<any>, event: MouseEvent) => void;
   rowClassName?: string | ((row: Row<any>) => string | undefined);

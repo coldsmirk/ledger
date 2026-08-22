@@ -139,7 +139,8 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `onRetry` | `() => void` | — | Adds the retry button to the error panel |
 | `withPaginationBar` | `boolean` | `true` | Renders only while pagination is enabled |
 | `pageSizeOptions` | `number[]` | `[10, 20, 50, 100]` | |
-| `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | [rows.md](rows.md) |
+| `onRowActivate` | `(row: Row<TData>, event: MouseEvent \| KeyboardEvent) => void` | — | Input-agnostic: click or `Enter` on the current row ([rows.md](rows.md)) |
+| `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | Literal pointer events ([rows.md](rows.md)) |
 | `rowClassName` | `string \| (row) => string \| undefined` | — | |
 | `labels` | `Partial<DataTableLabels>` | `defaultLabels` | [i18n.md](i18n.md) |
 | `aria-label` / `aria-labelledby` / `aria-describedby` | `string` | — | Routed to the ARIA table (`.ledger-main`), not the root wrapper |

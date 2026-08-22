@@ -182,6 +182,7 @@ describe("DataTable", () => {
     Element.prototype.scrollIntoView ??= () => undefined;
 
     const onActiveRowIdChange = vi.fn();
+    const onRowActivate = vi.fn();
     const onRowClick = vi.fn();
     const { container } = render(
       <DataTable
@@ -190,6 +191,7 @@ describe("DataTable", () => {
         data={people}
         getRowId={getRowId}
         onActiveRowIdChange={onActiveRowIdChange}
+        onRowActivate={onRowActivate}
         onRowClick={onRowClick}
       />,
       { wrapper }
@@ -200,6 +202,9 @@ describe("DataTable", () => {
     fireEvent.click(rowFor("2")?.querySelector(":scope td") as Element);
     expect(rowFor("2")?.dataset.active).toBe("true");
     expect(onActiveRowIdChange).toHaveBeenLastCalledWith("2");
+    // A click is both — the literal event and an activation.
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(onRowActivate).toHaveBeenCalledTimes(1);
 
     const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
     expect(viewport).toBeTruthy();
@@ -212,9 +217,12 @@ describe("DataTable", () => {
     expect(rowFor("1")?.dataset.active).toBe("true");
 
     onRowClick.mockClear();
+    onRowActivate.mockClear();
     fireEvent.keyDown(viewport, { key: "Enter" });
-    expect(onRowClick).toHaveBeenCalledTimes(1);
-    expect((onRowClick.mock.calls[0]?.[0] as { id: string }).id).toBe("1");
+    expect((onRowActivate.mock.calls[0]?.[0] as { id: string }).id).toBe("1");
+    // Enter is not a click: the pointer-only handler must never see a synthesized MouseEvent.
+    expect(onRowClick).not.toHaveBeenCalled();
+    expect((onRowActivate.mock.calls[0]?.[1] as { type: string }).type).toBe("keydown");
   });
 
   it("fires onRowClick with the row, but not from the selection checkbox", () => {

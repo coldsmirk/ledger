@@ -6,7 +6,7 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 
 ```tsx
 <DataTable
-  onRowClick={(row, event) => openDrawer(row.original)}
+  onRowActivate={(row, event) => openDrawer(row.original)}
   onRowDoubleClick={(row, event) => …}
   onRowContextMenu={(row, event) => { event.preventDefault(); … }}
   rowClassName={row => (row.original.overdue ? "row-overdue" : undefined)}
@@ -14,7 +14,9 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 />
 ```
 
-- Handlers receive the typed TanStack `Row` and the React mouse event. When `onRowClick` is set, rows render `data-clickable` (pointer cursor).
+- **`onRowActivate` is the one to reach for.** It means "the user chose this row" and fires whatever the input device: a primary click, or `Enter` on the current row when `enableActiveRow` is on. Its event is therefore `MouseEvent | KeyboardEvent`.
+- `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` are literal pointer events and stay pointer-only — their signatures say `MouseEvent` and they never receive anything else. A click fires `onRowClick` first, then `onRowActivate`. Wiring navigation to `onRowClick` alone leaves it unreachable by keyboard.
+- Handlers receive the typed TanStack `Row`. A row that responds to a click renders `data-clickable` (pointer cursor).
 - **The stop-propagation covenant**: interactive things inside a row — selection checkboxes, expander chevrons, editing cells and editors, header/menu triggers — never leak their clicks to the row handlers. A `display` actions column you write yourself should follow the same rule (`event.stopPropagation()` in its buttons).
 - On editable columns, the double-click that starts editing does not fire `onRowDoubleClick` ([editing.md](editing.md)).
 - `rowClassName` (string or per-row function) lands on the `<tr>` alongside the Styles API classes.
@@ -32,8 +34,8 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 />
 ```
 
-- **Mouse**: clicking a row makes it current (before `onRowClick` fires); the injected checkbox and expander keep their stop-propagation covenant and do not move it.
-- **Keyboard**: the body viewport becomes a focus stop (visible focus ring). `↑`/`↓` move the current row (scrolling it into view, virtualized included), `Home`/`End` jump to the edges, and `Enter` fires `onRowClick` for the current row (the event is the keyboard event).
+- **Mouse**: clicking a row makes it current (before the row handlers fire); the injected checkbox and expander keep their stop-propagation covenant and do not move it.
+- **Keyboard**: the body viewport becomes a focus stop (visible focus ring). `↑`/`↓` move the current row (scrolling it into view, virtualized included), `Home`/`End` jump to the edges, and `Enter` fires `onRowActivate` for the current row.
 - State rides the ledger-owned `activeRowId` trio (`activeRowId` / `defaultActiveRowId` / `onActiveRowIdChange`) — controlled works like every other slice, so a master–detail page can drive the highlight from the outside.
 - The current row renders `data-active` and `aria-current` plus an inset accent bar on its first cell — visible even inside a block of selected rows, which share the same background wash.
 

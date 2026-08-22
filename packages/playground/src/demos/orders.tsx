@@ -130,7 +130,7 @@ export function OrdersDemo() {
         getRowId={order => order.id}
         labels={zhCN}
         mih={0}
-        onRowClick={row => setActiveOrder(row.original.orderNo)}
+        onRowActivate={row => setActiveOrder(row.original.orderNo)}
       />
     </>
   );

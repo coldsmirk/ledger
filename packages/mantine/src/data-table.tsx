@@ -195,7 +195,16 @@ export interface DataTableBaseProps<TData extends RowData>
   pageSizeOptions?: number[];
 
   /* Row interaction */
+  /**
+   * A literal primary click on the row. Pointer-only by definition — reach for `onRowActivate`
+   * when the intent is "the user chose this row", so the keyboard reaches it too.
+   */
   onRowClick?: (row: Row<TData>, event: MouseEvent) => void;
+  /**
+   * The row was activated, whatever the input device: a primary click, or `Enter` on the
+   * current row while `enableActiveRow` is on ([rows.md](../docs/rows.md#active-row)).
+   */
+  onRowActivate?: (row: Row<TData>, event: MouseEvent | ReactKeyboardEvent) => void;
   onRowDoubleClick?: (row: Row<TData>, event: MouseEvent) => void;
   onRowContextMenu?: (row: Row<TData>, event: MouseEvent) => void;
   rowClassName?: string | ((row: Row<TData>) => string | undefined);
@@ -454,6 +463,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     withPaginationBar,
     pageSizeOptions,
     onRowClick,
+    onRowActivate,
     onRowDoubleClick,
     onRowContextMenu,
     rowClassName,
@@ -541,6 +551,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
 
   /* ---- row interaction handlers with stable identities ---- */
   const rowClickStable = useEventCallback(onRowClick);
+  const rowActivateStable = useEventCallback(onRowActivate);
   const rowDoubleClickStable = useEventCallback(onRowDoubleClick);
   const rowContextMenuStable = useEventCallback(onRowContextMenu);
 
@@ -549,6 +560,9 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   // value (and with it every memoized row). `rowClassName` stays raw below: its return value
   // feeds the render, so identity is its honest dependency.
   const contextRowClick = onRowClick ? (rowClickStable as DataTableContextValue["onRowClick"]) : undefined;
+  const contextRowActivate = onRowActivate
+    ? (rowActivateStable as DataTableContextValue["onRowActivate"])
+    : undefined;
   const contextRowDoubleClick = onRowDoubleClick
     ? (rowDoubleClickStable as DataTableContextValue["onRowDoubleClick"])
     : undefined;
@@ -580,6 +594,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         virtualized: virtualEnabled,
         columnWidths: columnWidthsRef,
         onRowClick: contextRowClick,
+        onRowActivate: contextRowActivate,
         onRowDoubleClick: contextRowDoubleClick,
         onRowContextMenu: contextRowContextMenu,
         rowClassName: rowClassName as DataTableContextValue["rowClassName"]
@@ -591,6 +606,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       filterMode,
       virtualEnabled,
       contextRowClick,
+      contextRowActivate,
       contextRowDoubleClick,
       contextRowContextMenu,
       rowClassName
@@ -928,10 +944,11 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       case "Enter": {
         const row = currentIndex >= 0 ? rows[currentIndex] : null;
 
-        if (row && onRowClick) {
+        // Only `onRowActivate` is input-agnostic. `onRowClick` stays literal — synthesizing a
+        // MouseEvent for it would make its own type signature a lie.
+        if (row && onRowActivate) {
           event.preventDefault();
-          // Keyboard activation reuses the row-click contract; the event is the KeyboardEvent.
-          onRowClick(row as Row<TData>, event as unknown as MouseEvent);
+          onRowActivate(row as Row<TData>, event);
         }
 
         break;

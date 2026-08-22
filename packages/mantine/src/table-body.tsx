@@ -391,6 +391,7 @@ function DataRowImpl({
     table,
     getStyles,
     onRowClick,
+    onRowActivate,
     onRowDoubleClick,
     onRowContextMenu,
     rowClassName
@@ -411,14 +412,16 @@ function DataRowImpl({
 
   const handler = (callback?: (row: Row<any>, event: MouseEvent) => void) => callback ? (event: MouseEvent) => callback(row, event) : undefined;
 
-  // A click makes the row current before the consumer's own handler sees it.
-  const handleClick = onRowClick || activeRow?.enabled
+  // A click makes the row current before the consumer's own handlers see it. A click is also an
+  // activation, so both fire here — `onRowClick` first, as the more specific of the two.
+  const handleClick = onRowClick || onRowActivate || activeRow?.enabled
     ? (event: MouseEvent) => {
         if (activeRow?.enabled) {
           activeRow.set(row.id);
         }
 
         onRowClick?.(row, event);
+        onRowActivate?.(row, event);
       }
     : undefined;
 
