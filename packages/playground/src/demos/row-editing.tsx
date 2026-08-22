@@ -107,10 +107,11 @@ export function RowEditingDemo() {
       <Text c="dimmed" size="xs">
         最近一次整行提交：
         <Code>{lastCommit}</Code>
-        （模拟服务端 600ms 延迟；Enter 提交整行、Escape 取消、Tab 在编辑器间移动；点击另一行会先提交当前行）
+        （模拟服务端 600ms 延迟；聚焦表格后 ↑/↓ 移动活动行、F2 进入编辑；Enter 提交整行、Escape 取消、Tab 在编辑器间移动；点击另一行会先提交当前行）
       </Text>
 
       <DataTable
+        enableActiveRow
         withTableBorder
         columns={columns}
         data={data}

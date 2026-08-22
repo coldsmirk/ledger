@@ -51,6 +51,58 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 const editorInputs = () => [...document.querySelectorAll<HTMLInputElement>(".ledger-cell-editor input")];
+const viewport = () => document.querySelector(".ledger-scroller [tabindex=\"0\"]") as HTMLElement;
+
+describe("keyboard entry into editing", () => {
+  it("starts cell-mode editing at the row's first editable cell on F2", async () => {
+    Element.prototype.scrollIntoView ??= () => undefined;
+
+    render(
+      <DataTable
+        enableActiveRow
+        columns={columns}
+        data={people}
+        defaultActiveRowId="2"
+        getRowId={person => person.id}
+        onEditCommit={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    // Enter activates the row; only F2 edits — that overload is why the pattern reserves it.
+    fireEvent.keyDown(viewport(), { key: "Enter" });
+    expect(editorInputs()).toHaveLength(0);
+
+    fireEvent.keyDown(viewport(), { key: "F2" });
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+    expect(
+      document.querySelector("[data-row-id=\"2\"] td[data-ledger-column-id=\"name\"][data-editing]")
+    ).toBeTruthy();
+  });
+
+  it("opens the whole row on F2 under editMode row", async () => {
+    Element.prototype.scrollIntoView ??= () => undefined;
+
+    render(
+      <DataTable
+        enableActiveRow
+        columns={columns}
+        data={people}
+        defaultActiveRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        onRowEditCommit={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.keyDown(viewport(), { key: "F2" });
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    expect(document.querySelector("[data-row-id=\"1\"][data-editing-row]")).toBeTruthy();
+  });
+});
 
 describe("row editing mode", () => {
   it("opens every editable cell of the row and commits the whole row on Enter", async () => {

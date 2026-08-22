@@ -48,6 +48,7 @@ import {
 } from "@mantine/core";
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 
+import { canEditCell, isCheckboxEdit } from "./cell-editor";
 import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
 import { mergeElementProps } from "./element-props";
@@ -988,6 +989,40 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         if (row && onRowActivate) {
           event.preventDefault();
           onRowActivate(row as Row<TData>, event);
+        }
+
+        break;
+      }
+
+      // The WAI-APG grid pattern's dedicated edit key. Enter is spoken for here (it activates
+      // the row), which is exactly the overload F2 exists to resolve.
+      case "F2": {
+        const row = currentIndex >= 0 ? rows[currentIndex] : null;
+        const editing = table.options.meta?.ledger?.editing;
+
+        if (!row || !editing) {
+          break;
+        }
+
+        if (editing.mode === "row") {
+          event.preventDefault();
+          editing.row.start(row.id);
+
+          break;
+        }
+
+        // Cell mode has no cell cursor, so the row's first editable cell is the entry point.
+        // Checkbox columns are skipped: they commit on toggle and never host an editor.
+        // v9's `in out` generics make Cell/Row invariant in TData; the editing predicates take
+        // the erased shape, the same boundary the row-editing controller crosses.
+        const erasedRow = row as Row<any>;
+        const target = erasedRow
+          .getVisibleCells()
+          .find(cell => canEditCell(cell, erasedRow) && !isCheckboxEdit(cell));
+
+        if (target) {
+          event.preventDefault();
+          editing.start({ rowId: row.id, columnId: target.column.id });
         }
 
         break;

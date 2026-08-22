@@ -62,6 +62,7 @@ meta: {
 
 | Key / event | Effect |
 | --- | --- |
+| F2 (with `enableActiveRow`) | Start editing the current row — its first editable cell in cell mode, the whole row in row mode. The dedicated edit key of the WAI-APG grid pattern; `Enter` is taken here, since it activates the row ([rows.md](rows.md#active-row)) |
 | Enter | Commit |
 | Escape | Cancel (restore the original value) |
 | Tab / Shift+Tab | Commit, wait for success, then move to the row's next/previous editable cell (checkbox cells are skipped in shorthand and object form; past the row's edge, editing stops with a commit) |
