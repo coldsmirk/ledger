@@ -8,7 +8,7 @@
  * (`ColumnDef<TData, TValue>`, `Row<TData>`, …) — the feature set is an implementation
  * detail of the package, never a parameter consumers manage.
  */
-import type { ComboboxData, MantineBreakpoint } from "@mantine/core";
+import type { ComboboxData, MantineBreakpoint, TableTdProps, TableThProps } from "@mantine/core";
 import type {
   CellData,
   ColumnFiltersState,
@@ -31,11 +31,13 @@ import type {
   Column as TanStackColumn,
   ColumnDef as TanStackColumnDef,
   Header as TanStackHeader,
+  HeaderGroup as TanStackHeaderGroup,
   Row as TanStackRow,
   TableOptions as TanStackTableOptions
 } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 
+import type { DataTableElementProps } from "./element-props";
 import type { LedgerFeatures } from "./ledger-features";
 
 /**
@@ -56,10 +58,11 @@ export type Row<TData extends RowData> = TanStackRow<LedgerFeatures, TData>;
 export type Cell<TData extends RowData, TValue extends CellData = CellData>
   = TanStackCell<LedgerFeatures, TData, TValue>;
 /**
- * Internal-only binding (header rendering); not part of the public re-export set.
+ * The subject of `meta.headerCellProps` / `meta.footerCellProps`, so it is re-exported too.
  */
 export type Header<TData extends RowData, TValue extends CellData = CellData>
   = TanStackHeader<LedgerFeatures, TData, TValue>;
+export type HeaderGroup<TData extends RowData> = TanStackHeaderGroup<LedgerFeatures, TData>;
 
 // ------------------------------------------------------------------------------------------------
 // Filtering
@@ -492,8 +495,18 @@ declare module "@tanstack/react-table" {
       | DataTableEditVariant
       | DataTableEditConfig<TData, TValue>
       | ((ctx: DataTableEditContext<TData, TValue>) => ReactNode);
-    headerClassName?: string;
-    cellClassName?: string | ((cell: Cell<TData, TValue>) => string | undefined);
+    /**
+     * DOM props for this column's body cells — static, or per cell.
+     */
+    cellProps?: DataTableElementProps<Omit<TableTdProps, "ref">, Cell<TData, TValue>>;
+    /**
+     * DOM props for this column's header cell — static, or per header (group headers included).
+     */
+    headerCellProps?: DataTableElementProps<Omit<TableThProps, "ref">, Header<TData, TValue>>;
+    /**
+     * DOM props for this column's footer cell — static, or per footer.
+     */
+    footerCellProps?: DataTableElementProps<Omit<TableThProps, "ref">, Header<TData, TValue>>;
     /**
      * `toCsv` column control: `false` excludes the column; an object overrides the exported
      * header text or derives the exported value.

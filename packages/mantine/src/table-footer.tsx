@@ -10,6 +10,7 @@ import { Table as MantineTable } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 
 import { useDataTableContext } from "./context";
+import { mergeElementProps, resolveElementProps } from "./element-props";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 
 export function tableHasFooter<TData extends RowData>(table: TableInstance<TData>): boolean {
@@ -23,27 +24,31 @@ export function TableFooter<TData extends RowData>({
   table: TableInstance<TData>;
   ariaRowIndexStart?: number;
 }) {
-  const { getStyles } = useDataTableContext();
+  const { getStyles, footerRowProps } = useDataTableContext();
 
   return (
     <MantineTable.Tfoot {...getStyles("tfoot")}>
       {table.getFooterGroups().map((footerGroup, groupIndex) => (
         <MantineTable.Tr
           key={footerGroup.id}
-          aria-rowindex={ariaRowIndexStart === undefined ? undefined : ariaRowIndexStart + groupIndex}
-          role="row"
-          {...getStyles("footerRow")}
+          {...mergeElementProps(resolveElementProps(footerRowProps, footerGroup), {
+            "aria-rowindex": ariaRowIndexStart === undefined ? undefined : ariaRowIndexStart + groupIndex,
+            role: "row",
+            ...getStyles("footerRow")
+          })}
         >
           {footerGroup.headers.map(footer => (
             <MantineTable.Th
               key={footer.id}
-              colSpan={footer.colSpan}
-              data-align={footer.column.columnDef.meta?.align}
-              data-pinned={footer.column.getIsPinned() || undefined}
-              data-pinned-edge={pinnedEdge(footer.column)}
-              // Totals are data, not headers — under the ARIA table they are plain cells.
-              role="cell"
-              {...getStyles("footerCell", { style: pinnedCellStyle(footer.column) })}
+              {...mergeElementProps(resolveElementProps(footer.column.columnDef.meta?.footerCellProps, footer), {
+                colSpan: footer.colSpan,
+                "data-align": footer.column.columnDef.meta?.align,
+                "data-pinned": footer.column.getIsPinned() || undefined,
+                "data-pinned-edge": pinnedEdge(footer.column),
+                // Totals are data, not headers — under the ARIA table they are plain cells.
+                role: "cell",
+                ...getStyles("footerCell", { style: pinnedCellStyle(footer.column) })
+              })}
             >
               {footer.isPlaceholder
                 ? null

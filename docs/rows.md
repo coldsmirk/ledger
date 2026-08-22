@@ -9,7 +9,7 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
   onRowActivate={(row, event) => openDrawer(row.original)}
   onRowDoubleClick={(row, event) => …}
   onRowContextMenu={(row, event) => { event.preventDefault(); … }}
-  rowClassName={row => (row.original.overdue ? "row-overdue" : undefined)}
+  rowProps={row => ({ className: row.original.overdue ? "row-overdue" : undefined })}
   …
 />
 ```
@@ -19,7 +19,7 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 - Handlers receive the typed TanStack `Row`. A row that responds to a click renders `data-clickable` (pointer cursor).
 - **The stop-propagation covenant**: interactive things inside a row — selection checkboxes, expander chevrons, editing cells and editors, header/menu triggers — never leak their clicks to the row handlers. A `display` actions column you write yourself should follow the same rule (`event.stopPropagation()` in its buttons).
 - On editable columns, the double-click that starts editing does not fire `onRowDoubleClick` ([editing.md](editing.md)).
-- `rowClassName` (string or per-row function) lands on the `<tr>` alongside the Styles API classes.
+- Anything else you need on the `<tr>` — attributes, `data-*`, hover handlers, inline styles — goes through `rowProps` ([DOM props](styling.md#dom-props)).
 
 ## Active row
 

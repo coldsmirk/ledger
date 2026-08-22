@@ -4,18 +4,21 @@ import type {
   Factory,
   MantineColor,
   MantineSpacing,
-  StylesApiProps
+  StylesApiProps,
+  TableTrProps
 } from "@mantine/core";
 import type { RowData } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import type { JSX, MouseEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from "react";
+import type { ComponentProps, JSX, MouseEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode, Ref } from "react";
 
 import type { DataTableContextValue } from "./context";
+import type { DataAttributes, DataTableElementProps } from "./element-props";
 import type { DataTableLabels } from "./labels";
 import type { VirtualizationConfig } from "./table-body";
 import type {
   DataTableHandle,
   DataTableScrollToRowOptions,
+  HeaderGroup,
   Row,
   TableInstance,
   UseDataTableOptions
@@ -47,6 +50,7 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState 
 
 import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
+import { mergeElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { IconAlertTriangle, IconInbox, IconSearch } from "./icons";
 import { resolveLabels } from "./labels";
@@ -207,7 +211,29 @@ export interface DataTableBaseProps<TData extends RowData>
   onRowActivate?: (row: Row<TData>, event: MouseEvent | ReactKeyboardEvent) => void;
   onRowDoubleClick?: (row: Row<TData>, event: MouseEvent) => void;
   onRowContextMenu?: (row: Row<TData>, event: MouseEvent) => void;
-  rowClassName?: string | ((row: Row<TData>) => string | undefined);
+
+  /* DOM escape hatches (docs/styling.md#dom-props) */
+  /**
+   * DOM props for every data row — static, or per row. Synthetic rows (detail panels, loader
+   * and skeleton rows) have no `Row` subject and never receive them.
+   */
+  rowProps?: DataTableElementProps<Omit<TableTrProps, "ref">, Row<TData>>;
+  /**
+   * DOM props for every header row — static, or per header group (grouped columns render one
+   * row per level).
+   */
+  headerRowProps?: DataTableElementProps<Omit<TableTrProps, "ref">, HeaderGroup<TData>>;
+  /**
+   * DOM props for every footer row — static, or per footer group.
+   */
+  footerRowProps?: DataTableElementProps<Omit<TableTrProps, "ref">, HeaderGroup<TData>>;
+  /**
+   * DOM props for the internal scroll viewport — `onScroll`, `data-*`, extra styles. Host
+   * vocabulary: `ScrollArea.viewportProps`. ledger owns its scroll listener, its overscroll
+   * behavior and (with `enableActiveRow`) its keyboard handling; those compose rather than
+   * being replaced.
+   */
+  viewportProps?: Omit<ComponentProps<"div">, "ref"> & DataAttributes;
 
   labels?: Partial<DataTableLabels>;
 
@@ -466,7 +492,10 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     onRowActivate,
     onRowDoubleClick,
     onRowContextMenu,
-    rowClassName,
+    rowProps,
+    headerRowProps,
+    footerRowProps,
+    viewportProps,
     labels: labelsProp,
     handleRef,
     ref: rootRef,
@@ -557,8 +586,8 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
 
   // The context depends on each handler's EXISTENCE, never its identity — the stable wrappers
   // absorb per-render inline arrows, so a fresh `onRowClick` prop must not rebuild the context
-  // value (and with it every memoized row). `rowClassName` stays raw below: its return value
-  // feeds the render, so identity is its honest dependency.
+  // value (and with it every memoized row). The `*Props` hooks stay raw below: their return
+  // values feed the render, so identity is their honest dependency.
   const contextRowClick = onRowClick ? (rowClickStable as DataTableContextValue["onRowClick"]) : undefined;
   const contextRowActivate = onRowActivate
     ? (rowActivateStable as DataTableContextValue["onRowActivate"])
@@ -597,7 +626,9 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         onRowActivate: contextRowActivate,
         onRowDoubleClick: contextRowDoubleClick,
         onRowContextMenu: contextRowContextMenu,
-        rowClassName: rowClassName as DataTableContextValue["rowClassName"]
+        rowProps: rowProps as DataTableContextValue["rowProps"],
+        headerRowProps: headerRowProps as DataTableContextValue["headerRowProps"],
+        footerRowProps: footerRowProps as DataTableContextValue["footerRowProps"]
       };
     },
     [
@@ -609,7 +640,9 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       contextRowActivate,
       contextRowDoubleClick,
       contextRowContextMenu,
-      rowClassName
+      rowProps,
+      headerRowProps,
+      footerRowProps
     ]
   );
 
@@ -1060,11 +1093,11 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
               corner: { backgroundColor: "transparent" },
               scrollbar: { backgroundColor: "transparent" }
             }}
-            viewportProps={{
-              style: { overscrollBehavior: "none" },
+            viewportProps={mergeElementProps(viewportProps, {
+              style: { overscrollBehavior: "none" as const },
               // With the active row on, the body viewport is the keyboard focus stop.
               ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
-            }}
+            })}
             onScrollPositionChange={handleScrollPositionChange}
           >
             <MantineTable {...sharedTableProps} {...tableStyleProps()}>

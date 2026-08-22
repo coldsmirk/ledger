@@ -51,7 +51,41 @@ All the border and background props are rendered by ledger itself rather than Ma
 />
 ```
 
-Per-column class hooks (`meta.headerClassName`, `meta.cellClassName`) and `rowClassName` compose with these — see [columns.md](columns.md) and [rows.md](rows.md).
+## DOM props
+
+The Styles API dresses a slot; it cannot make a row carry an attribute, react to a hover, or vary per cell. That is what the DOM prop hooks are for — one per rendered element, each taking a static object or a function of the element's subject:
+
+| Prop | Element | Subject |
+| --- | --- | --- |
+| `rowProps` | every data `<tr>` | `Row<TData>` |
+| `headerRowProps` / `footerRowProps` | every header / footer `<tr>` | `HeaderGroup<TData>` |
+| `viewportProps` | the internal scroll viewport | — (static only; host vocabulary: `ScrollArea.viewportProps`) |
+| `meta.cellProps` | that column's `<td>`s | `Cell<TData, TValue>` |
+| `meta.headerCellProps` / `meta.footerCellProps` | that column's header / footer cell | `Header<TData, TValue>` |
+
+```tsx
+<DataTable
+  rowProps={row => ({
+    "data-overdue": row.original.overdue || undefined,
+    "onMouseEnter": () => prefetch(row.original.id),
+    "title": row.original.note
+  })}
+  viewportProps={{ onScroll: event => syncMinimap(event.currentTarget.scrollTop) }}
+  columns={[
+    { accessorKey: "amount", meta: { cellProps: cell => ({ style: { color: cell.getValue<number>() < 0 ? "red" : undefined } }) } }
+  ]}
+  …
+/>
+```
+
+The types are Mantine's own (`TableTrProps`, `TableTdProps`, `TableThProps`), so Mantine style props (`bg`, `p`, `c`) work alongside plain DOM attributes. Four composition rules:
+
+- **ledger's structural props win** — `role`, the `data-*` state contract below, ARIA indices, and a pinned cell's sticky offsets. They are the contract the stylesheet and the accessibility tree are written against.
+- **…but only where ledger sets one.** Where ledger has no opinion (a cell's `onClick` when the edit trigger is `double-click`, say) your value stands.
+- **`className` and `style` compose**, yours last — an equal-specificity rule of yours wins.
+- **Handlers chain**, ledger's first: its stop-propagation covenant and active-row bookkeeping run before your handler sees the event.
+
+`ref` is excluded from all of them: these are prop hooks resolved per render — per virtual item, for rows — not component instances, and ledger owns the row ref for virtualization measurement. Synthetic rows (detail panels, loader and skeleton rows) have no subject and never receive `rowProps`.
 
 ## State is data-attributes, never state classes
 

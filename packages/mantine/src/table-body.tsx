@@ -19,6 +19,7 @@ import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
 import { useDataTableContext } from "./context";
+import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { IconChevronRight } from "./icons";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
@@ -293,9 +294,6 @@ function DataCell({
         }
       : undefined;
 
-  const cellClassName
-    = typeof meta?.cellClassName === "function" ? meta.cellClassName(cell) : meta?.cellClassName;
-
   if (isFirstDataCell && depth > 0) {
     content = <div style={{ paddingInlineStart: depth * TREE_INDENT_PX }}>{content}</div>;
   }
@@ -309,20 +307,22 @@ function DataCell({
 
   return (
     <MantineTable.Td
-      aria-colspan={colSpan > 1 ? colSpan : undefined}
-      aria-rowspan={rowSpan > 1 ? rowSpan : undefined}
-      colSpan={colSpan > 1 ? colSpan : undefined}
-      data-align={meta?.align}
-      data-editable={editable || undefined}
-      data-editing={editing || rowEditorActive || undefined}
-      data-ledger-column-id={column.id}
-      data-pinned={column.getIsPinned() || undefined}
-      data-pinned-edge={pinnedEdge(column)}
-      role="cell"
-      rowSpan={rowSpan > 1 ? rowSpan : undefined}
-      onClick={ledger?.editTrigger === "click" ? startEditing : undefined}
-      onDoubleClick={ledger?.editTrigger === "double-click" ? startEditing : undefined}
-      {...getStyles(selector, { className: cellClassName, style: pinnedCellStyle(column) })}
+      {...mergeElementProps(resolveElementProps(meta?.cellProps, cell), {
+        "aria-colspan": colSpan > 1 ? colSpan : undefined,
+        "aria-rowspan": rowSpan > 1 ? rowSpan : undefined,
+        colSpan: colSpan > 1 ? colSpan : undefined,
+        "data-align": meta?.align,
+        "data-editable": editable || undefined,
+        "data-editing": editing || rowEditorActive || undefined,
+        "data-ledger-column-id": column.id,
+        "data-pinned": column.getIsPinned() || undefined,
+        "data-pinned-edge": pinnedEdge(column),
+        role: "cell",
+        rowSpan: rowSpan > 1 ? rowSpan : undefined,
+        onClick: ledger?.editTrigger === "click" ? startEditing : undefined,
+        onDoubleClick: ledger?.editTrigger === "double-click" ? startEditing : undefined,
+        ...getStyles(selector, { style: pinnedCellStyle(column) })
+      })}
     >
       {content}
     </MantineTable.Td>
@@ -394,13 +394,12 @@ function DataRowImpl({
     onRowActivate,
     onRowDoubleClick,
     onRowContextMenu,
-    rowClassName
+    rowProps
   } = useDataTableContext();
   const activeRow = table.options.meta?.ledger?.activeRow;
 
   const cells = row.getVisibleCells();
   const firstDataCellIndex = cells.findIndex(cell => !isInternalColumn(cell.column.id));
-  const resolvedRowClassName = typeof rowClassName === "function" ? rowClassName(row) : rowClassName;
 
   /* The body scroller holds no header, so top offsets start at the scroller's own edge. */
   const pinnedStyle
@@ -428,23 +427,25 @@ function DataRowImpl({
   return (
     <MantineTable.Tr
       ref={measureRef}
-      aria-current={active || undefined}
-      aria-rowindex={ariaRowIndex}
-      aria-selected={selected || undefined}
-      data-active={active || undefined}
-      data-clickable={handleClick ? true : undefined}
-      data-editing-row={editingRow || undefined}
-      data-expanded={expanded || undefined}
-      data-index={virtualIndex}
-      data-parity={dataIndex >= 0 ? dataIndex % 2 === 0 ? "odd" : "even" : undefined}
-      data-pinned-row={pinnedPosition}
-      data-row-id={row.id}
-      data-selected={selected || undefined}
-      role="row"
-      onClick={handleClick}
-      onContextMenu={handler(onRowContextMenu)}
-      onDoubleClick={handler(onRowDoubleClick)}
-      {...getStyles("row", { className: resolvedRowClassName, style: pinnedStyle })}
+      {...mergeElementProps(resolveElementProps(rowProps, row), {
+        "aria-current": active || undefined,
+        "aria-rowindex": ariaRowIndex,
+        "aria-selected": selected || undefined,
+        "data-active": active || undefined,
+        "data-clickable": handleClick ? true : undefined,
+        "data-editing-row": editingRow || undefined,
+        "data-expanded": expanded || undefined,
+        "data-index": virtualIndex,
+        "data-parity": dataIndex >= 0 ? dataIndex % 2 === 0 ? "odd" : "even" : undefined,
+        "data-pinned-row": pinnedPosition,
+        "data-row-id": row.id,
+        "data-selected": selected || undefined,
+        role: "row",
+        onClick: handleClick,
+        onContextMenu: handler(onRowContextMenu),
+        onDoubleClick: handler(onRowDoubleClick),
+        ...getStyles("row", { style: pinnedStyle })
+      })}
     >
       {cells.map((cell, index) => {
         if (spanning && cell.getIsCovered()) {

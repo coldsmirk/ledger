@@ -22,6 +22,7 @@ export type {
   DataTableProps,
   DataTableStylesNames
 } from "./data-table";
+export type { DataTableElementProps } from "./element-props";
 export { defaultLabels } from "./labels";
 export type { DataTableLabels } from "./labels";
 // TanStack surface, curated — knowledge and code transfer directly. Object types are
@@ -62,7 +63,7 @@ export type {
   TableInstance,
   UseDataTableOptions
 } from "./types";
-export type { Cell, Column, ColumnDef, Row } from "./types";
+export type { Cell, Column, ColumnDef, Header, HeaderGroup, Row } from "./types";
 export { useDataTable } from "./use-data-table";
 
 export { flexRender } from "@tanstack/react-table";

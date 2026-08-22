@@ -94,7 +94,12 @@ const columns = [
     size: 130,
     cell: context => context.getValue().toFixed(2),
     footer: ({ table }) => amountTotal(table as TableInstance<Order>),
-    meta: { align: "end", filter: "range" }
+    meta: {
+      align: "end",
+      filter: "range",
+      // Per-cell DOM props: large orders read heavier without a custom cell renderer.
+      cellProps: cell => cell.getValue<number>() >= 900 ? { style: { fontWeight: 600 } } : undefined
+    }
   }),
   helper.accessor("placedAt", {
     header: "下单日期",
@@ -112,7 +117,7 @@ export function OrdersDemo() {
     <>
       <Text c="dimmed" size="xs">
         {activeOrder === null
-          ? "表头悬停出现筛选与列菜单（五种筛选变体）；合计随筛选联动；点击或聚焦表格后用 ↑/↓/Home/End 移动活动行，Enter 查看订单号。"
+          ? "表头悬停出现筛选与列菜单（五种筛选变体）；合计随筛选联动；点击或聚焦表格后用 ↑/↓/Home/End 移动活动行，Enter 查看订单号；已取消订单经 rowProps 变暗，大额金额经 meta.cellProps 加粗。"
           : `当前订单：${activeOrder}`}
       </Text>
 
@@ -130,6 +135,14 @@ export function OrdersDemo() {
         getRowId={order => order.id}
         labels={zhCN}
         mih={0}
+        // Per-row DOM props: a state attribute for E2E selectors plus the dimming that goes with it.
+        rowProps={row => row.original.status === "cancelled"
+          ? {
+              "data-cancelled": true,
+              style: { opacity: 0.55 },
+              title: "该订单已取消"
+            }
+          : undefined}
         onRowActivate={row => setActiveOrder(row.original.orderNo)}
       />
     </>

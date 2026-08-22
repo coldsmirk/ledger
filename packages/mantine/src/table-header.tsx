@@ -16,6 +16,7 @@ import { flexRender } from "@tanstack/react-table";
 import { autosizeColumn } from "./autosize-column";
 import { columnEnableResizing, isInternalColumn } from "./build-columns";
 import { useDataTableContext } from "./context";
+import { mergeElementProps, resolveElementProps } from "./element-props";
 import { FilterPopover } from "./filter-popover";
 import { IconChevronDown, IconChevronUp, IconSortable } from "./icons";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
@@ -26,7 +27,8 @@ export function TableHeader<TData extends RowData>({ table }: { table: TableInst
   const {
     getStyles,
     virtualized,
-    columnWidths
+    columnWidths,
+    headerRowProps
   } = useDataTableContext();
   const reorder = useColumnReorder(table);
   const resize = useColumnResize(table, columnWidths);
@@ -36,9 +38,11 @@ export function TableHeader<TData extends RowData>({ table }: { table: TableInst
       {table.getHeaderGroups().map((headerGroup, groupIndex) => (
         <MantineTable.Tr
           key={headerGroup.id}
-          aria-rowindex={virtualized ? groupIndex + 1 : undefined}
-          role="row"
-          {...getStyles("headerRow")}
+          {...mergeElementProps(resolveElementProps(headerRowProps, headerGroup), {
+            "aria-rowindex": virtualized ? groupIndex + 1 : undefined,
+            role: "row",
+            ...getStyles("headerRow")
+          })}
         >
           {headerGroup.headers.map(header => <HeaderCell key={header.id} header={header} reorder={reorder} resize={resize} table={table} />)}
         </MantineTable.Tr>
@@ -95,19 +99,21 @@ function HeaderCell<TData extends RowData>({
 
   return (
     <MantineTable.Th
-      aria-sort={canSort ? ariaSort : undefined}
-      colSpan={header.colSpan}
-      data-align={internal ? "center" : meta?.align}
-      data-dragging={dragged || undefined}
-      data-drop-side={dropSide ?? undefined}
-      data-ledger-column-id={column.id}
-      data-pinned={column.getIsPinned() || undefined}
-      data-pinned-edge={pinnedEdge(column)}
-      data-resizing={resizing || undefined}
-      data-sortable={canSort || undefined}
-      role="columnheader"
-      {...getStyles("headerCell", { className: meta?.headerClassName, style: pinnedCellStyle(column) })}
-      {...reorder.getHeaderProps(column.id)}
+      {...mergeElementProps(resolveElementProps(meta?.headerCellProps, header), {
+        "aria-sort": canSort ? ariaSort : undefined,
+        colSpan: header.colSpan,
+        "data-align": internal ? "center" : meta?.align,
+        "data-dragging": dragged || undefined,
+        "data-drop-side": dropSide ?? undefined,
+        "data-ledger-column-id": column.id,
+        "data-pinned": column.getIsPinned() || undefined,
+        "data-pinned-edge": pinnedEdge(column),
+        "data-resizing": resizing || undefined,
+        "data-sortable": canSort || undefined,
+        role: "columnheader",
+        ...getStyles("headerCell", { style: pinnedCellStyle(column) }),
+        ...reorder.getHeaderProps(column.id)
+      })}
     >
       {header.isPlaceholder
         ? null

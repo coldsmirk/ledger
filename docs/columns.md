@@ -43,8 +43,9 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 | `truncate` | `boolean` | Single-line ellipsis with a `title` tooltip (host vocabulary: `Text.truncate`) |
 | `filter` | variant \| config \| render function | Header filter UI — see [filtering.md](filtering.md) |
 | `edit` | variant \| config \| render function | Inline cell editing — see [editing.md](editing.md) |
-| `headerClassName` | `string` | Extra class on the `<th>` |
-| `cellClassName` | `string \| (cell) => string \| undefined` | Extra class on each `<td>`, statically or per cell |
+| `cellProps` | `TableTdProps \| (cell) => TableTdProps \| undefined` | DOM props for this column's `<td>`s — see [DOM props](styling.md#dom-props) |
+| `headerCellProps` | `TableThProps \| (header) => TableThProps \| undefined` | DOM props for this column's `<th>` |
+| `footerCellProps` | `TableThProps \| (footer) => TableThProps \| undefined` | DOM props for this column's footer cell |
 | `export` | `false \| { header?, value? }` | Exclude from or reshape the CSV export ([api.md](api.md#tocsv)) |
 | `hiddenFrom` / `visibleFrom` | `MantineBreakpoint` | Breakpoint-driven presence — see [Responsive columns](#responsive-columns) |
 

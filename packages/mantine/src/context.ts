@@ -1,9 +1,10 @@
-import type { GetStylesApi } from "@mantine/core";
+import type { GetStylesApi, TableTrProps } from "@mantine/core";
 import type { KeyboardEvent, MouseEvent, RefObject } from "react";
 
 import type { DataTableFactory } from "./data-table";
+import type { DataTableElementProps } from "./element-props";
 import type { DataTableLabels } from "./labels";
-import type { Row, TableInstance } from "./types";
+import type { HeaderGroup, Row, TableInstance } from "./types";
 
 /**
  * Internal context for everything rendered inside the <DataTable> tree. The data generic is
@@ -32,7 +33,9 @@ export interface DataTableContextValue {
   onRowActivate?: (row: Row<any>, event: MouseEvent | KeyboardEvent) => void;
   onRowDoubleClick?: (row: Row<any>, event: MouseEvent) => void;
   onRowContextMenu?: (row: Row<any>, event: MouseEvent) => void;
-  rowClassName?: string | ((row: Row<any>) => string | undefined);
+  rowProps?: DataTableElementProps<Omit<TableTrProps, "ref">, Row<any>>;
+  headerRowProps?: DataTableElementProps<Omit<TableTrProps, "ref">, HeaderGroup<any>>;
+  footerRowProps?: DataTableElementProps<Omit<TableTrProps, "ref">, HeaderGroup<any>>;
 }
 
 export const [DataTableProvider, useDataTableContext] = createSafeContext<DataTableContextValue>(

@@ -31,9 +31,9 @@ import { zhCN } from "@coldsmirk/ledger-mantine/locales";
 import "@coldsmirk/ledger-mantine/styles.css";
 ```
 
-Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape.
+Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell`, `Header`, `HeaderGroup` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape.
 
-ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `LedgerMeta`, `LedgerEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `ActiveCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
+ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `ActiveCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
 
 Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
@@ -141,7 +141,9 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `pageSizeOptions` | `number[]` | `[10, 20, 50, 100]` | |
 | `onRowActivate` | `(row: Row<TData>, event: MouseEvent \| KeyboardEvent) => void` | — | Input-agnostic: click or `Enter` on the current row ([rows.md](rows.md)) |
 | `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | Literal pointer events ([rows.md](rows.md)) |
-| `rowClassName` | `string \| (row) => string \| undefined` | — | |
+| `rowProps` | `TableTrProps \| (row) => TableTrProps \| undefined` | — | DOM props per data row ([styling.md](styling.md#dom-props)) |
+| `headerRowProps` / `footerRowProps` | `TableTrProps \| (headerGroup) => TableTrProps \| undefined` | — | DOM props per header / footer row |
+| `viewportProps` | `ComponentProps<"div">` | — | DOM props for the scroll viewport (`onScroll`, …) |
 | `labels` | `Partial<DataTableLabels>` | `defaultLabels` | [i18n.md](i18n.md) |
 | `aria-label` / `aria-labelledby` / `aria-describedby` | `string` | — | Routed to the ARIA table (`.ledger-main`), not the root wrapper |
 
@@ -159,8 +161,9 @@ interface ColumnMeta<TData, TValue> {
          | ((column: Column<TData, TValue>) => ReactNode);
   edit?: DataTableEditVariant | DataTableEditConfig<TData, TValue>
        | ((ctx: DataTableEditContext<TData, TValue>) => ReactNode);
-  headerClassName?: string;
-  cellClassName?: string | ((cell: Cell<TData, TValue>) => string | undefined);
+  cellProps?: DataTableElementProps<TableTdProps, Cell<TData, TValue>>;
+  headerCellProps?: DataTableElementProps<TableThProps, Header<TData, TValue>>;
+  footerCellProps?: DataTableElementProps<TableThProps, Header<TData, TValue>>;
   export?: false | { header?: string; value?: (row: Row<TData>) => unknown };
   hiddenFrom?: MantineBreakpoint;   // removed at and above the breakpoint (Box vocabulary)
   visibleFrom?: MantineBreakpoint;  // present only at and above the breakpoint
