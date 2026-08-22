@@ -8,11 +8,11 @@ import type { TableInstance } from "./types";
  * `DataTable.Search` — the global-filter input, debounced. A standalone compound: takes the
  * table instance, composes anywhere (toolbars are the page's territory).
  */
-import { ActionIcon, TextInput, useProps } from "@mantine/core";
+import { CloseButton, TextInput, useProps } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 
-import { IconSearch, IconX } from "./icons";
+import { IconSearch } from "./icons";
 import { resolveLabels } from "./labels";
 
 export interface DataTableSearchProps<TData extends RowData>
@@ -70,16 +70,10 @@ export function DataTableSearch<TData extends RowData>(props: DataTableSearchPro
     <TextInput
       leftSection={<IconSearch />}
       placeholder={placeholder ?? resolved.searchPlaceholder}
+      rightSectionPointerEvents="all"
       value={value}
-      rightSection={
-        value === ""
-          ? undefined
-          : (
-              <ActionIcon aria-label={resolved.clearFilter} size="sm" variant="subtle" onClick={clear}>
-                <IconX />
-              </ActionIcon>
-            )
-      }
+      rightSection={value !== ""
+        && <CloseButton aria-label={resolved.clearFilter} size="sm" onClick={clear} />}
       onChange={event => {
         setValue(event.currentTarget.value);
         apply(event.currentTarget.value);

@@ -64,6 +64,11 @@ describe("filter popover", () => {
 
     expect(document.querySelector(".ledger-filter-popover")).toBeTruthy();
     expect(document.querySelector(".ledger-tbody .ledger-row td")?.textContent).toBe("Alice");
+
+    // The select's native clear button is the only clear affordance and carries the label.
+    fireEvent.click(screen.getByLabelText("Clear filter"));
+
+    await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(3));
   });
 
   it("filters through the inline @mantine/dates range calendar", async () => {
@@ -109,6 +114,17 @@ describe("filter popover", () => {
     // The calendar is inline (no nested portal), so the popover survives the interaction.
     expect(document.querySelector(".ledger-filter-popover")).toBeTruthy();
     expect(document.querySelector(".ledger-tbody .ledger-row td")?.textContent).toBe(`${month}-15`);
+
+    // The caption under the calendar clears the whole range. Queried by text, not role: jsdom
+    // never runs Mantine's Transition, so the dropdown keeps its pre-enter inline
+    // `display: none` and role queries treat everything inside as inaccessible.
+    const clearCaption = () => [...document.querySelectorAll<HTMLButtonElement>(".ledger-filter-popover button")]
+      .find(button => button.textContent === "Clear filter");
+
+    fireEvent.click(clearCaption() as Element);
+
+    await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(3));
+    expect(clearCaption()).toBeUndefined();
   });
 
   it("applies pending text when the popover closes", async () => {
@@ -135,6 +151,32 @@ describe("filter popover", () => {
   });
 
   it("synchronizes the text input when its filter is cleared externally", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const textColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { filter: "text" }
+      }
+    ];
+
+    render(
+      <DataTable columns={textColumns} data={people} getRowId={person => person.id} handleRef={handle} />,
+      { wrapper }
+    );
+
+    fireEvent.click(screen.getByLabelText("Filter column"));
+    await waitFor(() => expect(document.querySelector(".ledger-filter-popover input")).toBeTruthy());
+    const input = document.querySelector(".ledger-filter-popover input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Alice" } });
+    await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(1));
+    act(() => handle.current?.table.resetColumnFilters());
+
+    await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(3));
+    expect(input.value).toBe("");
+  });
+
+  it("clears the applied text filter from the input's own clear button", async () => {
     const textColumns: Array<ColumnDef<Person, any>> = [
       {
         accessorKey: "name",
@@ -154,6 +196,40 @@ describe("filter popover", () => {
 
     await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(3));
     expect(input.value).toBe("");
+  });
+
+  it("clears the range filter from the button at the end of its input row", async () => {
+    interface Item {
+      id: string;
+      amount: number;
+    }
+
+    const items: Item[] = [
+      { id: "1", amount: 5 },
+      { id: "2", amount: 15 },
+      { id: "3", amount: 25 }
+    ];
+
+    const rangeColumns: Array<ColumnDef<Item, any>> = [
+      {
+        accessorKey: "amount",
+        header: "Amount",
+        meta: { filter: "range" }
+      }
+    ];
+
+    render(<DataTable columns={rangeColumns} data={items} getRowId={item => item.id} />, { wrapper });
+
+    fireEvent.click(screen.getByLabelText("Filter column"));
+    expect(await screen.findByLabelText("Min")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Min"), { target: { value: "10" } });
+
+    await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(2));
+
+    fireEvent.click(screen.getByLabelText("Clear filter"));
+
+    await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(3));
+    expect((screen.getByLabelText("Min") as HTMLInputElement).value).toBe("");
   });
 
   it("cancels pending text when an external reset is a table-state no-op", async () => {

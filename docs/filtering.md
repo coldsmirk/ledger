@@ -14,7 +14,7 @@ helper.accessor("age",    { header: "Age",    meta: { filter: "range" } }),
 helper.accessor("hired",  { header: "Hired",  meta: { filter: "date-range" } }),
 ```
 
-The funnel trigger renders subtle while inactive and filled (`data-active`) while a value is applied; an active popover gains a clear button; clearing sets the filter value back to `undefined`. Text input follows external clears, and closing its popover flushes any pending debounced value before unmounting.
+The funnel trigger renders subtle while inactive and filled (`data-active`) while a value is applied; clearing sets the filter value back to `undefined`. Clearing lives on each control rather than on a shared popover row: `select` / `multi-select` clear through their native clear buttons, `text` through a clear button in its right section, `range` through one at the end of its input row, and `date-range` through a quiet caption under the calendar. Every clear affordance is labelled `labels.clearFilter`. Text input follows external clears, and closing its popover flushes any pending debounced value before unmounting.
 
 ### Variants
 
@@ -85,6 +85,8 @@ meta: {
 ```
 
 Inside the popover, Mantine combobox-based controls must render in place — pass `comboboxProps={{ withinPortal: false }}` as ledger's own variants do. A body-level portal reads as an outside click and closes the popover mid-interaction.
+
+A custom control is a black box that may ship no clear affordance of its own, so this is the one case where the popover keeps a fallback clear button below the control while the filter is active. If your control brings its own clearing UI the fallback is merely redundant — both roads set the value to `undefined`.
 
 ## Global filter
 

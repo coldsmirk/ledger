@@ -10,15 +10,20 @@ import type { Column, DataTableFilterConfig } from "./types";
  * variant (with a dev warning) when they are missing. Date bounds render an inline
  * `@mantine/dates` range calendar (no nested popover to misread as an outside click);
  * its values are the same `YYYY-MM-DD` strings the filter fn compares.
+ *
+ * Clearing lives on each control, not on a shared popover row: `select`/`multi-select` use
+ * their native clear buttons, `text` clears from its right section, `range` from the end of
+ * its input row, and the calendar from a caption under it. Only a custom render-prop filter —
+ * a black box that may ship no clear of its own — keeps the popover-level fallback.
  */
-import { ActionIcon, Group, MultiSelect, NumberInput, Popover, Select, Stack, TextInput } from "@mantine/core";
+import { ActionIcon, Button, CloseButton, Group, MultiSelect, NumberInput, Popover, Select, Stack, TextInput } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import { useDebouncedCallback } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 
 import { useDataTableContext } from "./context";
 import { warnOnce } from "./env";
-import { IconFilter, IconX } from "./icons";
+import { IconFilter } from "./icons";
 
 const FACETED_OPTIONS_CAP = 100;
 
@@ -57,7 +62,21 @@ export function FilterPopover<TData extends RowData>({ column }: FilterPopoverPr
       <Popover.Dropdown {...getStyles("filterPopover")} onClick={event => event.stopPropagation()}>
         <Stack gap="xs">
           {typeof filter === "function"
-            ? filter(column)
+            ? (
+                <>
+                  {filter(column)}
+
+                  {active && (
+                    <Group justify="flex-end">
+                      <CloseButton
+                        aria-label={labels.clearFilter}
+                        size="sm"
+                        onClick={() => column.setFilterValue(undefined)}
+                      />
+                    </Group>
+                  )}
+                </>
+              )
             : (
                 <VariantFilterControl
                   column={column}
@@ -65,19 +84,6 @@ export function FilterPopover<TData extends RowData>({ column }: FilterPopoverPr
                   filterMode={filterMode}
                 />
               )}
-
-          {active && (
-            <Group justify="flex-end">
-              <ActionIcon
-                aria-label={labels.clearFilter}
-                size="sm"
-                variant="subtle"
-                onClick={() => column.setFilterValue(undefined)}
-              >
-                <IconX />
-              </ActionIcon>
-            </Group>
-          )}
         </Stack>
       </Popover.Dropdown>
     </Popover>
@@ -122,6 +128,7 @@ function VariantFilterControl<TData extends RowData>({
         <Select
           clearable
           searchable
+          clearButtonProps={{ "aria-label": labels.clearFilter }}
           // Inside the filter popover the combobox must not portal out: a portal dropdown
           // reads as an outside click and closes the popover mid-interaction.
           comboboxProps={{ withinPortal: false }}
@@ -138,6 +145,7 @@ function VariantFilterControl<TData extends RowData>({
         <MultiSelect
           clearable
           searchable
+          clearButtonProps={{ "aria-label": labels.clearFilter }}
           comboboxProps={{ withinPortal: false }}
           data={options}
           placeholder={config.placeholder ?? labels.filterPlaceholder}
@@ -158,7 +166,7 @@ function VariantFilterControl<TData extends RowData>({
 }
 
 function TextFilter<TData extends RowData>({ column, placeholder }: { column: Column<TData, unknown>; placeholder: string }) {
-  const { table } = useDataTableContext();
+  const { table, labels } = useDataTableContext();
   const filterValue = (column.getFilterValue() as string | undefined) ?? "";
   const [value, setValue] = useState(filterValue);
   const apply = useDebouncedCallback(
@@ -182,7 +190,19 @@ function TextFilter<TData extends RowData>({ column, placeholder }: { column: Co
   return (
     <TextInput
       placeholder={placeholder}
+      rightSectionPointerEvents="all"
       value={value}
+      rightSection={value !== "" && (
+        <CloseButton
+          aria-label={labels.clearFilter}
+          size="sm"
+          onClick={() => {
+            apply.cancel();
+            setValue("");
+            column.setFilterValue(undefined);
+          }}
+        />
+      )}
       onChange={event => {
         setValue(event.currentTarget.value);
         apply(event.currentTarget.value);
@@ -205,10 +225,13 @@ function RangeFilter<TData extends RowData>({ column }: { column: Column<TData, 
     column.setFilterValue(next[0] === undefined && next[1] === undefined ? undefined : next);
   };
 
+  const active = min !== undefined || max !== undefined;
+
   return (
-    <Group grow gap="xs">
+    <Group gap="xs" wrap="nowrap">
       <NumberInput
         aria-label={labels.filterRangeMin}
+        flex={1}
         placeholder={facetMin === undefined ? labels.filterRangeMin : String(facetMin)}
         value={min ?? ""}
         onChange={setBound(0)}
@@ -216,26 +239,54 @@ function RangeFilter<TData extends RowData>({ column }: { column: Column<TData, 
 
       <NumberInput
         aria-label={labels.filterRangeMax}
+        flex={1}
         placeholder={facetMax === undefined ? labels.filterRangeMax : String(facetMax)}
         value={max ?? ""}
         onChange={setBound(1)}
+      />
+
+      {/* Space is reserved while inactive so the inputs keep their width as the button appears. */}
+      <CloseButton
+        aria-label={labels.clearFilter}
+        size="sm"
+        style={{ visibility: active ? undefined : "hidden" }}
+        onClick={() => column.setFilterValue(undefined)}
       />
     </Group>
   );
 }
 
 function DateRangeFilter<TData extends RowData>({ column }: { column: Column<TData, unknown> }) {
-  const value = (column.getFilterValue() as DateRangeFilterValue | undefined) ?? [null, null];
+  const { labels } = useDataTableContext();
+  const filterValue = column.getFilterValue() as DateRangeFilterValue | undefined;
+  const value = filterValue ?? [null, null];
 
   return (
-    <DatePicker
-      allowSingleDateInRange
-      highlightToday
-      size="xs"
-      type="range"
-      value={value}
-      onChange={next => column.setFilterValue(!next[0] && !next[1] ? undefined : next)}
-    />
+    <>
+      <DatePicker
+        allowSingleDateInRange
+        highlightToday
+        size="xs"
+        type="range"
+        value={value}
+        onChange={next => column.setFilterValue(!next[0] && !next[1] ? undefined : next)}
+      />
+
+      {/* The calendar has no input row to host a clear button; a quiet caption under it is the
+          date-picker-panel convention instead. */}
+      {filterValue !== undefined && (
+        <Group justify="flex-end">
+          <Button
+            color="gray"
+            size="compact-xs"
+            variant="subtle"
+            onClick={() => column.setFilterValue(undefined)}
+          >
+            {labels.clearFilter}
+          </Button>
+        </Group>
+      )}
+    </>
   );
 }
 
