@@ -3,11 +3,12 @@ import type { ReactNode } from "react";
 import type { ColumnDef } from "./types";
 
 import { MantineProvider } from "@mantine/core";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
+import { useResponsiveColumns } from "./use-responsive-columns";
 
 interface Person {
   id: string;
@@ -115,12 +116,11 @@ describe("useResponsiveColumns", () => {
 
   it("keeps every column when matchMedia is unavailable", () => {
     // jsdom ships a stub matchMedia; simulate a truly matchMedia-less environment (SSR).
+    // The hook renders bare — MantineProvider itself needs matchMedia for scheme detection.
     vi.stubGlobal("matchMedia", undefined);
 
-    render(<DataTable columns={columns} data={people} getRowId={person => person.id} />, { wrapper });
+    const { result } = renderHook(() => useResponsiveColumns(columns));
 
-    expect(screen.getByText("Name")).toBeTruthy();
-    expect(screen.getByText("Age")).toBeTruthy();
-    expect(screen.getByText("Contact")).toBeTruthy();
+    expect(result.current).toHaveLength(3);
   });
 });
