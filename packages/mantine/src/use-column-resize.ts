@@ -7,10 +7,11 @@ import type { TableInstance } from "./types";
  * Pointer-based column resizing, exact by construction: the drag starts from the width the
  * engine actually rendered (docs/sizing.md), so a grow column's first drag is 1:1 instead of
  * jumping to a default. Live updates write `columnSizing` (the CSS-variable pipeline keeps this
- * cheap); Escape restores the width the drag started from; direction follows the computed
- * `direction` of the handle, so RTL drags resolve correctly.
+ * cheap); Escape and pointercancel restore the width the drag started from; direction follows
+ * the computed `direction` of the handle, so RTL drags resolve correctly. A mid-drag unmount
+ * releases the window listeners without touching table state.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ColumnResize {
   resizingId: string | null;
@@ -35,6 +36,12 @@ export function useColumnResize<TData extends RowData>(
 ): ColumnResize {
   const [resizingId, setResizingId] = useState<string | null>(null);
   const session = useRef<ResizeSession | null>(null);
+
+  // The listeners live on window, so a mid-drag unmount must release them here.
+  useEffect(() => () => {
+    session.current?.cleanup();
+    session.current = null;
+  }, []);
 
   const getResizerProps: ColumnResize["getResizerProps"] = columnId => {
     return {
@@ -94,6 +101,10 @@ export function useColumnResize<TData extends RowData>(
 
         const onPointerUp = () => endSession(false);
 
+        // The browser aborted the pointer stream (touch pan takeover, OS gesture) — no
+        // pointerup will follow, so treat it like Escape and restore.
+        const onPointerCancel = () => endSession(true);
+
         const onKeyDown = (key: globalThis.KeyboardEvent) => {
           if (key.key === "Escape") {
             endSession(true);
@@ -110,6 +121,7 @@ export function useColumnResize<TData extends RowData>(
           cleanup: () => {
             removeEventListener("pointermove", onPointerMove);
             removeEventListener("pointerup", onPointerUp);
+            removeEventListener("pointercancel", onPointerCancel);
             removeEventListener("keydown", onKeyDown);
           }
         };
@@ -117,6 +129,7 @@ export function useColumnResize<TData extends RowData>(
 
         addEventListener("pointermove", onPointerMove);
         addEventListener("pointerup", onPointerUp);
+        addEventListener("pointercancel", onPointerCancel);
         addEventListener("keydown", onKeyDown);
       }
     };

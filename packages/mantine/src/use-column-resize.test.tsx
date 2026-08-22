@@ -94,4 +94,20 @@ describe("useColumnResize", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onColumnSizingChange).toHaveBeenLastCalledWith({});
   });
+
+  it("restores the pre-drag width and ends the session on pointercancel", () => {
+    const { onColumnSizingChange, resizer } = renderResizable();
+
+    fireEvent.pointerDown(resizer, { button: 0, clientX: 300 });
+    fireEvent.pointerMove(document, { clientX: 340 });
+    expect(onColumnSizingChange).toHaveBeenLastCalledWith({ name: 160 });
+
+    // A touch pan or OS gesture aborts the pointer stream without a pointerup.
+    fireEvent.pointerCancel(document);
+    expect(onColumnSizingChange).toHaveBeenLastCalledWith({});
+
+    onColumnSizingChange.mockClear();
+    fireEvent.pointerMove(document, { clientX: 500 });
+    expect(onColumnSizingChange).not.toHaveBeenCalled();
+  });
 });
