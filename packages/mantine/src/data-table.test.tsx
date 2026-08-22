@@ -266,6 +266,58 @@ describe("DataTable", () => {
     expect(container.querySelectorAll("[data-selected]")).toHaveLength(0);
   });
 
+  it("renders radios in a shared group for single-select, and no select-all", () => {
+    const { container } = render(
+      <DataTable
+        enableRowSelection
+        columns={columns}
+        data={people}
+        enableMultiRowSelection={false}
+        getRowId={getRowId}
+      />,
+      { wrapper }
+    );
+
+    const radios = container.querySelectorAll<HTMLInputElement>("input[type=\"radio\"]");
+
+    expect(radios).toHaveLength(3);
+    expect(container.querySelectorAll("input[type=\"checkbox\"]")).toHaveLength(0);
+    // One group, so the platform's own arrow-key navigation applies.
+    expect(new Set([...radios].map(radio => radio.name)).size).toBe(1);
+
+    fireEvent.click(radios[0] as Element);
+    fireEvent.click(radios[1] as Element);
+    expect(container.querySelectorAll("[data-selected]")).toHaveLength(1);
+  });
+
+  it("merges selectionColumn and expanderColumn over the injected defaults", () => {
+    const { container } = render(
+      <DataTable
+        enableRowSelection
+        columns={columns}
+        data={people}
+        expanderColumn={{ size: 60 }}
+        getRowId={getRowId}
+        renderDetailPanel={row => <span>{row.original.name}</span>}
+        selectionColumn={{
+          size: 72,
+          cell: ({ row }) => <button type="button">{`pick ${row.id}`}</button>
+        }}
+      />,
+      { wrapper }
+    );
+
+    // The author's renderer replaces the checkbox…
+    expect(screen.getByRole("button", { name: "pick 1" })).toBeTruthy();
+    expect(container.querySelectorAll("input[type=\"checkbox\"]")).toHaveLength(1);
+
+    // …while the reserved id, and with it the internal-column treatment, survives.
+    const selectionCell = container.querySelector<HTMLElement>(":scope .ledger-selection-cell");
+
+    expect(selectionCell?.dataset.ledgerColumnId).toBe("ledger:select");
+    expect(container.querySelector<HTMLElement>(":scope .ledger-expander-cell")).toBeTruthy();
+  });
+
   it("renders the pagination bar with the summary and page-size control", () => {
     render(
       <DataTable

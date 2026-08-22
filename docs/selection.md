@@ -20,11 +20,32 @@ enableRowSelection={row => row.original.status !== "archived"}
 
 ## Semantics
 
-- **Multi-select** is the default. `enableMultiRowSelection={false}` switches to single-select — toggling a row replaces the previous selection, and the header checkbox disappears (select-all is meaningless there).
+- **Multi-select** is the default. `enableMultiRowSelection={false}` switches to single-select — cells render a **radio** (one choice at a time is what a radio means), all rendered rows share one group name so the platform's arrow-key navigation applies, toggling a row replaces the previous selection, and the header control disappears (select-all is meaningless there). Under virtualization only the mounted window is in that group.
 - **Shift-click range** is TanStack v9's own `getToggleSelectedHandler()` behavior (`enableRowRangeSelection`, default `true`; opt out via `tableOptions`): an ordinary click sets the anchor, a Shift-click selects or deselects the contiguous range to the target in the current view order (after sorting/filtering). The range respects the selection predicate — disabled rows inside it are skipped.
 - **Select-all scope**: the header checkbox covers the **current page** while pagination is active (`enablePagination` or `paginationMode: "server"`), and **all filtered rows** otherwise. It shows an indeterminate state while partially selected.
 - **Selection survives view changes**: because state is id-keyed, paging, sorting, and filtering never drop selected rows — a row selected on page 1 stays selected while you browse page 3. Render `DataTable.SelectionBar` so the running total stays visible.
 - Checkbox clicks stop propagation — selecting never triggers `onRowClick`.
+
+## Overriding the injected column
+
+The selection column is an ordinary `ColumnDef`, so `selectionColumn` merges over it — a wider column, a custom cell (a tooltip explaining why a row is disabled, say), a different header. Only `id` is reserved: it is how ledger recognizes its own column and keeps the centered layout, the stop-propagation covenant, and the exclusions from CSV export and the columns panel.
+
+```tsx
+<DataTable
+  enableRowSelection={row => row.original.status !== "archived"}
+  selectionColumn={{
+    size: 56,
+    cell: ({ row }) => (
+      <Tooltip disabled={row.getCanSelect()} label="Archived rows cannot be selected">
+        <span><SelectionCheckbox row={row} /></span>
+      </Tooltip>
+    )
+  }}
+  …
+/>
+```
+
+`expanderColumn` does the same for the expander column ([rows.md](rows.md#masterdetail-panels)) — a different chevron, a wider gutter, an "expand all" header of your own.
 
 ## The selection bar
 

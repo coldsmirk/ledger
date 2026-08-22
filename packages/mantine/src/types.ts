@@ -231,6 +231,18 @@ export interface UseDataTableOptions<TData extends RowData> {
   getSubRows?: (originalRow: TData) => TData[] | undefined;
   renderDetailPanel?: (row: Row<TData>) => ReactNode;
 
+  /* Injected columns — ordinary defs, merged over ledger's (docs/selection.md, docs/rows.md) */
+  /**
+   * Overrides the injected selection column: its `cell` / `header` renderers, `size`, alignment,
+   * anything a `ColumnDef` carries. The reserved `id` is not overridable — it is how ledger
+   * recognizes its own column.
+   */
+  selectionColumn?: Partial<ColumnDef<TData, unknown>>;
+  /**
+   * Overrides the injected expander column, on the same terms as `selectionColumn`.
+   */
+  expanderColumn?: Partial<ColumnDef<TData, unknown>>;
+
   /* Client/server split — all default "client" */
   sortingMode?: "client" | "server";
   filterMode?: "client" | "server";

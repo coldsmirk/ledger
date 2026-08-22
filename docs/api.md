@@ -78,6 +78,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | --- | --- | --- |
 | `getSubRows` | `(row: TData) => TData[] \| undefined` | [rows.md](rows.md) |
 | `renderDetailPanel` | `(row: Row<TData>) => ReactNode` | [rows.md](rows.md) |
+| `selectionColumn` / `expanderColumn` | `Partial<ColumnDef<TData, unknown>>` | Merged over the injected def; `id` is reserved ([selection.md](selection.md#overriding-the-injected-column)) |
 
 ### Client/server split
 

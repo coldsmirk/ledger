@@ -10,7 +10,7 @@ import type { Row, TableInstance } from "./types";
  * click sets the anchor, a Shift-click applies the display-order range, `getCanSelect()` rows
  * excluded — the click event is handed to the handler so it can read the modifier.
  */
-import { Checkbox } from "@mantine/core";
+import { Checkbox, Radio } from "@mantine/core";
 
 import { useDataTableContext } from "./context";
 
@@ -56,8 +56,30 @@ export function SelectionHeaderCell<TData extends RowData>({ table }: { table: T
 }
 
 export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> }) {
-  const { labels } = useDataTableContext();
+  const { labels, instanceId } = useDataTableContext();
   const selected = row.getIsSelected();
+
+  const select = (event: MouseEvent<HTMLInputElement>) => {
+    event.stopPropagation();
+    row.getToggleSelectedHandler()(event);
+  };
+
+  // Single-select is a radio group, not a lone checkbox: one choice at a time is what a radio
+  // means, and the shared name makes the rendered rows one group for the platform. (Under
+  // virtualization only the mounted window is in that group — the same boundary as autosize.)
+  if (row.getCanMultiSelect() === false) {
+    return (
+      <Radio
+        aria-label={labels.selectRow}
+        checked={selected}
+        disabled={!row.getCanSelect()}
+        name={`${instanceId}-selection`}
+        size="xs"
+        onChange={noop}
+        onClick={select}
+      />
+    );
+  }
 
   return (
     <Checkbox
@@ -69,10 +91,7 @@ export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> 
       indeterminate={!selected && row.getIsSomeSelected()}
       size="xs"
       onChange={noop}
-      onClick={(event: MouseEvent<HTMLInputElement>) => {
-        event.stopPropagation();
-        row.getToggleSelectedHandler()(event);
-      }}
+      onClick={select}
     />
   );
 }

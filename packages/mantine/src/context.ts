@@ -17,6 +17,10 @@ import { createSafeContext } from "@mantine/core";
 
 export interface DataTableContextValue {
   table: TableInstance<any>;
+  /**
+   * Stable per-instance id — what the single-select radios group themselves by.
+   */
+  instanceId: string;
   getStyles: GetStylesApi<DataTableFactory>;
   labels: DataTableLabels;
   filterMode: "client" | "server";

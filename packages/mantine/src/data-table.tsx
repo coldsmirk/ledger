@@ -46,7 +46,7 @@ import {
   useProps,
   useStyles
 } from "@mantine/core";
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
@@ -328,6 +328,8 @@ const OPTION_KEYS = [
   "enableCellSpanning",
   "getSubRows",
   "renderDetailPanel",
+  "selectionColumn",
+  "expanderColumn",
   "sortingMode",
   "filterMode",
   "paginationMode",
@@ -611,12 +613,15 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const tableBoxRef = useRef(erasedTable);
   tableBoxRef.current = erasedTable;
 
+  const instanceId = useId();
+
   const contextValue = useMemo<DataTableContextValue>(
     () => {
       return {
         get table() {
           return tableBoxRef.current;
         },
+        instanceId,
         getStyles: stableGetStyles,
         labels,
         filterMode,
@@ -632,6 +637,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       };
     },
     [
+      instanceId,
       stableGetStyles,
       labels,
       filterMode,

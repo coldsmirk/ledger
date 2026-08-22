@@ -82,6 +82,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     enableCellSpanning = true,
     getSubRows,
     renderDetailPanel,
+    selectionColumn,
+    expanderColumn,
     sortingMode = "client",
     filterMode = "client",
     paginationMode = "client",
@@ -540,9 +542,11 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     () => buildColumns({
       columns: responsiveColumns,
       withSelection: Boolean(enableRowSelection),
-      withExpander
+      withExpander,
+      selectionColumn,
+      expanderColumn
     }),
-    [responsiveColumns, enableRowSelection, withExpander]
+    [responsiveColumns, enableRowSelection, withExpander, selectionColumn, expanderColumn]
   );
 
   const ledger: LedgerMeta<TData> = useMemo(

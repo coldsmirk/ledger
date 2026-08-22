@@ -32,6 +32,8 @@ export interface BuildColumnsInput<TData extends RowData> {
   columns: Array<ColumnDef<TData, any>>;
   withSelection: boolean;
   withExpander: boolean;
+  selectionColumn?: Partial<ColumnDef<TData, unknown>>;
+  expanderColumn?: Partial<ColumnDef<TData, unknown>>;
 }
 
 /**
@@ -61,15 +63,38 @@ export function columnEnableResizing(columnDef: object): boolean | undefined {
   return (columnDef as { enableResizing?: boolean }).enableResizing;
 }
 
+/**
+ * An injected column is an ordinary def, so an override is an ordinary merge — the author's keys
+ * win over ledger's defaults. The id alone is reserved: `isInternalColumn` is how the render
+ * layer recognizes these columns (centered content, stop-propagation, excluded from CSV and the
+ * columns panel), so it is reapplied last.
+ */
+function injectedColumn<TData extends RowData>(
+  defaults: ColumnDef<TData, any>,
+  override: Partial<ColumnDef<TData, unknown>> | undefined
+): ColumnDef<TData, any> {
+  return processLeaf(
+    override
+      ? {
+          ...defaults,
+          ...override,
+          id: defaults.id
+        } as ColumnDef<TData, any>
+      : defaults
+  );
+}
+
 export function buildColumns<TData extends RowData>({
   columns,
   withSelection,
-  withExpander
+  withExpander,
+  selectionColumn,
+  expanderColumn
 }: BuildColumnsInput<TData>): Array<ColumnDef<TData, any>> {
   const result: Array<ColumnDef<TData, any>> = [];
 
   if (withSelection) {
-    result.push(processLeaf({
+    result.push(injectedColumn<TData>({
       id: SELECTION_COLUMN_ID,
       size: 40,
       minSize: 40,
@@ -84,11 +109,11 @@ export function buildColumns<TData extends RowData>({
       // instance — the assertion narrows the type to what actually exists.
       header: ({ table }) => <SelectionHeaderCell table={table as TableInstance<TData>} />,
       cell: ({ row }) => <SelectionCell row={row} />
-    }));
+    }, selectionColumn));
   }
 
   if (withExpander) {
-    result.push(processLeaf({
+    result.push(injectedColumn<TData>({
       id: EXPANDER_COLUMN_ID,
       size: 36,
       minSize: 36,
@@ -101,7 +126,7 @@ export function buildColumns<TData extends RowData>({
       enableGrouping: false,
       header: ({ table }) => <ExpanderHeaderCell table={table as TableInstance<TData>} />,
       cell: ({ row }) => <ExpanderCell row={row} />
-    }));
+    }, expanderColumn));
   }
 
   for (const column of columns) {
