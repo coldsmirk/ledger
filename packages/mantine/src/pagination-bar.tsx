@@ -13,6 +13,7 @@ import type { TableInstance } from "./types";
  */
 import { Group, Pagination, Select, Text, useProps } from "@mantine/core";
 import clsx from "clsx";
+import { useId } from "react";
 
 import { useDataTableContext } from "./context";
 import { resolveLabels } from "./labels";
@@ -34,6 +35,7 @@ function PaginationBarCore<TData extends RowData>({
   className,
   style
 }: PaginationBarCoreProps<TData>) {
+  const pageSizeLabelId = useId();
   const { pageIndex, pageSize } = table.atoms.pagination.get();
   // `options.rowCount` (server mode) wins inside TanStack; client mode counts pre-paginated rows.
   const total = table.getRowCount();
@@ -49,12 +51,15 @@ function PaginationBarCore<TData extends RowData>({
 
       <Group gap="md" wrap="nowrap">
         <Group gap="xs" wrap="nowrap">
-          <Text c="dimmed" size="sm">
+          {/* The visible text IS the label — pointing at it beats duplicating it into an
+              aria-label, which would let the two drift apart (WCAG 2.5.3, label in name). */}
+          <Text key="label" c="dimmed" id={pageSizeLabelId} size="sm">
             {labels.rowsPerPage}
           </Text>
 
           <Select
             allowDeselect={false}
+            aria-labelledby={pageSizeLabelId}
             data={pageSizeOptions.map(String)}
             size="xs"
             value={String(pageSize)}

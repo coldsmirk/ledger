@@ -21,6 +21,7 @@ import { DatePicker } from "@mantine/dates";
 import { useDebouncedCallback } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 
+import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
 import { warnOnce } from "./env";
 import { IconFilter } from "./icons";
@@ -44,12 +45,14 @@ export function FilterPopover<TData extends RowData>({ column }: FilterPopoverPr
   }
 
   const active = column.getFilterValue() !== undefined;
+  // Every filter control in a header is the same control; only the column tells them apart.
+  const name = labels.filterColumn(columnHeaderText(column));
 
   return (
     <Popover trapFocus position="bottom-start" width={240}>
       <Popover.Target>
         <ActionIcon
-          aria-label={labels.filterColumn}
+          aria-label={name}
           data-active={active || undefined}
           size="sm"
           variant={active ? "light" : "subtle"}
@@ -82,6 +85,7 @@ export function FilterPopover<TData extends RowData>({ column }: FilterPopoverPr
                   column={column}
                   config={typeof filter === "string" ? { variant: filter } : filter}
                   filterMode={filterMode}
+                  name={name}
                 />
               )}
         </Stack>
@@ -94,12 +98,17 @@ interface VariantFilterControlProps<TData extends RowData> {
   column: Column<TData, unknown>;
   config: DataTableFilterConfig;
   filterMode: "client" | "server";
+  /**
+   * Accessible name, shared with the funnel trigger — a placeholder is not a label.
+   */
+  name: string;
 }
 
 function VariantFilterControl<TData extends RowData>({
   column,
   config,
-  filterMode
+  filterMode,
+  name
 }: VariantFilterControlProps<TData>) {
   const { labels } = useDataTableContext();
 
@@ -120,7 +129,7 @@ function VariantFilterControl<TData extends RowData>({
 
   switch (variant) {
     case "text": {
-      return <TextFilter column={column} placeholder={config.placeholder ?? labels.filterPlaceholder} />;
+      return <TextFilter column={column} name={name} placeholder={config.placeholder ?? labels.filterPlaceholder} />;
     }
 
     case "select": {
@@ -128,6 +137,7 @@ function VariantFilterControl<TData extends RowData>({
         <Select
           clearable
           searchable
+          aria-label={name}
           clearButtonProps={{ "aria-label": labels.clearFilter }}
           // Inside the filter popover the combobox must not portal out: a portal dropdown
           // reads as an outside click and closes the popover mid-interaction.
@@ -145,6 +155,7 @@ function VariantFilterControl<TData extends RowData>({
         <MultiSelect
           clearable
           searchable
+          aria-label={name}
           clearButtonProps={{ "aria-label": labels.clearFilter }}
           comboboxProps={{ withinPortal: false }}
           data={options}
@@ -156,16 +167,20 @@ function VariantFilterControl<TData extends RowData>({
     }
 
     case "range": {
-      return <RangeFilter column={column} />;
+      return <RangeFilter column={column} name={name} />;
     }
 
     case "date-range": {
-      return <DateRangeFilter column={column} />;
+      return <DateRangeFilter column={column} name={name} />;
     }
   }
 }
 
-function TextFilter<TData extends RowData>({ column, placeholder }: { column: Column<TData, unknown>; placeholder: string }) {
+function TextFilter<TData extends RowData>({
+  column,
+  name,
+  placeholder
+}: { column: Column<TData, unknown>; name: string; placeholder: string }) {
   const { table, labels } = useDataTableContext();
   const filterValue = (column.getFilterValue() as string | undefined) ?? "";
   const [value, setValue] = useState(filterValue);
@@ -189,6 +204,7 @@ function TextFilter<TData extends RowData>({ column, placeholder }: { column: Co
 
   return (
     <TextInput
+      aria-label={name}
       placeholder={placeholder}
       rightSectionPointerEvents="all"
       value={value}
@@ -211,7 +227,7 @@ function TextFilter<TData extends RowData>({ column, placeholder }: { column: Co
   );
 }
 
-function RangeFilter<TData extends RowData>({ column }: { column: Column<TData, unknown> }) {
+function RangeFilter<TData extends RowData>({ column, name }: { column: Column<TData, unknown>; name: string }) {
   const { labels } = useDataTableContext();
   const [min, max] = (column.getFilterValue() as [number | undefined, number | undefined] | undefined) ?? [
     undefined,
@@ -228,7 +244,8 @@ function RangeFilter<TData extends RowData>({ column }: { column: Column<TData, 
   const active = min !== undefined || max !== undefined;
 
   return (
-    <Group gap="xs" wrap="nowrap">
+    // The pair is one control: the group carries the column's name, the inputs their bound.
+    <Group aria-label={name} gap="xs" role="group" wrap="nowrap">
       <NumberInput
         aria-label={labels.filterRangeMin}
         flex={1}
@@ -256,7 +273,7 @@ function RangeFilter<TData extends RowData>({ column }: { column: Column<TData, 
   );
 }
 
-function DateRangeFilter<TData extends RowData>({ column }: { column: Column<TData, unknown> }) {
+function DateRangeFilter<TData extends RowData>({ column, name }: { column: Column<TData, unknown>; name: string }) {
   const { labels } = useDataTableContext();
   const filterValue = column.getFilterValue() as DateRangeFilterValue | undefined;
   const value = filterValue ?? [null, null];
@@ -266,6 +283,7 @@ function DateRangeFilter<TData extends RowData>({ column }: { column: Column<TDa
       <DatePicker
         allowSingleDateInRange
         highlightToday
+        aria-label={name}
         size="xs"
         type="range"
         value={value}

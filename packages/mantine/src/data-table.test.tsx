@@ -266,6 +266,46 @@ describe("DataTable", () => {
     expect(container.querySelectorAll("[data-selected]")).toHaveLength(0);
   });
 
+  it("names every built-in control by what it acts on", () => {
+    const named: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { filter: "text", edit: "text" }
+      },
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { filter: "range" }
+      }
+    ];
+    render(
+      <DataTable
+        enableEditing
+        enablePagination
+        enableRowSelection
+        columns={named}
+        data={people}
+        getRowId={getRowId}
+      />,
+      { wrapper }
+    );
+
+    // Two funnels, two names — a shared "Filter column" would make them indistinguishable.
+    expect(screen.getByLabelText("Filter Name")).toBeTruthy();
+    expect(screen.getByLabelText("Filter Age")).toBeTruthy();
+    expect(screen.getByLabelText("Select all rows")).toBeTruthy();
+
+    // The page-size select points at its own visible text rather than duplicating it.
+    const pageSize = screen.getByLabelText("Rows per page");
+
+    expect(pageSize.tagName).toBe("INPUT");
+    expect(pageSize.getAttribute("aria-labelledby")).toBe(screen.getByText("Rows per page").id);
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    expect(screen.getByLabelText("Edit Name")).toBeTruthy();
+  });
+
   it("renders radios in a shared group for single-select, and no select-all", () => {
     const { container } = render(
       <DataTable

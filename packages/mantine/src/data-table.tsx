@@ -1123,7 +1123,13 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
             </MantineTable>
 
             {isEmpty && (
-              <div {...getStyles("empty")} data-variant={filtersActive ? "no-results" : "no-data"}>
+              // Polite, not assertive: filtering a table down to nothing is worth announcing,
+              // but it must not interrupt the typing that caused it.
+              <div
+                {...getStyles("empty")}
+                data-variant={filtersActive ? "no-results" : "no-data"}
+                role="status"
+              >
                 {emptyState ?? (
                   <EmptyState
                     withIndicatorBackground

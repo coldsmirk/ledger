@@ -66,10 +66,15 @@ export function DataTableSearch<TData extends RowData>(props: DataTableSearchPro
     table.setGlobalFilter("");
   };
 
+  const resolvedPlaceholder = placeholder ?? resolved.searchPlaceholder;
+
   return (
     <TextInput
+      // A placeholder is not a label — it disappears the moment there is a value. The visible
+      // text doubles as the name so the two never disagree; `others` lets a caller override it.
+      aria-label={resolvedPlaceholder}
       leftSection={<IconSearch />}
-      placeholder={placeholder ?? resolved.searchPlaceholder}
+      placeholder={resolvedPlaceholder}
       rightSectionPointerEvents="all"
       value={value}
       rightSection={value !== ""

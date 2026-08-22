@@ -38,7 +38,7 @@ export const zhCN: DataTableLabels = {
   resizeColumn: "拖动调整列宽；双击自适应内容",
   reorderColumn: "拖拽调整列顺序",
 
-  filterColumn: "筛选",
+  filterColumn: column => `筛选${column}`,
   clearFilter: "清除筛选",
   filterPlaceholder: "筛选…",
   filterRangeMin: "最小值",
@@ -54,5 +54,6 @@ export const zhCN: DataTableLabels = {
   retry: "重试",
   loadMoreError: "加载更多失败",
 
+  editColumn: column => `编辑${column}`,
   editPending: "保存中"
 };

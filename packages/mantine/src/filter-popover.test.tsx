@@ -44,7 +44,7 @@ describe("filter popover", () => {
       wrapper
     });
 
-    fireEvent.click(screen.getByLabelText("Filter column"));
+    fireEvent.click(screen.getByLabelText("Filter Name"));
     await waitFor(() => expect(document.querySelector(".ledger-filter-popover")).toBeTruthy());
 
     const selectInput = document.querySelector(".ledger-filter-popover input");
@@ -100,7 +100,7 @@ describe("filter popover", () => {
       wrapper
     });
 
-    fireEvent.click(screen.getByLabelText("Filter column"));
+    fireEvent.click(screen.getByLabelText("Filter Day"));
     await waitFor(() => expect(document.querySelector(".ledger-filter-popover")).toBeTruthy());
 
     const day = (label: string) => [...document.querySelectorAll<HTMLButtonElement>(".ledger-filter-popover table button")]
@@ -138,7 +138,7 @@ describe("filter popover", () => {
 
     render(<DataTable columns={textColumns} data={people} getRowId={person => person.id} />, { wrapper });
 
-    const trigger = screen.getByLabelText("Filter column");
+    const trigger = screen.getByLabelText("Filter Name");
     fireEvent.click(trigger);
     await waitFor(() => expect(document.querySelector(".ledger-filter-popover input")).toBeTruthy());
     fireEvent.change(document.querySelector(".ledger-filter-popover input") as Element, {
@@ -165,7 +165,7 @@ describe("filter popover", () => {
       { wrapper }
     );
 
-    fireEvent.click(screen.getByLabelText("Filter column"));
+    fireEvent.click(screen.getByLabelText("Filter Name"));
     await waitFor(() => expect(document.querySelector(".ledger-filter-popover input")).toBeTruthy());
     const input = document.querySelector(".ledger-filter-popover input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Alice" } });
@@ -187,7 +187,7 @@ describe("filter popover", () => {
 
     render(<DataTable columns={textColumns} data={people} getRowId={person => person.id} />, { wrapper });
 
-    fireEvent.click(screen.getByLabelText("Filter column"));
+    fireEvent.click(screen.getByLabelText("Filter Name"));
     await waitFor(() => expect(document.querySelector(".ledger-filter-popover input")).toBeTruthy());
     const input = document.querySelector(".ledger-filter-popover input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Alice" } });
@@ -220,7 +220,7 @@ describe("filter popover", () => {
 
     render(<DataTable columns={rangeColumns} data={items} getRowId={item => item.id} />, { wrapper });
 
-    fireEvent.click(screen.getByLabelText("Filter column"));
+    fireEvent.click(screen.getByLabelText("Filter Amount"));
     expect(await screen.findByLabelText("Min")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Min"), { target: { value: "10" } });
 
@@ -247,7 +247,7 @@ describe("filter popover", () => {
       { wrapper }
     );
 
-    fireEvent.click(screen.getByLabelText("Filter column"));
+    fireEvent.click(screen.getByLabelText("Filter Name"));
     await waitFor(() => expect(document.querySelector(".ledger-filter-popover input")).toBeTruthy());
     const input = document.querySelector(".ledger-filter-popover input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Alice" } });

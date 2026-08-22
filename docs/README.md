@@ -21,8 +21,9 @@ Start with [getting-started.md](getting-started.md); the guides are grounded in 
 | [pinning.md](pinning.md) | Column pinning and row pinning |
 | [virtualization.md](virtualization.md) | Row virtualization, infinite loading, `scrollToRow` |
 | [state.md](state.md) | The slice trios, client/server modes, `tableOptions`, `meta.ledger`, the handle, `persistState`, dev guards |
-| [styling.md](styling.md) | Forwarded props, Styles API selectors, data-attributes, CSS variables, theming, dark/RTL |
+| [styling.md](styling.md) | Forwarded props, Styles API selectors, DOM prop hooks, data-attributes, CSS variables, theming, dark/RTL |
 | [i18n.md](i18n.md) | The label catalog and locales |
+| [accessibility.md](accessibility.md) | The ARIA structure, naming the table, keyboard model, announced states, and the stated boundaries |
 
 ## Reference
 

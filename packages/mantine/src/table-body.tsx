@@ -16,7 +16,7 @@ import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
+import { columnHeaderText, EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
 import { useDataTableContext } from "./context";
 import { mergeElementProps, resolveElementProps } from "./element-props";
@@ -194,6 +194,7 @@ function CheckboxCell({ cell }: { cell: Cell<any, unknown> }) {
         aria-busy={pending || undefined}
         aria-describedby={error ? errorId : undefined}
         aria-invalid={error ? true : undefined}
+        aria-label={labels.editColumn(columnHeaderText(cell.column))}
         checked={checked}
         disabled={pending}
         type="checkbox"

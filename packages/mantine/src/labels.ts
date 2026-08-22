@@ -50,7 +50,11 @@ export interface DataTableLabels {
   reorderColumn: string;
 
   /* Filters */
-  filterColumn: string;
+  /**
+   * Names the funnel trigger and the control inside it — an unnamed control in a table of them
+   * is unusable, so the column title is interpolated rather than left generic.
+   */
+  filterColumn: (column: string) => string;
   clearFilter: string;
   filterPlaceholder: string;
   filterRangeMin: string;
@@ -73,6 +77,10 @@ export interface DataTableLabels {
   loadMoreError: string;
 
   /* Editing */
+  /**
+   * Names an inline editor by the column it edits.
+   */
+  editColumn: (column: string) => string;
   editPending: string;
 }
 
@@ -105,7 +113,7 @@ export const defaultLabels: DataTableLabels = {
   resizeColumn: "Drag to resize; double-click to fit content",
   reorderColumn: "Drag to reorder column",
 
-  filterColumn: "Filter column",
+  filterColumn: column => `Filter ${column}`,
   clearFilter: "Clear filter",
   filterPlaceholder: "Filter…",
   filterRangeMin: "Min",
@@ -121,6 +129,7 @@ export const defaultLabels: DataTableLabels = {
   retry: "Retry",
   loadMoreError: "Couldn't load more rows",
 
+  editColumn: column => `Edit ${column}`,
   editPending: "Saving"
 };
 

@@ -12,6 +12,7 @@ import type { Cell, DataTableEditConfig, DataTableEditContext, Row } from "./typ
 import { Loader, NumberInput, Select, TextInput } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 
+import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
 import { useEventCallback } from "./utils";
 
@@ -323,6 +324,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
             config={normalized.config}
             draft={draft}
             error={editError}
+            name={labels.editColumn(columnHeaderText(cell.column))}
             pending={pending}
             onCommit={commit}
             onValueChange={setValue}
@@ -448,6 +450,7 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
             draft={draft}
             error={editError}
             mode="row"
+            name={labels.editColumn(columnHeaderText(cell.column))}
             pending={pending}
             onCommit={() => true}
             onValueChange={setValue}
@@ -482,6 +485,11 @@ interface VariantEditorProps {
    */
   mode?: "cell" | "row";
   autoFocus?: boolean;
+  /**
+   * Accessible name: an editor is one of many identical controls in the grid, and the column it
+   * edits is what tells them apart.
+   */
+  name: string;
   onValueChange: (value: unknown) => void;
   onCommit: () => CommitResult;
 }
@@ -493,6 +501,7 @@ function VariantEditor({
   pending,
   mode = "cell",
   autoFocus = true,
+  name,
   onValueChange,
   onCommit
 }: VariantEditorProps) {
@@ -500,6 +509,7 @@ function VariantEditor({
     case "text": {
       return (
         <TextInput
+          aria-label={name}
           autoFocus={autoFocus}
           disabled={pending}
           error={error}
@@ -515,6 +525,7 @@ function VariantEditor({
       return (
         <NumberInput
           hideControls
+          aria-label={name}
           autoFocus={autoFocus}
           disabled={pending}
           error={error}
@@ -529,6 +540,7 @@ function VariantEditor({
     case "select": {
       return (
         <Select
+          aria-label={name}
           autoFocus={autoFocus}
           comboboxProps={{ withinPortal: true }}
           data={config.options}
@@ -555,6 +567,7 @@ function VariantEditor({
         // owns the write.
         return (
           <input
+            aria-label={name}
             checked={Boolean(draft)}
             disabled={pending}
             type="checkbox"
