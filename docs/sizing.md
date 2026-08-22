@@ -55,7 +55,7 @@ The engine re-resolves on container resize (ResizeObserver on the body viewport,
 
 ### Resizing interplay
 
-Dragging a resize handle writes a `columnSizing` entry — from then on that column is explicit. Drags are exactly 1:1 because they start from the engine-resolved rendered width (a grow column's first drag never jumps); double-clicking the handle clears the entry, returning the column to grow behavior. See [columns.md](columns.md#resizing).
+Dragging a resize handle writes a `columnSizing` entry — from then on that column is explicit. Drags are exactly 1:1 because they start from the engine-resolved rendered width (a grow column's first drag never jumps); double-clicking the handle autosizes the column to its rendered content (also an explicit entry — the columns panel's width reset returns it to grow behavior). See [columns.md](columns.md#resizing).
 
 The interaction is ledger's own pointer session end to end, so TanStack's `columnResizingFeature` is **not registered** on the feature set ([state.md](state.md#the-feature-set-and-fn-registries)). Consequences, by design: the `columnResizing` state slice, `column.getIsResizing()`, `header.getResizeHandler()`, and the `columnResizeMode` / `columnResizeDirection` options simply do not exist on the instance — feature-gated APIs cannot misreport a pipeline that never runs. `enableColumnResizing` (default `false`) is therefore a ledger-owned switch carried on `meta.ledger`, and the per-column `enableResizing` knob keeps TanStack's name on ledger's `ColumnDef` type. Commit timing is fixed to live updates (v8's `columnResizeMode: "onChange"` behavior) and drag direction follows the handle's computed CSS `direction`, so RTL resolves without an option.
 

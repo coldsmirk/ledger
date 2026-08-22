@@ -102,7 +102,7 @@ export const defaultLabels: DataTableLabels = {
   columnWidth: "Width",
   columnWidthAuto: "Auto",
 
-  resizeColumn: "Resize column",
+  resizeColumn: "Drag to resize; double-click to fit content",
   reorderColumn: "Drag to reorder column",
 
   filterColumn: "Filter column",

@@ -276,6 +276,7 @@ function DataCell({
       data-align={meta?.align}
       data-editable={editable || undefined}
       data-editing={editing || undefined}
+      data-ledger-column-id={column.id}
       data-pinned={column.getIsPinned() || undefined}
       data-pinned-edge={pinnedEdge(column)}
       role="cell"

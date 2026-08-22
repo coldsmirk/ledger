@@ -58,7 +58,8 @@ Sized columns are fixed pixels; unsized columns grow to share the leftover viewp
 
 - Off by default. When on, every resizable column gets a handle on its trailing edge; per-column opt-out is TanStack's own `enableResizing: false` on the def.
 - Drags are live and **exactly 1:1**: the pointer session starts from the width the engine actually rendered ([sizing.md](sizing.md#resizing-interplay)), updates are CSS variables, so a drag **never re-renders row components**, and the result is clamped to the column's `minSize`/`maxSize`.
-- **Escape cancels** an in-flight drag, restoring the pre-drag width; double-click resets the column to its definition (a grow column returns to growing).
+- **Escape or a pointercancel cancels** an in-flight drag, restoring the pre-drag width.
+- **Double-click fits the column to its content**: the header and every rendered body cell are measured (under virtualization that is the current window — unrendered rows have no boxes to measure) and the result is clamped like a drag. The definition width stays reachable through the columns panel's width reset.
 - The drag direction follows the handle's computed `direction` (RTL-correct).
 - State rides the `columnSizing` slice (`columnSizing` / `defaultColumnSizing` / `onColumnSizingChange`), persistable via `persistState`.
 

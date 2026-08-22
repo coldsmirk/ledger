@@ -95,6 +95,23 @@ describe("useColumnResize", () => {
     expect(onColumnSizingChange).toHaveBeenLastCalledWith({});
   });
 
+  it("autosizes the column to its rendered content on resizer double-click", () => {
+    const { onColumnSizingChange, resizer } = renderResizable();
+
+    // jsdom lays nothing out, so the rendered cells report a stubbed content width.
+    const cells = document.querySelectorAll<HTMLElement>(".ledger-tbody td[data-ledger-column-id=\"name\"]");
+    expect(cells.length).toBeGreaterThan(0);
+
+    for (const cell of cells) {
+      Object.defineProperty(cell, "scrollWidth", { configurable: true, value: 252 });
+    }
+
+    fireEvent.doubleClick(resizer);
+
+    // Content width plus the breathing-room slack.
+    expect(onColumnSizingChange).toHaveBeenLastCalledWith({ name: 260 });
+  });
+
   it("restores the pre-drag width and ends the session on pointercancel", () => {
     const { onColumnSizingChange, resizer } = renderResizable();
 

@@ -13,6 +13,7 @@ import type { Header, TableInstance } from "./types";
 import { Table as MantineTable } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 
+import { autosizeColumn } from "./autosize-column";
 import { columnEnableResizing, isInternalColumn } from "./build-columns";
 import { useDataTableContext } from "./context";
 import { FilterPopover } from "./filter-popover";
@@ -155,7 +156,13 @@ function HeaderCell<TData extends RowData>({
                     data-resizing={resizing || undefined}
                     title={labels.resizeColumn}
                     onClick={event => event.stopPropagation()}
-                    onDoubleClick={() => column.resetSize()}
+                    onDoubleClick={event => {
+                      const main = event.currentTarget.closest<HTMLElement>(".ledger-main");
+
+                      if (main) {
+                        autosizeColumn(table, column.id, main);
+                      }
+                    }}
                     {...resize.getResizerProps(column.id)}
                     {...getStyles("resizer")}
                   />

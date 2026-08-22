@@ -104,6 +104,7 @@ Decisions that shaped the surface, in the order they were made. Dates are build 
 - **`onEndReached`'s initial probe waits a frame and ignores unlaid-out viewports** — the pre-layout viewport reads as "at the bottom" and used to trigger a phantom page load.
 - **attw config** (`.attw.json`): the `styles.css` entrypoint is excluded (a stylesheet has no types) and the profile is `node16` — with `engines.node >= 24`, node10 subpath resolution is out of contract for `./locales`.
 - **`toCsv` gained opt-in `escapeFormulas`** (2026-08-22): OWASP CSV-injection defusal — a `'` prefix on formula-leading header text and string cells. Naming precedent is PapaParse's `escapeFormulae`, respelled with Excel's own plural; off by default because the quote is data to every non-spreadsheet consumer.
+- **Resizer double-click now autosizes instead of resetting** (2026-08-22): fit-to-rendered-content is the industry meaning of the gesture (MUI, AG Grid); the definition-width reset stays reachable through the columns panel. Under virtualization only the rendered window is measured — the same boundary MUI documents.
 
 **Interactive browser pass (2026-07-16, playwright-driven, every demo).** Three defects, each fixed at the root with a regression test where jsdom can express it:
 
