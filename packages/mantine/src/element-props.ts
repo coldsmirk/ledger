@@ -32,11 +32,13 @@ export function resolveElementProps<TProps, TSubject>(
 /**
  * Compose consumer props with ledger's own, with four rules:
  *
- * - ledger's structural props win — `role`, the `data-*` state contract, ARIA indices and the
- * sticky offsets of a pinned cell are the styling and semantic contract, not suggestions;
+ * - ledger's structural props win — `role`, the `data-*` state contract and the ARIA indices are
+ * the styling and semantic contract, not suggestions;
  * - but only where ledger actually sets one: an owned key holding `undefined` means "ledger has
  * no opinion here" and must not erase the consumer's value;
- * - `className` and `style` compose, consumer last so an equal-specificity rule of theirs wins;
+ * - `className` and `style` compose, consumer last — an escape hatch that silently dropped an
+ * author's declaration would not be one, so overriding a ledger inline value (a pinned cell's
+ * sticky offset, say) is possible and is the author's to own;
  * - a handler present on both sides chains, ledger's first (its stop-propagation covenant and
  * active-row bookkeeping run before the consumer sees the event).
  */

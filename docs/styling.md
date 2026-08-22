@@ -80,9 +80,9 @@ The Styles API dresses a slot; it cannot make a row carry an attribute, react to
 
 The types are Mantine's own (`TableTrProps`, `TableTdProps`, `TableThProps`), so Mantine style props (`bg`, `p`, `c`) work alongside plain DOM attributes. Four composition rules:
 
-- **ledger's structural props win** — `role`, the `data-*` state contract below, ARIA indices, and a pinned cell's sticky offsets. They are the contract the stylesheet and the accessibility tree are written against.
+- **ledger's structural props win** — `role`, the `data-*` state contract below, and the ARIA indices. They are the contract the stylesheet and the accessibility tree are written against.
 - **…but only where ledger sets one.** Where ledger has no opinion (a cell's `onClick` when the edit trigger is `double-click`, say) your value stands.
-- **`className` and `style` compose**, yours last — an equal-specificity rule of yours wins.
+- **`className` and `style` compose**, yours last — an equal-specificity rule of yours wins. That includes ledger's own inline values: you *can* override a pinned cell's sticky offset, and the result is yours to own. An escape hatch that silently dropped your declaration would not be one.
 - **Handlers chain**, ledger's first: its stop-propagation covenant and active-row bookkeeping run before your handler sees the event.
 
 `ref` is excluded from all of them: these are prop hooks resolved per render — per virtual item, for rows — not component instances, and ledger owns the row ref for virtualization measurement. Synthetic rows (detail panels, loader and skeleton rows) have no subject and never receive `rowProps`.

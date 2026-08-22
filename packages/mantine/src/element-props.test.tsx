@@ -84,6 +84,16 @@ describe("mergeElementProps", () => {
     expect(order).toEqual(["ledger", "consumer"]);
   });
 
+  it("lets a consumer style entry override ledger's own inline value", () => {
+    // The escape hatch is only one if it can win; a pinned cell's sticky offset included.
+    const merged: Record<string, unknown> = mergeElementProps(
+      { style: { insetInlineStart: 40 } },
+      { style: { insetInlineStart: 0, position: "sticky" } }
+    );
+
+    expect(merged.style).toEqual({ insetInlineStart: 40, position: "sticky" });
+  });
+
   it("keeps the consumer's value where ledger's own prop is undefined", () => {
     const onClick = vi.fn();
     const merged: Record<string, unknown> = mergeElementProps(
