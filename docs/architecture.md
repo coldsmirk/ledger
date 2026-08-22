@@ -10,7 +10,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `use-data-table.ts` | The behavior core: slices, mode translation, row-model wiring, `meta.ledger`, `tableOptions` merge |
 | `use-slice.ts` | One state slice: `useUncontrolled` + TanStack `functionalUpdate`, resolved-value callbacks |
 | `data-table.tsx` | The factory component: option/presentation partition, Styles API, the header/body split (two synced tables), column CSS variables, infinite loading, scroll edges, imperative handle |
-| `build-columns.tsx` | Injected selection/expander columns; `meta.filter` → `filterFn` gap-filling |
+| `build-columns.tsx` | Injected selection/expander columns (and the `selectionColumn` / `expanderColumn` merge); `meta.filter` → `filterFn` gap-filling |
 | `table-header.tsx` / `table-body.tsx` / `table-footer.tsx` | Renderers: header (sort/actions/resize/reorder), body (display rows, virtualization, pinned rows, group cells, skeletons), footer |
 | `cell-editor.tsx` | Editing host: draft, validation, async commit lifecycle, keyboard map, deferred unmount-commit |
 | `filter-popover.tsx` | The header's filter dropdown surface |
@@ -22,6 +22,8 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `use-column-resize.ts` | Pointer-based column resizing (1:1 from resolved widths, Escape restore, RTL-aware) |
 | `use-column-reorder.ts` | Pointer-based header drag (threshold, click suppression, Escape) |
 | `use-pinned-row-offsets.ts` | Measured cumulative sticky offsets for pinned rows |
+| `element-props.ts` | The DOM escape hatch: the `TProps \| (subject) => TProps` shape, and the merge rules that keep ledger's structural props authoritative |
+| `truncate.ts` | The hover-time truncation tooltip — measured on the element, never at render |
 | `pinning.ts` / `utils.ts` | Pinned-cell geometry; CSS-variable names; `useEventCallback`; `toPx` |
 | `filter-fns.ts` | `ledger-one-of`, `ledger-date-range`, variant → filterFn map |
 | `persist.ts` | `persistState`: guarded synchronous hydration, debounced writes, per-slice shape guards |

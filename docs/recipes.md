@@ -184,7 +184,7 @@ Ordered simple → complex, each themed as a real business scene:
 | --- | --- | --- |
 | `basic` | 员工名册 | the minimal table: raw column defs + data, sorting, hover |
 | `appearance` | 价目表 | the three border shapes (frame + rows / grid / horizontal-only), stripes, spacing, loading, empty state |
-| `orders` | 订单中心 | all five filter variants, pagination, footer totals, `onRowClick`, `zhCN` |
+| `orders` | 订单中心 | all five filter variants, pagination, footer totals, the active row, `onRowActivate`, `rowProps` / `meta.cellProps`, `zhCN` |
 | `selection` | 批量操作 | multi-select, shift ranges, selection bar, CSV export, per-row selectability |
 | `editing` | 库存盘点 | all four editors, validation, async commits |
 | `master-detail` | 订单明细 | detail panels (nested line-item table) |

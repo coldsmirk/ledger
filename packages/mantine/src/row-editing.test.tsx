@@ -101,6 +101,9 @@ describe("keyboard entry into editing", () => {
 
     await waitFor(() => expect(editorInputs()).toHaveLength(2));
     expect(document.querySelector("[data-row-id=\"1\"][data-editing-row]")).toBeTruthy();
+    // F2 places focus in an input — landing on the editors without the caret would leave the
+    // keyboard user stranded on the viewport.
+    await waitFor(() => expect(document.activeElement).toBe(editorInputs()[0]));
   });
 });
 
