@@ -5,7 +5,14 @@ import { Text } from "@mantine/core";
  * The classic report shape: adjacent equal cells merge vertically (`spanRows`), and the total
  * row merges its label across the dimension columns (`spanColumns`). Both switches live on the
  * raw TanStack defs. Deliberately no stripes — a merged cell paints one background across its
- * run, so the frame comes from row and column borders instead.
+ * run, so the frame comes from row and column borders instead; this is the one demo whose
+ * subject needs the grid, since the borders are what make a span's extent readable.
+ *
+ * Every column declares a `size`, so there is no grow column and the width engine spreads any
+ * surplus over all five (docs/sizing.md#column-widths) — across a full-width page that inflates
+ * a two-character dimension column past 300px. A fixed report is not an elastic table: `maw`
+ * and `h="auto"` state its real size, and the frame then hugs it instead of stretching to the
+ * page. Both are plain Mantine `BoxProps` — a constraint, not a mode.
  */
 interface ReportRow {
   id: string;
@@ -163,9 +170,9 @@ export function SpanningDemo() {
       withTableBorder
       columns={columns}
       data={REPORT}
-      flex={1}
       getRowId={row => row.id}
-      mih={0}
+      h="auto"
+      maw={880}
     />
   );
 }
