@@ -45,6 +45,8 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 | `edit` | variant \| config \| render function | Inline cell editing — see [editing.md](editing.md) |
 | `headerClassName` | `string` | Extra class on the `<th>` |
 | `cellClassName` | `string \| (cell) => string \| undefined` | Extra class on each `<td>`, statically or per cell |
+| `export` | `false \| { header?, value? }` | Exclude from or reshape the CSV export ([api.md](api.md#tocsv)) |
+| `hiddenFrom` / `visibleFrom` | `MantineBreakpoint` | Breakpoint-driven presence — see [Responsive columns](#responsive-columns) |
 
 ## Width model
 
@@ -78,6 +80,17 @@ Sized columns are fixed pixels; unsized columns grow to share the leftover viewp
 ### Visibility
 
 `enableHiding` is on by default; per-column opt-out is `enableHiding: false` on the def, which renders the panel's checkbox disabled rather than dropping the row. State rides the `columnVisibility` slice, persistable via `persistState`.
+
+### Responsive columns
+
+`meta.hiddenFrom` and `meta.visibleFrom` carry the host's own `Box` vocabulary onto columns: `hiddenFrom: "sm"` removes the column at and above the `sm` breakpoint, `visibleFrom: "md"` shows it only from `md` up. Breakpoint values resolve from the Mantine theme (its published `--mantine-breakpoint-*` variables, falling back to the stock scale).
+
+```tsx
+helper.accessor("contact", { header: "Contact", meta: { visibleFrom: "md" } }),
+helper.accessor("age",     { header: "Age",     meta: { hiddenFrom: "sm" } }),
+```
+
+An off-breakpoint column is removed from the definitions before TanStack sees them, so the width engine redistributes, the colgroup follows, and the columns panel lists only what the viewport can show. Column state keyed by id — `columnVisibility`, ordering, persisted layout — is untouched and reapplies when the column returns. Where `matchMedia` does not exist (SSR first paint, some test environments) every column stays visible.
 
 ## The columns panel
 

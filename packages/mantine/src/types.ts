@@ -8,7 +8,7 @@
  * (`ColumnDef<TData, TValue>`, `Row<TData>`, …) — the feature set is an implementation
  * detail of the package, never a parameter consumers manage.
  */
-import type { ComboboxData } from "@mantine/core";
+import type { ComboboxData, MantineBreakpoint } from "@mantine/core";
 import type {
   CellData,
   ColumnFiltersState,
@@ -397,6 +397,15 @@ declare module "@tanstack/react-table" {
      * header text or derives the exported value.
      */
     export?: false | DataTableExportMeta<TData>;
+    /**
+     * Removes the column at and above the breakpoint (host vocabulary: `Box.hiddenFrom`).
+     * Breakpoint values follow the Mantine theme.
+     */
+    hiddenFrom?: MantineBreakpoint;
+    /**
+     * Shows the column only at and above the breakpoint (host vocabulary: `Box.visibleFrom`).
+     */
+    visibleFrom?: MantineBreakpoint;
   }
 
   // eslint-disable-next-line unused-imports/no-unused-vars -- declaration merging requires TanStack's exact type parameter list

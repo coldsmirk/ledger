@@ -156,6 +156,8 @@ interface ColumnMeta<TData, TValue> {
   headerClassName?: string;
   cellClassName?: string | ((cell: Cell<TData, TValue>) => string | undefined);
   export?: false | { header?: string; value?: (row: Row<TData>) => unknown };
+  hiddenFrom?: MantineBreakpoint;   // removed at and above the breakpoint (Box vocabulary)
+  visibleFrom?: MantineBreakpoint;  // present only at and above the breakpoint
 }
 ```
 

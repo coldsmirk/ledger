@@ -39,6 +39,7 @@ import { isDev, warnOnce } from "./env";
 import { ledgerFilterFns } from "./filter-fns";
 import { buildLedgerFeatures } from "./ledger-features";
 import { readPersistedState, usePersistWriter } from "./persist";
+import { useResponsiveColumns } from "./use-responsive-columns";
 import { useSlice } from "./use-slice";
 import { useEventCallback } from "./utils";
 
@@ -288,15 +289,16 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const selectAllScope: "page" | "all"
     = enablePagination || paginationMode === "server" ? "page" : "all";
 
-  /* ---- columns: injected selection/expander + meta.filter variant wiring ---- */
+  /* ---- columns: breakpoint filter + injected selection/expander + meta.filter wiring ---- */
+  const responsiveColumns = useResponsiveColumns(columns);
   const withExpander = Boolean(renderDetailPanel || getSubRows);
   const processedColumns = useMemo(
     () => buildColumns({
-      columns,
+      columns: responsiveColumns,
       withSelection: Boolean(enableRowSelection),
       withExpander
     }),
-    [columns, enableRowSelection, withExpander]
+    [responsiveColumns, enableRowSelection, withExpander]
   );
 
   const ledger: LedgerMeta<TData> = useMemo(
