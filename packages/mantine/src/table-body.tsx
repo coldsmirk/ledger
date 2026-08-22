@@ -23,6 +23,7 @@ import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { IconChevronRight } from "./icons";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
+import { syncTruncationTitle } from "./truncate";
 import { usePinnedRowOffsets } from "./use-pinned-row-offsets";
 
 const TREE_INDENT_PX = 20;
@@ -80,12 +81,6 @@ export function buildDisplayRows<TData extends RowData>(rows: Array<Row<TData>>,
 // ------------------------------------------------------------------------------------------------
 // Cells
 // ------------------------------------------------------------------------------------------------
-
-function cellTitle(cell: Cell<any, unknown>): string | undefined {
-  const value = cell.getValue();
-
-  return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
-}
 
 /**
  * Grouped cell: expander, the grouped value, and the group size.
@@ -274,7 +269,7 @@ function DataCell({
 
     if (meta?.truncate) {
       content = (
-        <span data-truncate title={cellTitle(cell)}>
+        <span data-truncate onPointerEnter={syncTruncationTitle}>
           {content}
         </span>
       );

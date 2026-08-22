@@ -40,7 +40,7 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 | Key | Type | Effect |
 | --- | --- | --- |
 | `align` | `"start" \| "center" \| "end"` | Logical text alignment for header, cells, and footer — RTL-correct by construction |
-| `truncate` | `boolean` | Single-line ellipsis with a `title` tooltip (host vocabulary: `Text.truncate`) |
+| `truncate` | `boolean` | Single-line ellipsis, plus a `title` tooltip **when the text is actually clipped** (host vocabulary: `Text.truncate`) |
 | `filter` | variant \| config \| render function | Header filter UI — see [filtering.md](filtering.md) |
 | `edit` | variant \| config \| render function | Inline cell editing — see [editing.md](editing.md) |
 | `cellProps` | `TableTdProps \| (cell) => TableTdProps \| undefined` | DOM props for this column's `<td>`s — see [DOM props](styling.md#dom-props) |
@@ -48,6 +48,10 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 | `footerCellProps` | `TableThProps \| (footer) => TableThProps \| undefined` | DOM props for this column's footer cell |
 | `export` | `false \| { header?, value? }` | Exclude from or reshape the CSV export ([api.md](api.md#tocsv)) |
 | `hiddenFrom` / `visibleFrom` | `MantineBreakpoint` | Breakpoint-driven presence — see [Responsive columns](#responsive-columns) |
+
+### Truncation tooltips
+
+`meta.truncate` clips to one line and resolves its `title` on hover, from the rendered text of the element itself — so a custom `cell` renderer's output is what you read, a non-string value still gets a readable tooltip, and text that fits gets no tooltip at all. Truncated **header** labels behave the same way, with no opt-in. Being a native `title`, it reaches pointer users; for a tooltip that survives keyboard and touch, render your own inside `cell` or attach it through `meta.cellProps` ([DOM props](styling.md#dom-props)).
 
 ## Width model
 

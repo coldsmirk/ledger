@@ -20,6 +20,7 @@ import { mergeElementProps, resolveElementProps } from "./element-props";
 import { FilterPopover } from "./filter-popover";
 import { IconChevronDown, IconChevronUp, IconSortable } from "./icons";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
+import { syncTruncationTitle } from "./truncate";
 import { useColumnReorder } from "./use-column-reorder";
 import { useColumnResize } from "./use-column-resize";
 
@@ -133,7 +134,7 @@ function HeaderCell<TData extends RowData>({
                         {...getStyles("headerLabel")}
                         data-align={meta?.align}
                       >
-                        <span data-truncate>{label}</span>
+                        <span data-truncate onPointerEnter={syncTruncationTitle}>{label}</span>
 
                         <span {...getStyles("sortIndicator")} data-sorted={sorted || undefined}>
                           {sorted === "asc" && <IconChevronUp size={14} />}
@@ -145,7 +146,7 @@ function HeaderCell<TData extends RowData>({
                     )
                   : (
                       <div {...getStyles("headerLabel")} data-align={meta?.align}>
-                        <span data-truncate>{label}</span>
+                        <span data-truncate onPointerEnter={syncTruncationTitle}>{label}</span>
                       </div>
                     )}
 
