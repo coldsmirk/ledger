@@ -610,6 +610,10 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     ? (rowContextMenuStable as DataTableContextValue["onRowContextMenu"])
     : undefined;
 
+  // Normalized once: the prop defaults to true, so an absent value must not read as "off" at
+  // any of its three use sites (the context, the ARIA row numbering, the render).
+  const columnHeadersVisible = withColumnHeaders !== false;
+
   const filterMode: "client" | "server" = table.options.manualFiltering ? "server" : "client";
 
   /* The documented single TData erasure (context.ts) — the render layer below is `any`-bound. */
@@ -635,7 +639,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         labels,
         filterMode,
         virtualized: virtualEnabled,
-        withColumnHeaders: withColumnHeaders !== false,
+        withColumnHeaders: columnHeadersVisible,
         columnWidths: columnWidthsRef,
         onRowClick: contextRowClick,
         onRowActivate: contextRowActivate,
@@ -652,7 +656,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       labels,
       filterMode,
       virtualEnabled,
-      withColumnHeaders,
+      columnHeadersVisible,
       contextRowClick,
       contextRowActivate,
       contextRowDoubleClick,
@@ -768,7 +772,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const footerViewportRef = useRef<HTMLDivElement | null>(null);
   const hasFooter = tableHasFooter(table);
   // No header region means no header rows — every aria-rowindex downstream counts from 0.
-  const headerRowCount = withColumnHeaders ? table.getHeaderGroups().length : 0;
+  const headerRowCount = columnHeadersVisible ? table.getHeaderGroups().length : 0;
   const withDetailPanels = Boolean(table.options.meta?.ledger?.renderDetailPanel);
   const rowPinningActive = table.options.enableRowPinning === true;
   const logicalDisplayRowCount
@@ -1125,7 +1129,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
           role="table"
           {...getStyles("main")}
         >
-          {withColumnHeaders && (
+          {columnHeadersVisible && (
             <div ref={headerViewportRef} {...getStyles("header")}>
               <MantineTable {...sharedTableProps} {...tableStyleProps()}>
                 <colgroup>{colElements}</colgroup>
