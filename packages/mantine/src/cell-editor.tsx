@@ -25,7 +25,7 @@ function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLike<T> {
   return typeof value === "object" && value !== null && "then" in value && typeof value.then === "function";
 }
 
-function errorMessage(error: unknown): string {
+export function editErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
@@ -142,7 +142,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
       }
     } catch (error) {
       if (mountedRef.current) {
-        setEditError(errorMessage(error));
+        setEditError(editErrorMessage(error));
       }
 
       return false;
@@ -159,7 +159,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
       });
     } catch (error) {
       if (mountedRef.current) {
-        setEditError(errorMessage(error));
+        setEditError(editErrorMessage(error));
       }
 
       return false;
@@ -190,7 +190,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
 
           if (mountedRef.current) {
             setPending(false);
-            setEditError(errorMessage(error));
+            setEditError(editErrorMessage(error));
           }
 
           return false;
@@ -351,11 +351,137 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   );
 }
 
+/**
+ * The row-mode editor host (docs/editing.md#row-mode): one per editable cell of the editing
+ * row, all mounted at once. Drafts write through to the controller's store (they must survive
+ * a virtualized unmount), blur never commits, and Enter/Escape commit or cancel the whole row.
+ */
+export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
+  const { labels, getStyles } = useDataTableContext();
+  const { table } = cell.getContext();
+  const editing = table.options.meta?.ledger?.editing;
+  const rowApi = editing?.row;
+  const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
+  const columnId = cell.column.id;
+
+  const [draft, setDraftState] = useState<unknown>(
+    () => rowApi?.drafts.has(columnId) ? rowApi.drafts.get(columnId) : cell.getValue()
+  );
+  const [editError, setEditError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mountedRef = useRef(true);
+  // Ref-read, not consumed — StrictMode's remount and virtualizer round-trips keep the focus.
+  const autoFocus = rowApi?.shouldFocus(columnId) ?? false;
+
+  const setValue = useEventCallback((value: unknown) => {
+    setDraftState(value);
+    setEditError(null);
+    rowApi?.drafts.set(columnId, value);
+  });
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    const unregister = rowApi?.register(columnId, {
+      focus: () => containerRef.current
+        ?.querySelector<HTMLElement>(":scope input, :scope select, :scope textarea, :scope button")
+        ?.focus(),
+      setError: error => {
+        if (mountedRef.current) {
+          setEditError(error);
+        }
+      },
+      setPending: value => {
+        if (mountedRef.current) {
+          setPending(value);
+        }
+      }
+    });
+
+    return () => {
+      mountedRef.current = false;
+      unregister?.();
+    };
+    // eslint-disable-next-line @eslint-react/exhaustive-deps -- registration is a mount/unmount pairing; handlers are stable
+  }, []);
+
+  if (!normalized || !editing) {
+    return null;
+  }
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    // An inner control that consumed the key (a select picking its option) keeps it.
+    if (event.defaultPrevented) {
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      editing.row.stop({ commit: true });
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      editing.row.stop({ commit: false });
+    }
+  };
+
+  const editor
+    = normalized.kind === "custom"
+      ? normalized.render({
+          row: cell.row,
+          column: cell.column,
+          value: draft,
+          setValue,
+          // Row mode: commit/cancel operate on the whole row, matching the keyboard map.
+          commit: () => {
+            editing.row.stop({ commit: true });
+            return true;
+          },
+          cancel: () => editing.row.stop({ commit: false }),
+          error: editError
+        })
+      : (
+          <VariantEditor
+            autoFocus={autoFocus}
+            config={normalized.config}
+            draft={draft}
+            error={editError}
+            mode="row"
+            pending={pending}
+            onCommit={() => true}
+            onValueChange={setValue}
+          />
+        );
+
+  return (
+    <div
+      ref={containerRef}
+      aria-busy={pending || undefined}
+      aria-label={pending ? labels.editPending : undefined}
+      data-pending={pending || undefined}
+      onClick={event => event.stopPropagation()}
+      onDoubleClick={event => event.stopPropagation()}
+      onKeyDown={handleKeyDown}
+      {...getStyles("cellEditor")}
+    >
+      {editor}
+      {pending && <Loader size={12} />}
+    </div>
+  );
+}
+
 interface VariantEditorProps {
   config: DataTableEditConfig<any, unknown>;
   draft: unknown;
   error: string | null;
   pending: boolean;
+  /**
+   * Cell mode focuses (and for selects, opens) its single editor; row mode focuses only the
+   * cell the session started from, never auto-opens, and never commits from a select change.
+   */
+  mode?: "cell" | "row";
+  autoFocus?: boolean;
   onValueChange: (value: unknown) => void;
   onCommit: () => CommitResult;
 }
@@ -365,6 +491,8 @@ function VariantEditor({
   draft,
   error,
   pending,
+  mode = "cell",
+  autoFocus = true,
   onValueChange,
   onCommit
 }: VariantEditorProps) {
@@ -372,7 +500,7 @@ function VariantEditor({
     case "text": {
       return (
         <TextInput
-          autoFocus
+          autoFocus={autoFocus}
           disabled={pending}
           error={error}
           size="xs"
@@ -386,8 +514,8 @@ function VariantEditor({
     case "number": {
       return (
         <NumberInput
-          autoFocus
           hideControls
+          autoFocus={autoFocus}
           disabled={pending}
           error={error}
           size="xs"
@@ -401,10 +529,10 @@ function VariantEditor({
     case "select": {
       return (
         <Select
-          autoFocus
-          defaultDropdownOpened
+          autoFocus={autoFocus}
           comboboxProps={{ withinPortal: true }}
           data={config.options}
+          defaultDropdownOpened={mode === "cell"}
           disabled={pending}
           error={error}
           size="xs"
@@ -412,15 +540,31 @@ function VariantEditor({
           variant="unstyled"
           onChange={value => {
             onValueChange(value);
-            onCommit();
+
+            if (mode === "cell") {
+              onCommit();
+            }
           }}
         />
       );
     }
 
     case "checkbox": {
-      // The checkbox variant never enters edit mode (it commits on toggle in the cell itself);
-      // reaching here means startEditing was called programmatically — render nothing.
+      if (mode === "row") {
+        // Row mode binds the checkbox to the draft like any other editor — the atomic commit
+        // owns the write.
+        return (
+          <input
+            checked={Boolean(draft)}
+            disabled={pending}
+            type="checkbox"
+            onChange={event => onValueChange(event.currentTarget.checked)}
+          />
+        );
+      }
+
+      // Cell mode: the checkbox variant never enters edit mode (it commits on toggle in the
+      // cell itself); reaching here means startEditing was called programmatically.
       return null;
     }
   }

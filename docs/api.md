@@ -91,6 +91,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | Option | Type / default | Guide |
 | --- | --- | --- |
 | `editTrigger` | `"double-click"` (default) `\| "click"` | [editing.md](editing.md) |
+| `editMode` | `"cell"` (default) `\| "row"` — row-atomic editing with `onRowEditCommit` | [editing.md](editing.md#row-mode) |
 | `onEditCommit` | `(change: DataTableEditCommit<TData>) => void \| Promise<void>` | [editing.md](editing.md) |
 
 ### State slices
@@ -168,6 +169,13 @@ interface ColumnMeta<TData, TValue> {
 ```ts
 type DataTableEditVariant = "text" | "number" | "select" | "checkbox";
 type DataTableEditTrigger = "double-click" | "click";
+type DataTableEditMode = "cell" | "row";
+
+interface DataTableRowEditCommit<TData> {
+  row: Row<TData>;
+  values: Record<string, unknown>;           // every editable column, drafts merged in
+  previousValues: Record<string, unknown>;
+}
 
 interface DataTableEditConfig<TData, TValue> {
   variant: DataTableEditVariant;
@@ -238,7 +246,7 @@ interface DataTableHandle<TData> {
   table: TableInstance<TData>;
   viewport: HTMLDivElement | null;   // the ScrollArea viewport
   scrollToRow: (rowId: string | number, options?: DataTableScrollToRowOptions) => void;
-  startEditing: (rowId: string, columnId: string) => void;
+  startEditing: (rowId: string, columnId?: string) => void;   // cell mode requires columnId; row mode focuses it
   stopEditing: (options?: { commit?: boolean }) => void;   // default commit: true
 }
 

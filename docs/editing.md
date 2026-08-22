@@ -25,6 +25,7 @@ const columns = [
 
 - `enableEditing` (default `true`) is the table-level master switch — columns still opt in via `meta.edit`, and `enableEditing={false}` renders the same defs read-only.
 - `editTrigger`: `"double-click"` (default) or `"click"` starts editing on the corresponding cell event.
+- `editMode`: `"cell"` (default) edits one cell at a time; `"row"` opens every editable cell of a row at once and commits atomically — see [Row mode](#row-mode).
 - Editable cells show a quiet inset outline on hover (`data-editable`) as the affordance.
 - A per-row gate refines eligibility: `meta.edit = { variant, enabled: row => … }`.
 
@@ -90,7 +91,30 @@ meta: {
 
 The context is `DataTableEditContext`: `row`, `column`, the draft `value`, `setValue`, `commit`, `cancel`, and the current `error`. `commit()` returns `boolean | Promise<boolean>` — `true` means it is safe to leave the cell; `false` means validation or the application commit failed. The host still provides the keyboard map, blur-commit, pending state, and lifecycle above — the function only replaces the input.
 
+## Row mode
+
+`editMode: "row"` turns a row into one open form: clicking (or double-clicking, per `editTrigger`) any editable cell opens **every** editable cell of that row, and the row commits or cancels as a unit.
+
+```tsx
+<DataTable
+  editMode="row"
+  onRowEditCommit={async ({ row, values, previousValues }) => {
+    await api.updatePerson(row.original.id, values);
+  }}
+  …
+/>
+```
+
+- **Keyboard**: `Enter` commits the whole row, `Escape` cancels it, `Tab` moves between the row's editors natively (they are all mounted). Blur never commits — the atomic commit is deliberate, not incidental.
+- **Commit**: every column's `validate` runs first; the first failure focuses its editor, shows the message there, and blocks the row. Then `onRowEditCommit({ row, values, previousValues })` receives every editable column's value (drafts where the user typed, unchanged values elsewhere). A rejected promise keeps the row editing with the message on its first editor; editors show a pending state while an async commit is in flight.
+- **Drafts survive virtualization**: the controller owns the draft store, so an editing row that scrolls out of the virtual window and back keeps its pending values.
+- Starting another row first commits the current one (commit, never discard) — the switch only happens if that commit succeeds.
+- The `checkbox` variant becomes a draft-bound checkbox inside the row (its cell-mode toggle-commits-immediately behavior belongs to cell mode); the `select` variant no longer commits on choose, and does not auto-open its dropdown.
+- Custom editors receive the same `DataTableEditContext` — in row mode its `commit`/`cancel` operate on the whole row.
+- The editing row renders `data-editing-row` (a primary wash with hairlines above and below).
+- Row mode ignores `onEditCommit` and the `editingCell` slice (dev warnings point to the row-mode counterparts).
+
 ## Programmatic control
 
-- The `editingCell` slice (`{ rowId, columnId } | null`) is controllable: `editingCell` / `onEditingCellChange`. It is the only non-TanStack state slice and has no `default*` (a default editing cell is meaningless).
-- The imperative handle exposes `startEditing(rowId, columnId)` and `stopEditing({ commit? })` (default `commit: true`) — see [api.md](api.md#imperative-handle).
+- The `editingCell` slice (`{ rowId, columnId } | null`) is controllable: `editingCell` / `onEditingCellChange`. Row mode tracks `editingRowId` / `onEditingRowIdChange` instead. These ledger-owned slices have no `default*` (a default editing target is meaningless).
+- The imperative handle exposes `startEditing(rowId, columnId?)` — cell mode requires the column; row mode takes any editable column to focus, or none — and `stopEditing({ commit? })` (default `commit: true`) — see [api.md](api.md#imperative-handle).

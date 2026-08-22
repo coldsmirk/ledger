@@ -126,6 +126,22 @@ export interface DataTableEditingCell {
 
 export type DataTableEditTrigger = "double-click" | "click";
 
+/**
+ * `"cell"` (default) edits one cell at a time, committing per cell; `"row"` opens every
+ * editable cell of a row at once and commits the row atomically (docs/editing.md#row-mode).
+ */
+export type DataTableEditMode = "cell" | "row";
+
+export interface DataTableRowEditCommit<TData extends RowData> {
+  row: Row<TData>;
+  /**
+   * Current values for every editable column of the row, keyed by column id — drafts where the
+   * user typed, unchanged accessor values elsewhere.
+   */
+  values: Record<string, unknown>;
+  previousValues: Record<string, unknown>;
+}
+
 // ------------------------------------------------------------------------------------------------
 // CSV export
 // ----------------------------------------------------------------------------------------------
@@ -223,7 +239,13 @@ export interface UseDataTableOptions<TData extends RowData> {
 
   /* Editing */
   editTrigger?: DataTableEditTrigger;
+  editMode?: DataTableEditMode;
   onEditCommit?: (change: DataTableEditCommit<TData>) => void | Promise<void>;
+  /**
+   * Row-mode atomic commit: every editable column's value, changed or not. Only consulted
+   * while `editMode: "row"`.
+   */
+  onRowEditCommit?: (change: DataTableRowEditCommit<TData>) => void | Promise<void>;
 
   /**
    * A single keyboard-reachable current row (row click or ↑/↓/Home/End on the focused body;
@@ -280,6 +302,11 @@ export interface UseDataTableOptions<TData extends RowData> {
    */
   editingCell?: DataTableEditingCell | null;
   onEditingCellChange?: (value: DataTableEditingCell | null) => void;
+  /**
+   * Row-mode counterpart of `editingCell` (the editing row's id).
+   */
+  editingRowId?: string | null;
+  onEditingRowIdChange?: (value: string | null) => void;
 
   /* Persistence */
   persistState?: DataTablePersistState;
@@ -318,7 +345,11 @@ export interface DataTableHandle<TData extends RowData> {
    */
   viewport: HTMLDivElement | null;
   scrollToRow: (rowId: string | number, options?: DataTableScrollToRowOptions) => void;
-  startEditing: (rowId: string, columnId: string) => void;
+  /**
+   * Cell mode requires `columnId`; row mode takes the id of any editable column to focus, or
+   * none.
+   */
+  startEditing: (rowId: string, columnId?: string) => void;
   stopEditing: (options?: { commit?: boolean }) => void;
 }
 
@@ -331,7 +362,46 @@ export interface ActiveCellEditor {
   cancel: () => void;
 }
 
+/**
+ * What a mounted row-mode editor hands the controller: enough to focus it, surface a
+ * validation/commit error on it, and flag an in-flight async commit.
+ */
+export interface LedgerRowEditor {
+  focus: () => void;
+  setError: (error: string | null) => void;
+  setPending: (pending: boolean) => void;
+}
+
+export interface LedgerRowEditingController {
+  id: string | null;
+  /**
+   * Starts editing the row; an already-editing other row is committed first (commit, never
+   * discard), and the start only proceeds if that commit succeeds. `focusColumnId` marks
+   * which cell's editor autofocuses.
+   */
+  start: (rowId: string, options?: { focusColumnId?: string }) => void;
+  /**
+   * Commits (default) or cancels the whole row atomically.
+   */
+  stop: (options?: { commit?: boolean }) => void;
+  /**
+   * Whether this column's editor should autofocus for the current session.
+   */
+  shouldFocus: (columnId: string) => boolean;
+  /**
+   * The draft store — outlives editor unmounts, so a virtualized editing row that scrolls out
+   * and back keeps its pending values.
+   */
+  drafts: {
+    has: (columnId: string) => boolean;
+    get: (columnId: string) => unknown;
+    set: (columnId: string, value: unknown) => void;
+  };
+  register: (columnId: string, editor: LedgerRowEditor) => () => void;
+}
+
 export interface LedgerEditingController {
+  mode: DataTableEditMode;
   cell: DataTableEditingCell | null;
   start: (cell: DataTableEditingCell) => void;
   /**
@@ -347,6 +417,10 @@ export interface LedgerEditingController {
    * The active editor registers itself while mounted so `stop` can reach it.
    */
   registerEditor: (editor: ActiveCellEditor | null) => void;
+  /**
+   * Row-mode surface; inert while `mode` is `"cell"`.
+   */
+  row: LedgerRowEditingController;
 }
 
 export interface LedgerMeta<TData extends RowData> {
@@ -364,6 +438,7 @@ export interface LedgerMeta<TData extends RowData> {
   editTrigger: DataTableEditTrigger;
   enableEditing: boolean;
   onEditCommit?: (change: DataTableEditCommit<TData>) => void | Promise<void>;
+  onRowEditCommit?: (change: DataTableRowEditCommit<TData>) => void | Promise<void>;
   renderDetailPanel?: (row: Row<TData>) => ReactNode;
   /**
    * Header checkbox scope: current page when paginated, all filtered rows otherwise (docs/selection.md).

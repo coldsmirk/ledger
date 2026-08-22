@@ -20,6 +20,8 @@ import type {
   ActiveCellEditor,
   DataTableEditingCell,
   LedgerMeta,
+  LedgerRowEditor,
+  Row,
   TableInstance,
   UseDataTableOptions
 } from "./types";
@@ -35,6 +37,7 @@ import { functionalUpdate, useTable } from "@tanstack/react-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buildColumns, EXPANDER_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
+import { canEditCell, editErrorMessage, normalizeEdit } from "./cell-editor";
 import { isDev, warnOnce } from "./env";
 import { ledgerFilterFns } from "./filter-fns";
 import { buildLedgerFeatures } from "./ledger-features";
@@ -84,7 +87,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     paginationMode = "client",
     rowCount,
     editTrigger = "double-click",
+    editMode = "cell",
     onEditCommit,
+    onRowEditCommit,
     enableActiveRow = false,
     persistState,
     defaultColumn,
@@ -201,6 +206,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     onChange: options.onEditingCellChange,
     fallback: null
   });
+  const [editingRowId, setEditingRowId] = useSlice<string | null>({
+    value: options.editingRowId,
+    defaultValue: undefined,
+    onChange: options.onEditingRowIdChange,
+    fallback: null
+  });
   const [activeRowId, setActiveRowSlice] = useSlice<string | null>({
     value: options.activeRowId,
     defaultValue: options.defaultActiveRowId,
@@ -281,6 +292,227 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     activeEditorRef.current = editor;
   }, []);
 
+  /* ---- row editing controller (editMode: "row", docs/editing.md#row-mode) ---- */
+  // Drafts live here, not in editors: a virtualized editing row that scrolls out unmounts its
+  // editors, and the pending values must survive until the atomic commit.
+  const rowDrafts = useRef(new Map<string, unknown>());
+  const rowEditors = useRef(new Map<string, LedgerRowEditor>());
+  const rowFocusColumn = useRef<string | null>(null);
+  const editingRowRef = useRef(editingRowId);
+  const rowCommitRequestRef = useRef(0);
+  const rowStartRequestRef = useRef(0);
+  // The row commit needs the live instance; the hook's table is created further down.
+  const tableRef = useRef<TableInstance<TData> | null>(null);
+  editingRowRef.current = editingRowId;
+
+  const finishRowEditing = useEventCallback(() => {
+    rowDrafts.current.clear();
+    rowFocusColumn.current = null;
+    setEditingRowId(null);
+  });
+
+  const broadcastRowPending = (pending: boolean) => {
+    for (const editor of rowEditors.current.values()) {
+      editor.setPending(pending);
+    }
+  };
+
+  const reportRowCommitError = (error: unknown) => {
+    // A row-level rejection has no single owning cell; the first mounted editor carries it.
+    const first = rowEditors.current.values().next().value;
+    first?.setError(editErrorMessage(error));
+    first?.focus();
+  };
+
+  const commitRow = useEventCallback((): boolean | Promise<boolean> => {
+    const rowId = editingRowRef.current;
+    const tableInstance = tableRef.current;
+
+    if (rowId === null || !tableInstance) {
+      return true;
+    }
+
+    let row: Row<TData> | undefined;
+
+    try {
+      row = tableInstance.getRow(rowId, true);
+    } catch {
+      row = undefined;
+    }
+
+    if (!row) {
+      // The row left the data set mid-edit — there is nothing to commit onto.
+      finishRowEditing();
+      return true;
+    }
+
+    for (const editor of rowEditors.current.values()) {
+      editor.setError(null);
+    }
+
+    // v9's `in out` generics make Cell/Row invariant in TData; the editing helpers speak the
+    // erased shape (the same single-erasure convention the render layer documents).
+    const erasedRow = row as Row<any>;
+    const editableCells = erasedRow.getVisibleCells().filter(cell => canEditCell(cell, erasedRow));
+    const values: Record<string, unknown> = {};
+    const previousValues: Record<string, unknown> = {};
+    let changed = false;
+
+    for (const cell of editableCells) {
+      const columnId = cell.column.id;
+      const previous = cell.getValue();
+      const value = rowDrafts.current.has(columnId) ? rowDrafts.current.get(columnId) : previous;
+      values[columnId] = value;
+      previousValues[columnId] = previous;
+      changed ||= !Object.is(value, previous);
+    }
+
+    // First validation failure focuses its editor and blocks the whole row.
+    for (const cell of editableCells) {
+      const columnId = cell.column.id;
+      const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
+
+      if (normalized?.kind !== "variant" || !normalized.config.validate) {
+        continue;
+      }
+
+      let message: string | null;
+
+      try {
+        message = normalized.config.validate(values[columnId], erasedRow);
+      } catch (error) {
+        message = editErrorMessage(error);
+      }
+
+      if (message !== null) {
+        const editor = rowEditors.current.get(columnId);
+        editor?.setError(message);
+        editor?.focus();
+        return false;
+      }
+    }
+
+    if (!changed) {
+      finishRowEditing();
+      return true;
+    }
+
+    let result: void | Promise<void>;
+
+    try {
+      result = onRowEditCommit?.({
+        row,
+        values,
+        previousValues
+      });
+    } catch (error) {
+      reportRowCommitError(error);
+      return false;
+    }
+
+    if (result && typeof result.then === "function") {
+      const request = ++rowCommitRequestRef.current;
+      broadcastRowPending(true);
+
+      return Promise.resolve(result).then(
+        () => {
+          broadcastRowPending(false);
+
+          if (rowCommitRequestRef.current === request) {
+            finishRowEditing();
+          }
+
+          return true;
+        },
+        (error: unknown) => {
+          broadcastRowPending(false);
+          reportRowCommitError(error);
+
+          return false;
+        }
+      );
+    }
+
+    finishRowEditing();
+    return true;
+  });
+
+  const startRowEditing = useEventCallback((rowId: string, startOptions?: { focusColumnId?: string }) => {
+    if (editingRowRef.current === rowId) {
+      rowFocusColumn.current = startOptions?.focusColumnId ?? rowFocusColumn.current;
+      return;
+    }
+
+    const begin = () => {
+      rowDrafts.current.clear();
+      rowFocusColumn.current = startOptions?.focusColumnId ?? null;
+      setEditingRowId(rowId);
+    };
+
+    if (editingRowRef.current === null) {
+      begin();
+      return;
+    }
+
+    // Another row is mid-edit: commit it first (commit, never discard); only success moves on,
+    // and only the latest start request may win after an async commit settles.
+    const request = ++rowStartRequestRef.current;
+    // The stable wrapper's type admits undefined for a missing handler; commitRow always exists.
+    const committed = commitRow() ?? true;
+
+    if (typeof committed === "boolean") {
+      if (committed) {
+        begin();
+      }
+
+      return;
+    }
+
+    void committed.then(success => {
+      if (success && rowStartRequestRef.current === request) {
+        begin();
+      }
+    });
+  });
+
+  const stopRowEditing = useEventCallback((stopOptions?: { commit?: boolean }) => {
+    if (stopOptions?.commit ?? true) {
+      void commitRow();
+    } else {
+      finishRowEditing();
+    }
+  });
+
+  const shouldFocusRowColumn = useCallback((columnId: string) => rowFocusColumn.current === columnId, []);
+
+  const registerRowEditor = useCallback((columnId: string, editor: LedgerRowEditor) => {
+    rowEditors.current.set(columnId, editor);
+
+    return () => {
+      if (rowEditors.current.get(columnId) === editor) {
+        rowEditors.current.delete(columnId);
+      }
+    };
+  }, []);
+
+  const rowDraftsApi = useRef({
+    has: (columnId: string) => rowDrafts.current.has(columnId),
+    get: (columnId: string) => rowDrafts.current.get(columnId),
+    set: (columnId: string, value: unknown) => {
+      rowDrafts.current.set(columnId, value);
+    }
+  }).current;
+
+  if (isDev && editMode === "row") {
+    if (options.editingCell !== undefined || options.onEditingCellChange) {
+      warnOnce("row-mode-editing-cell", "editingCell is a cell-mode slice — editMode: \"row\" tracks editingRowId instead.");
+    }
+
+    if (onEditCommit) {
+      warnOnce("row-mode-on-edit-commit", "onEditCommit never fires under editMode: \"row\" — use onRowEditCommit.");
+    }
+  }
+
   const subscribeColumnFilters = useCallback((listener: (value: ColumnFiltersState) => void) => {
     const listeners = filterSetListeners.current.columnFilters;
     listeners.add(listener);
@@ -318,11 +550,20 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return {
         columns: processedColumns,
         editing: {
+          mode: editMode,
           cell: editingCell,
           start: startEditing,
           stop: stopEditing,
           clear: clearEditing,
-          registerEditor
+          registerEditor,
+          row: {
+            id: editingRowId,
+            start: startRowEditing,
+            stop: stopRowEditing,
+            shouldFocus: shouldFocusRowColumn,
+            drafts: rowDraftsApi,
+            register: registerRowEditor
+          }
         },
         filtering: {
           subscribeColumnFilters,
@@ -331,6 +572,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         editTrigger,
         enableEditing,
         onEditCommit,
+        onRowEditCommit,
         renderDetailPanel,
         selectAllScope,
         activeRow: {
@@ -350,11 +592,19 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       stopEditing,
       clearEditing,
       registerEditor,
+      editMode,
+      editingRowId,
+      startRowEditing,
+      stopRowEditing,
+      shouldFocusRowColumn,
+      rowDraftsApi,
+      registerRowEditor,
       subscribeColumnFilters,
       subscribeGlobalFilter,
       editTrigger,
       enableEditing,
       onEditCommit,
+      onRowEditCommit,
       renderDetailPanel,
       selectAllScope,
       enableActiveRow,
@@ -552,6 +802,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   }
 
   const table = useTable<LedgerFeatures, TData>({ ...tableOptions, ...managed } as TableOptions<LedgerFeatures, TData>);
+  tableRef.current = table;
 
   usePersistWriter(persistState, {
     sorting,

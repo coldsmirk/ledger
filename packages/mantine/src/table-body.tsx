@@ -17,7 +17,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
-import { canEditCell, CellEditor } from "./cell-editor";
+import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
 import { useDataTableContext } from "./context";
 import { warnOnce } from "./env";
 import { IconChevronRight } from "./icons";
@@ -215,6 +215,10 @@ function CheckboxCell({ cell }: { cell: Cell<any, unknown> }) {
 interface DataCellProps {
   cell: Cell<any, unknown>;
   editing: boolean;
+  /**
+   * The whole row is in row-mode editing — every editable cell hosts its editor.
+   */
+  rowEditing: boolean;
   isFirstDataCell: boolean;
   depth: number;
   /**
@@ -227,6 +231,7 @@ interface DataCellProps {
 function DataCell({
   cell,
   editing,
+  rowEditing,
   isFirstDataCell,
   depth,
   rowSpan,
@@ -236,6 +241,7 @@ function DataCell({
   const { column, row } = cell;
   const { table } = cell.getContext();
   const ledger = table.options.meta?.ledger;
+  const editMode = ledger?.editing.mode ?? "cell";
   const { meta } = column.columnDef;
 
   const grouped = cell.getIsGrouped();
@@ -245,6 +251,7 @@ function DataCell({
   const aggregated = cell.getIsAggregated() && row.getIsGrouped();
   const placeholder = cell.getIsPlaceholder();
   const editable = !editing && !grouped && !aggregated && !placeholder && canEditCell(cell, row);
+  const rowEditorActive = rowEditing && !grouped && !aggregated && !placeholder && canEditCell(cell, row);
   const checkboxVariant = meta?.edit === "checkbox" || (typeof meta?.edit === "object" && meta.edit.variant === "checkbox");
 
   let content: ReactNode;
@@ -257,7 +264,9 @@ function DataCell({
     content = null;
   } else if (editing) {
     content = <CellEditor cell={cell} />;
-  } else if (editable && checkboxVariant) {
+  } else if (rowEditorActive) {
+    content = <RowCellEditor cell={cell} />;
+  } else if (editable && checkboxVariant && editMode === "cell") {
     content = <CheckboxCell cell={cell} />;
   } else {
     content = flexRender(column.columnDef.cell, cell.getContext());
@@ -272,10 +281,15 @@ function DataCell({
   }
 
   const startEditing
-    = editable && !checkboxVariant && ledger
+    = editable && !rowEditorActive && (editMode === "row" || !checkboxVariant) && ledger
       ? (event: MouseEvent) => {
           event.stopPropagation();
-          ledger.editing.start({ rowId: row.id, columnId: column.id });
+
+          if (editMode === "row") {
+            ledger.editing.row.start(row.id, { focusColumnId: column.id });
+          } else {
+            ledger.editing.start({ rowId: row.id, columnId: column.id });
+          }
         }
       : undefined;
 
@@ -300,7 +314,7 @@ function DataCell({
       colSpan={colSpan > 1 ? colSpan : undefined}
       data-align={meta?.align}
       data-editable={editable || undefined}
-      data-editing={editing || undefined}
+      data-editing={editing || rowEditorActive || undefined}
       data-ledger-column-id={column.id}
       data-pinned={column.getIsPinned() || undefined}
       data-pinned-edge={pinnedEdge(column)}
@@ -323,6 +337,10 @@ interface DataRowProps {
   row: Row<any>;
   dataIndex: number;
   editingColumnId: string | null;
+  /**
+   * Row-mode editing targets this row — every editable cell mounts its editor.
+   */
+  editingRow: boolean;
   selected: boolean;
   active: boolean;
   expanded: boolean;
@@ -357,6 +375,7 @@ function DataRowImpl({
   row,
   dataIndex,
   editingColumnId,
+  editingRow,
   selected,
   active,
   expanded,
@@ -411,6 +430,7 @@ function DataRowImpl({
       aria-selected={selected || undefined}
       data-active={active || undefined}
       data-clickable={handleClick ? true : undefined}
+      data-editing-row={editingRow || undefined}
       data-expanded={expanded || undefined}
       data-index={virtualIndex}
       data-parity={dataIndex >= 0 ? dataIndex % 2 === 0 ? "odd" : "even" : undefined}
@@ -436,6 +456,7 @@ function DataRowImpl({
             depth={depth}
             editing={editingColumnId === cell.column.id}
             isFirstDataCell={index === firstDataCellIndex}
+            rowEditing={editingRow}
             rowSpan={spanning ? cell.getRowSpan() : 1}
           />
         );
@@ -649,11 +670,13 @@ export function TableBody({
         // so the options-side identity would bust the row memo on every state change.
         columns: ledger?.columns,
         editTrigger: ledger?.editTrigger,
+        editMode: ledger?.editing.mode,
         enableEditing: ledger?.enableEditing,
-        onEditCommit: ledger?.onEditCommit
+        onEditCommit: ledger?.onEditCommit,
+        onRowEditCommit: ledger?.onRowEditCommit
       };
     },
-    [ledger?.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.onEditCommit]
+    [ledger?.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.editing.mode, ledger?.onEditCommit, ledger?.onRowEditCommit]
   );
 
   if (loading && totalDisplayRowCount === 0) {
@@ -673,6 +696,7 @@ export function TableBody({
   const pinKey = JSON.stringify([pinning.start, pinning.end]);
   const columnsKey = JSON.stringify(table.getVisibleLeafColumns().map(column => column.id));
   const editingCell = ledger?.editing.cell ?? null;
+  const editingRowId = ledger?.editing.mode === "row" ? ledger.editing.row.id : null;
   const activeRowId = ledger?.activeRow.enabled ? ledger.activeRow.id : null;
 
   interface DisplayRowRenderOptions {
@@ -726,6 +750,7 @@ export function TableBody({
         dataIndex={options.pinnedPosition ? -1 : dataIndex}
         depth={row.depth}
         editingColumnId={editingCell?.rowId === row.id ? editingCell.columnId : null}
+        editingRow={editingRowId === row.id}
         expanded={row.getIsExpanded()}
         measureRef={options.measureRef}
         pinKey={pinKey}

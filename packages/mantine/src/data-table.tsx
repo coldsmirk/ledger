@@ -298,7 +298,11 @@ const OPTION_KEYS = [
   "paginationMode",
   "rowCount",
   "editTrigger",
+  "editMode",
   "onEditCommit",
+  "onRowEditCommit",
+  "editingRowId",
+  "onEditingRowIdChange",
   "enableActiveRow",
   "activeRowId",
   "defaultActiveRowId",
@@ -823,8 +827,30 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
           return viewportRef.current;
         },
         scrollToRow: scrollRowIntoView,
-        startEditing: (rowId, columnId) => table.options.meta?.ledger?.editing.start({ rowId, columnId }),
-        stopEditing: options => table.options.meta?.ledger?.editing.stop(options)
+        startEditing: (rowId, columnId) => {
+          const editing = table.options.meta?.ledger?.editing;
+
+          if (!editing) {
+            return;
+          }
+
+          if (editing.mode === "row") {
+            editing.row.start(rowId, columnId === undefined ? undefined : { focusColumnId: columnId });
+          } else if (columnId === undefined) {
+            warnOnce("start-editing-column", "startEditing needs a columnId in cell mode.");
+          } else {
+            editing.start({ rowId, columnId });
+          }
+        },
+        stopEditing: options => {
+          const editing = table.options.meta?.ledger?.editing;
+
+          if (editing?.mode === "row") {
+            editing.row.stop(options);
+          } else {
+            editing?.stop(options);
+          }
+        }
       };
     },
     [table, scrollRowIntoView]

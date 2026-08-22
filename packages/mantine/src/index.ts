@@ -44,6 +44,7 @@ export type {
   DataTableEditConfig,
   DataTableEditContext,
   DataTableEditingCell,
+  DataTableEditMode,
   DataTableEditTrigger,
   DataTableEditVariant,
   DataTableExportMeta,
@@ -52,9 +53,12 @@ export type {
   DataTableHandle,
   DataTablePersistableSlice,
   DataTablePersistState,
+  DataTableRowEditCommit,
   DataTableScrollToRowOptions,
   LedgerEditingController,
   LedgerMeta,
+  LedgerRowEditingController,
+  LedgerRowEditor,
   TableInstance,
   UseDataTableOptions
 } from "./types";

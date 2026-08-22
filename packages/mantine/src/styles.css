@@ -439,6 +439,18 @@
     opacity: 0.7;
   }
 
+  /* Row-mode editing: the whole row reads as one open form — a quiet primary wash plus a
+     hairline above and below drawn by the cells, so pinned cells carry the frame too. */
+  .ledger-row[data-editing-row] {
+    --ledger-row-bg: var(--mantine-primary-color-light);
+  }
+
+  .ledger-row[data-editing-row] > * {
+    box-shadow:
+      inset 0 1px 0 0 var(--mantine-primary-color-filled),
+      inset 0 -1px 0 0 var(--mantine-primary-color-filled);
+  }
+
   /* ------------------------------------------------------------------------------------------
    * Detail panels, footer, states, chrome
    * ------------------------------------------------------------------------------------------ */
