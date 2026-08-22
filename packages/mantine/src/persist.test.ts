@@ -154,6 +154,31 @@ describe("usePersistWriter", () => {
     );
   });
 
+  it("re-targets the pending debounced write when the storage backend swaps", () => {
+    const storageA = storageStub();
+    const storageB = storageStub();
+
+    const { rerender } = renderHook(
+      ({ storage }: { storage: ReturnType<typeof storageStub> }) => usePersistWriter({
+        key: "demo",
+        slices: ["columnSizing"],
+        storage
+      }, persistableState(240)),
+      { initialProps: { storage: storageA } }
+    );
+
+    // Swap mid-debounce (a consent flow upgrading in-memory storage to localStorage): the
+    // pending write must land in the new backend, not the old one.
+    rerender({ storage: storageB });
+    vi.advanceTimersByTime(300);
+
+    expect(storageA.setItem).not.toHaveBeenCalled();
+    expect(storageB.setItem).toHaveBeenCalledWith(
+      "ledger:demo",
+      JSON.stringify({ columnSizing: { name: 240 } })
+    );
+  });
+
   it("flushes the latest pending value on a real unmount", () => {
     const storage = storageStub();
     const persist = {

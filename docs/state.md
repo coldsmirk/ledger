@@ -117,7 +117,7 @@ const handle = useRef<DataTableHandle<Person>>(null);
 - `key` namespaces one table per entry (`ledger:<key>`); `storage` defaults to `localStorage` (guarded — persistence degrades to a no-op where storage is unavailable or throws).
 - Persistable slices: `sorting`, `columnFilters`, `globalFilter`, `pagination`, `columnVisibility`, `columnPinning`, `columnOrder`, `columnSizing`, `grouping`. The default set is the **layout** four: `columnSizing`, `columnVisibility`, `columnOrder`, `columnPinning`.
 - Hydration happens once, synchronously, feeding the **uncontrolled** side — the first render already shows the restored layout, restored values outrank `defaultX`, and a controlled slice always wins over both.
-- Writes are debounced (250 ms), with the latest pending value flushed on real unmount (StrictMode's simulated unmount is ignored). Storage content is treated as a trust boundary: each slice and its nested TanStack fields are shape-checked on read, and a stale or corrupt slice degrades to its default instead of crashing the table.
+- Writes are debounced (250 ms), with the latest pending value flushed on real unmount (StrictMode's simulated unmount is ignored); swapping `storage` at runtime re-targets the pending write to the new backend (e.g. a consent flow upgrading in-memory storage to `localStorage`). Storage content is treated as a trust boundary: each slice and its nested TanStack fields are shape-checked on read, and a stale or corrupt slice degrades to its default instead of crashing the table.
 
 ## Dev-mode guard rails
 

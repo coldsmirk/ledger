@@ -150,6 +150,7 @@ export function usePersistWriter(
     ? JSON.stringify(Object.fromEntries(slices.map(slice => [slice, state[slice]])))
     : "";
   const key = persist?.key;
+  const storage = persist?.storage;
   const pendingWriteRef = useRef<(() => void) | null>(null);
   const unmountFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -178,8 +179,10 @@ export function usePersistWriter(
     const timer = setTimeout(write, WRITE_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-    // eslint-disable-next-line @eslint-react/exhaustive-deps -- `persist` participates via `key`/`serialized`; its object identity is irrelevant
-  }, [key, serialized]);
+    // The `storage` dependency re-targets a pending write when the backend swaps under the
+    // same key (e.g. a consent flow upgrading in-memory storage to localStorage).
+    // eslint-disable-next-line @eslint-react/exhaustive-deps -- `persist` participates via `key`/`serialized`/`storage`; its object identity is irrelevant
+  }, [key, serialized, storage]);
 
   useEffect(() => {
     if (unmountFlushTimer.current !== null) {
