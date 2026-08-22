@@ -46,6 +46,7 @@ export type {
   DataTableEditingCell,
   DataTableEditTrigger,
   DataTableEditVariant,
+  DataTableExportMeta,
   DataTableFilterConfig,
   DataTableFilterVariant,
   DataTableHandle,

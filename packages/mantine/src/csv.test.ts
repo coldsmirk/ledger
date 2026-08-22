@@ -76,6 +76,40 @@ describe("toCsv", () => {
     expect(toCsv(result.current).split("\r\n", 1)[0]).toBe("Total,Customer");
   });
 
+  it("honors meta.export exclusion, header and value overrides, and the page scope", () => {
+    const metaColumns: Array<ColumnDef<Order, any>> = [
+      {
+        accessorKey: "customer",
+        header: "Customer",
+        meta: { export: { header: "Client", value: row => row.original.customer.toUpperCase() } }
+      },
+      {
+        accessorKey: "total",
+        header: "Total",
+        meta: { export: false }
+      },
+      { accessorKey: "id", header: "Id" }
+    ];
+
+    const { result } = renderHook(() => useDataTable({
+      data: orders,
+      columns: metaColumns,
+      getRowId: order => order.id,
+      enablePagination: true,
+      defaultPagination: { pageIndex: 0, pageSize: 1 }
+    }));
+
+    // Excluded column gone, overridden header and derived value in place.
+    expect(toCsv(result.current)).toBe(
+      ["Client,Id", "\"SAYS \"\"HI\"\", OK\",1", "PLAIN,2"].join("\r\n")
+    );
+
+    // The page scope exports only the rows the current page shows.
+    expect(toCsv(result.current, { scope: "page" })).toBe(
+      ["Client,Id", "\"SAYS \"\"HI\"\", OK\",1"].join("\r\n")
+    );
+  });
+
   it("defuses formula-leading text only under escapeFormulas", () => {
     const risky: Order[] = [
       {

@@ -127,6 +127,22 @@ export interface DataTableEditingCell {
 export type DataTableEditTrigger = "double-click" | "click";
 
 // ------------------------------------------------------------------------------------------------
+// CSV export
+// ----------------------------------------------------------------------------------------------
+
+export interface DataTableExportMeta<TData extends RowData> {
+  /**
+   * Column title in the exported header line; defaults to the string `header` (or the id).
+   */
+  header?: string;
+  /**
+   * Cell value for the export; defaults to the accessor value. Runs before serialization, so
+   * anything `toCsv` can serialize (string, number, Date, object) is a valid return.
+   */
+  value?: (row: Row<TData>) => unknown;
+}
+
+// ------------------------------------------------------------------------------------------------
 // State persistence
 // ----------------------------------------------------------------------------------------------
 
@@ -376,6 +392,11 @@ declare module "@tanstack/react-table" {
       | ((ctx: DataTableEditContext<TData, TValue>) => ReactNode);
     headerClassName?: string;
     cellClassName?: string | ((cell: Cell<TData, TValue>) => string | undefined);
+    /**
+     * `toCsv` column control: `false` excludes the column; an object overrides the exported
+     * header text or derives the exported value.
+     */
+    export?: false | DataTableExportMeta<TData>;
   }
 
   // eslint-disable-next-line unused-imports/no-unused-vars -- declaration merging requires TanStack's exact type parameter list

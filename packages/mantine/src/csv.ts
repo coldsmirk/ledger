@@ -1,11 +1,12 @@
 import type { RowData } from "@tanstack/react-table";
 
-import type { TableInstance } from "./types";
+import type { Column, Row, TableInstance } from "./types";
 
 /**
  * CSV export over the live table instance (RFC 4180 quoting, CRLF line ends). Exports accessor
- * columns only, in their current visible order; `selected`/`filtered` scopes read the same row
- * models the screen shows — a server-paginated table can therefore only export the rows it has.
+ * columns only, in their current visible order; `meta.export` excludes a column or overrides
+ * its exported header/value. Scopes read the same row models the screen shows — a
+ * server-paginated table can therefore only export the rows it has.
  */
 import { columnHeaderText, isInternalColumn } from "./build-columns";
 
@@ -14,9 +15,10 @@ export interface ToCsvOptions {
    * Which rows to export:
    * - `"filtered"` (default) — everything after filters and sorting, before pagination;
    * - `"all"` — the unfiltered data set;
+   * - `"page"` — the current page (identical to `"filtered"` without pagination);
    * - `"selected"` — the current selection.
    */
-  scope?: "filtered" | "all" | "selected";
+  scope?: "filtered" | "all" | "page" | "selected";
   delimiter?: string;
   /**
    * Include the header line. Default true.
@@ -45,7 +47,9 @@ export function toCsv<TData extends RowData>(table: TableInstance<TData>, option
     ...table.getStartVisibleLeafColumns(),
     ...table.getCenterVisibleLeafColumns(),
     ...table.getEndVisibleLeafColumns()
-  ].filter(column => !isInternalColumn(column.id) && column.accessorFn !== undefined);
+  ].filter(column => !isInternalColumn(column.id)
+    && column.accessorFn !== undefined
+    && column.columnDef.meta?.export !== false);
 
   const lines: string[] = [];
 
@@ -53,7 +57,7 @@ export function toCsv<TData extends RowData>(table: TableInstance<TData>, option
     lines.push(
       columns
         .map(column => {
-          const text = columnHeaderText(column);
+          const text = exportHeaderText(column);
 
           return escapeCsvValue(escapeFormulas ? defuseFormula(text) : text, delimiter);
         })
@@ -65,7 +69,7 @@ export function toCsv<TData extends RowData>(table: TableInstance<TData>, option
     lines.push(
       columns
         .map(column => {
-          const raw = row.getValue(column.id);
+          const raw = exportCellValue(column, row);
           const text = serializeCsvValue(raw);
 
           // Only string cells can smuggle a formula; serialized numbers keep their sign.
@@ -88,10 +92,28 @@ function rowsForScope<TData extends RowData>(table: TableInstance<TData>, scope:
       return table.getCoreRowModel().rows;
     }
 
+    case "page": {
+      return table.getRowModel().rows;
+    }
+
     case "filtered": {
       return table.getPrePaginatedRowModel().rows;
     }
   }
+}
+
+function exportHeaderText<TData extends RowData>(column: Column<TData, unknown>): string {
+  const exportMeta = column.columnDef.meta?.export;
+
+  return (typeof exportMeta === "object" ? exportMeta.header : undefined) ?? columnHeaderText(column);
+}
+
+function exportCellValue<TData extends RowData>(column: Column<TData, unknown>, row: Row<TData>): unknown {
+  const exportMeta = column.columnDef.meta?.export;
+
+  return typeof exportMeta === "object" && exportMeta.value
+    ? exportMeta.value(row)
+    : row.getValue(column.id);
 }
 
 function serializeCsvValue(value: unknown): string {

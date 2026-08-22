@@ -152,6 +152,7 @@ interface ColumnMeta<TData, TValue> {
        | ((ctx: DataTableEditContext<TData, TValue>) => ReactNode);
   headerClassName?: string;
   cellClassName?: string | ((cell: Cell<TData, TValue>) => string | undefined);
+  export?: false | { header?: string; value?: (row: Row<TData>) => unknown };
 }
 ```
 
@@ -259,14 +260,16 @@ Each is also exported standalone (`DataTableSearch`, …) for tree-shaken import
 function toCsv<TData>(table: TableInstance<TData>, options?: ToCsvOptions): string;
 
 interface ToCsvOptions {
-  scope?: "filtered" | "all" | "selected";   // default "filtered" (after filters/sorting, before pagination)
-  delimiter?: string;                        // default ","
-  withHeaders?: boolean;                     // default true
-  escapeFormulas?: boolean;                  // default false — OWASP formula defusal for spreadsheet-bound exports
+  scope?: "filtered" | "all" | "page" | "selected";   // default "filtered" (after filters/sorting, before pagination)
+  delimiter?: string;                                 // default ","
+  withHeaders?: boolean;                              // default true
+  escapeFormulas?: boolean;                           // default false — OWASP formula defusal for spreadsheet-bound exports
 }
 ```
 
-RFC 4180 quoting, CRLF line ends. Exports accessor columns only, in their current visible order (internal columns excluded); header text comes from string `header`s, falling back to column ids. Values serialize as: `Date` → ISO string, objects → JSON, `null`/`undefined` → empty. Scopes read the live row models — a server-paginated table can only export the rows it has.
+RFC 4180 quoting, CRLF line ends. Exports accessor columns only, in their current visible order (internal columns excluded); header text comes from string `header`s, falling back to column ids. Values serialize as: `Date` → ISO string, objects → JSON, `null`/`undefined` → empty. Scopes read the live row models — a server-paginated table can only export the rows it has, and `"page"` is identical to `"filtered"` when pagination is off.
+
+Per-column control rides `meta.export`: `false` excludes the column entirely; `{ header, value }` overrides the exported title or derives the exported value from the row (the result flows through the same serialization).
 
 `escapeFormulas` prefixes text a spreadsheet would evaluate as a formula (leading `=`, `+`, `-`, `@`, tab or CR — the OWASP CSV-injection set) with a `'`; it applies to header text and string-valued cells, while numeric cells keep their sign. Off by default because the quote is data to every non-spreadsheet consumer — turn it on for exports of untrusted data that feed Excel or LibreOffice.
 
