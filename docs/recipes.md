@@ -156,7 +156,7 @@ helper.display({
 });
 ```
 
-Pin it right (`defaultColumnPinning={{ right: ["actions"] }}`) to keep actions visible under horizontal scroll.
+Pin it to the end (`defaultColumnPinning={{ end: ["actions"] }}`) to keep actions visible under horizontal scroll.
 
 ## Optimistic inline editing
 
