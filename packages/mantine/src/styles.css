@@ -364,6 +364,14 @@
     text-align: center;
   }
 
+  /* An icon-only ActionIcon is an inline-flex box whose baseline is its bottom edge, so the
+     default `vertical-align: baseline` rides it a few pixels high of the middle-aligned cell's
+     center — the row chevron and the tree header's expand-all both need pinning to the middle. */
+  .ledger-expander-cell button,
+  .ledger-header-cell[data-ledger-column-id="ledger:expander"] button {
+    vertical-align: middle;
+  }
+
   /* Expander chevrons rotate open (rows, groups, expand-all). */
   .ledger-expander-cell button svg,
   [data-group-cell] button svg,
