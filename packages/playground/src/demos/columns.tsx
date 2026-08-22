@@ -47,7 +47,11 @@ export const personColumns = [
     header: "状态",
     size: 110,
     cell: context => <StatusBadge status={context.getValue()} />,
-    meta: { filter: { variant: "multi-select", options: Object.entries(label).map(([value, text]) => { return { value, label: text }; }) } }
+    meta: {
+      filter: { variant: "multi-select", options: Object.entries(label).map(([value, text]) => { return { value, label: text }; }) },
+      // The CSV should carry the human label the Badge shows, not the enum value.
+      export: { value: row => label[row.original.status] }
+    }
   }),
   helper.accessor("age", {
     header: "年龄",

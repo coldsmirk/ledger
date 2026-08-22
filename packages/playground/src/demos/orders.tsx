@@ -112,11 +112,12 @@ export function OrdersDemo() {
     <>
       <Text c="dimmed" size="xs">
         {activeOrder === null
-          ? "表头悬停出现筛选与列菜单（五种筛选变体）；合计随筛选联动；点击行查看订单号。"
-          : `最近点击：${activeOrder}`}
+          ? "表头悬停出现筛选与列菜单（五种筛选变体）；合计随筛选联动；点击或聚焦表格后用 ↑/↓/Home/End 移动活动行，Enter 查看订单号。"
+          : `当前订单：${activeOrder}`}
       </Text>
 
       <DataTable
+        enableActiveRow
         enablePagination
         striped
         tabularNums

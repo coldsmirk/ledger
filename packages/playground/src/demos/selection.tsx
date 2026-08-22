@@ -33,7 +33,7 @@ export function SelectionDemo() {
         <Button
           size="compact-xs"
           variant="light"
-          onClick={() => downloadCsv(toCsv(table, { scope: "selected" }), "selected.csv")}
+          onClick={() => downloadCsv(toCsv(table, { escapeFormulas: true, scope: "selected" }), "selected.csv")}
         >
           导出所选为 CSV
         </Button>

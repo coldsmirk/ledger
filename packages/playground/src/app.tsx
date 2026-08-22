@@ -12,7 +12,10 @@ import { MasterDetailDemo } from "./demos/master-detail";
 import { MenuTreeDemo } from "./demos/menu-tree";
 import { OrdersDemo } from "./demos/orders";
 import { PinningDemo } from "./demos/pinning";
+import { RowEditingDemo } from "./demos/row-editing";
 import { SelectionDemo } from "./demos/selection";
+import { SpanningDemo } from "./demos/spanning";
+import { StatesDemo } from "./demos/states";
 import { TreeDemo } from "./demos/tree";
 import { VirtualizedDemo } from "./demos/virtualized";
 
@@ -36,7 +39,7 @@ const GROUPS: DemoGroup[] = [
       {
         id: "basic",
         label: "基础表格",
-        description: "员工名册：列定义 + 数据，排序与悬停",
+        description: "员工名册：列定义 + 数据，排序与悬停，邮箱列随断点显隐",
         component: BasicDemo
       },
       {
@@ -44,6 +47,12 @@ const GROUPS: DemoGroup[] = [
         label: "外观与边框",
         description: "价目表：三种边框形态、斑马纹、密度、加载与空态",
         component: AppearanceDemo
+      },
+      {
+        id: "states",
+        label: "状态与恢复",
+        description: "加载、空态、无匹配、失败重试、加载更多失败",
+        component: StatesDemo
       }
     ]
   },
@@ -53,7 +62,7 @@ const GROUPS: DemoGroup[] = [
       {
         id: "orders",
         label: "订单中心",
-        description: "五种列筛选、分页、合计行、行点击",
+        description: "五种列筛选、分页、合计行、活动行与键盘导航",
         component: OrdersDemo
       },
       {
@@ -64,9 +73,15 @@ const GROUPS: DemoGroup[] = [
       },
       {
         id: "editing",
-        label: "行内编辑",
+        label: "单元格编辑",
         description: "库存盘点：四种编辑器、校验、异步提交",
         component: EditingDemo
+      },
+      {
+        id: "row-editing",
+        label: "整行编辑",
+        description: "员工档案：整行打开、原子提交、操作列驱动",
+        component: RowEditingDemo
       },
       {
         id: "master-detail",
@@ -77,7 +92,7 @@ const GROUPS: DemoGroup[] = [
     ]
   },
   {
-    title: "层级结构",
+    title: "层级与报表",
     demos: [
       {
         id: "tree",
@@ -90,6 +105,12 @@ const GROUPS: DemoGroup[] = [
         label: "菜单管理",
         description: "树形业务示例：多列、钉住树列、横向滚动",
         component: MenuTreeDemo
+      },
+      {
+        id: "spanning",
+        label: "合并单元格",
+        description: "营收报表：相邻同值纵向合并 + 总计行横向合并",
+        component: SpanningDemo
       }
     ]
   },
@@ -99,7 +120,7 @@ const GROUPS: DemoGroup[] = [
       {
         id: "pinning",
         label: "列设置 / 钉列 / 列宽",
-        description: "宽表：表头齿轮开列设置面板、抽屉里的裸面板、布局持久化",
+        description: "宽表：列设置面板、布局持久化、双击列缝自适应列宽",
         component: PinningDemo
       },
       {

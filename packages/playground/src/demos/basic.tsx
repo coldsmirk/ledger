@@ -19,7 +19,12 @@ const columns: Array<ColumnDef<Person, any>> = [
     header: "角色",
     size: 140
   },
-  { accessorKey: "email", header: "邮箱" },
+  {
+    accessorKey: "email",
+    header: "邮箱",
+    // Responsive column: present only from the md breakpoint up (narrow the window to see).
+    meta: { visibleFrom: "md" }
+  },
   {
     accessorKey: "age",
     header: "年龄",
