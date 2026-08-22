@@ -109,7 +109,7 @@ Style states by attribute selector (the Mantine convention). The inventory:
 | --- | --- | --- |
 | `--ledger-row-bg` | stripe / hover / selected rules | The single row-background pipeline, painted on the row's **cells** (a row-level paint would lose to the host's unlayered `tr` background); pinned cells read `--ledger-pinned-bg`, which follows it — a pinned column that fails to cover stripes or hover is unrepresentable |
 | `--ledger-striped-color`, `--ledger-hover-color` | `stripedColor` / `highlightOnHoverColor` props (or your `vars`) | Tint overrides; default to `--mantine-color-default-hover` |
-| `--ledger-header-bg` | you (optional) | Header cell background; defaults to `--mantine-color-body` |
+| `--ledger-header-bg` | you, in CSS (see below) | Header cell background; defaults to `--mantine-color-body`. Opaque by contract, not by decoration — a pinned header cell has to occlude the cells scrolling under it |
 | `--ledger-border-color` | `borderColor` prop (or your `vars`) | Every ledger-painted line: the `withTableBorder` frame, row/column borders, and the seam overlays; defaults to `--mantine-color-default-border` |
 | `--ledger-col-width-<id>`, `--ledger-col-start-<id>`, `--ledger-col-after-<id>` | column geometry | Width and pinned offsets per column; disjoint prefixes prevent one family from shadowing another, and resizing never re-renders rows |
 
@@ -117,13 +117,32 @@ The column-variable `<id>` suffix is a collision-free CSS-safe encoding, not nec
 column id: ASCII letters, digits, and hyphens stay readable, while punctuation and Unicode code
 points are escaped.
 
-The `vars` resolver accepts the two documented root variables:
+The `vars` resolver accepts the three variables a prop also writes — `--ledger-striped-color`,
+`--ledger-hover-color`, `--ledger-border-color`:
 
 ```tsx
 <DataTable vars={() => ({ root: { "--ledger-striped-color": "var(--mantine-color-blue-0)" } })} … />
 ```
 
 Row-background precedence (last wins within the layer): stripe → hover → selected.
+
+### Tinting the header
+
+The header ships untinted, following Mantine's own `<thead>`. `--ledger-header-bg` is the one
+consumer-writable variable with no prop behind it, so it is not in the `vars` union — set it in
+CSS. Give it a **pair** of values rather than one: Mantine's only scheme-aware "one step off the
+body" token is `--mantine-color-default-hover`, which is already what stripes and hover resolve
+to, so reusing it would make the header match its own odd rows. Use the pair Mantine itself uses
+to fill a `<th>` (`Table variant="vertical"`):
+
+```css
+.app-table { --ledger-header-bg: var(--mantine-color-gray-0); }
+
+[data-mantine-color-scheme="dark"] .app-table { --ledger-header-bg: var(--mantine-color-dark-6); }
+```
+
+A single fixed value is the trap here — `--ledger-header-bg: #f8f9fa` reads as a blown-out white
+band in dark mode.
 
 ## Theme-level defaults
 
