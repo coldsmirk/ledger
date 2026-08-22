@@ -105,7 +105,7 @@ function downloadCsv(filename: string, csv: string) {
 </DataTable.SelectionBar>;
 ```
 
-(The BOM keeps Excel happy with UTF-8.) `scope: "filtered"` exports the current view; `"all"` the unfiltered set — see [api.md](api.md#tocsv).
+(The BOM keeps Excel happy with UTF-8.) `scope: "filtered"` exports the current view; `"all"` the unfiltered set; for spreadsheet-bound exports of untrusted data add `escapeFormulas: true` — see [api.md](api.md#tocsv).
 
 ## Fuzzy global search
 

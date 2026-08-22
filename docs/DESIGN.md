@@ -103,6 +103,7 @@ Decisions that shaped the surface, in the order they were made. Dates are build 
 - **The editor's unmount-commit defers one tick** so StrictMode's simulated unmount and virtualizer row remounts cancel it; only a real departure commits. Found by a browser smoke test — the vitest wrappers now render under `StrictMode` for parity.
 - **`onEndReached`'s initial probe waits a frame and ignores unlaid-out viewports** — the pre-layout viewport reads as "at the bottom" and used to trigger a phantom page load.
 - **attw config** (`.attw.json`): the `styles.css` entrypoint is excluded (a stylesheet has no types) and the profile is `node16` — with `engines.node >= 24`, node10 subpath resolution is out of contract for `./locales`.
+- **`toCsv` gained opt-in `escapeFormulas`** (2026-08-22): OWASP CSV-injection defusal — a `'` prefix on formula-leading header text and string cells. Naming precedent is PapaParse's `escapeFormulae`, respelled with Excel's own plural; off by default because the quote is data to every non-spreadsheet consumer.
 
 **Interactive browser pass (2026-07-16, playwright-driven, every demo).** Three defects, each fixed at the root with a regression test where jsdom can express it:
 

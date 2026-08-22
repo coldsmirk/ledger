@@ -22,13 +22,21 @@ export interface ToCsvOptions {
    * Include the header line. Default true.
    */
   withHeaders?: boolean;
+  /**
+   * Prefix text a spreadsheet would evaluate as a formula (leading `=`, `+`, `-`, `@`, tab or
+   * CR — the OWASP CSV-injection set) with a `'`. Applies to header text and string-valued
+   * cells; numeric cells keep their sign. Default false — the quote is data to every
+   * non-spreadsheet consumer, so it is opt-in for exports that feed spreadsheets.
+   */
+  escapeFormulas?: boolean;
 }
 
 export function toCsv<TData extends RowData>(table: TableInstance<TData>, options: ToCsvOptions = {}): string {
   const {
     scope = "filtered",
     delimiter = ",",
-    withHeaders = true
+    withHeaders = true,
+    escapeFormulas = false
   } = options;
 
   const rows = rowsForScope(table, scope);
@@ -42,13 +50,27 @@ export function toCsv<TData extends RowData>(table: TableInstance<TData>, option
   const lines: string[] = [];
 
   if (withHeaders) {
-    lines.push(columns.map(column => escapeCsvValue(columnHeaderText(column), delimiter)).join(delimiter));
+    lines.push(
+      columns
+        .map(column => {
+          const text = columnHeaderText(column);
+
+          return escapeCsvValue(escapeFormulas ? defuseFormula(text) : text, delimiter);
+        })
+        .join(delimiter)
+    );
   }
 
   for (const row of rows) {
     lines.push(
       columns
-        .map(column => escapeCsvValue(serializeCsvValue(row.getValue(column.id)), delimiter))
+        .map(column => {
+          const raw = row.getValue(column.id);
+          const text = serializeCsvValue(raw);
+
+          // Only string cells can smuggle a formula; serialized numbers keep their sign.
+          return escapeCsvValue(escapeFormulas && typeof raw === "string" ? defuseFormula(text) : text, delimiter);
+        })
         .join(delimiter)
     );
   }
@@ -86,6 +108,12 @@ function serializeCsvValue(value: unknown): string {
   }
 
   return String(value);
+}
+
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+
+function defuseFormula(value: string): string {
+  return FORMULA_LEAD.test(value) ? `'${value}` : value;
 }
 
 function escapeCsvValue(value: string, delimiter: string): string {

@@ -262,10 +262,13 @@ interface ToCsvOptions {
   scope?: "filtered" | "all" | "selected";   // default "filtered" (after filters/sorting, before pagination)
   delimiter?: string;                        // default ","
   withHeaders?: boolean;                     // default true
+  escapeFormulas?: boolean;                  // default false — OWASP formula defusal for spreadsheet-bound exports
 }
 ```
 
 RFC 4180 quoting, CRLF line ends. Exports accessor columns only, in their current visible order (internal columns excluded); header text comes from string `header`s, falling back to column ids. Values serialize as: `Date` → ISO string, objects → JSON, `null`/`undefined` → empty. Scopes read the live row models — a server-paginated table can only export the rows it has.
+
+`escapeFormulas` prefixes text a spreadsheet would evaluate as a formula (leading `=`, `+`, `-`, `@`, tab or CR — the OWASP CSV-injection set) with a `'`; it applies to header text and string-valued cells, while numeric cells keep their sign. Off by default because the quote is data to every non-spreadsheet consumer — turn it on for exports of untrusted data that feed Excel or LibreOffice.
 
 ## Labels
 
