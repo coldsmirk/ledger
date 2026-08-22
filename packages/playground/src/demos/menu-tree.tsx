@@ -118,7 +118,7 @@ export function MenuTreeDemo() {
       withTableBorder
       columns={columns}
       data={data}
-      defaultColumnPinning={{ left: ["name"] }}
+      defaultColumnPinning={{ start: ["name"], end: [] }}
       defaultExpanded={{ system: true, "system-users": true }}
       flex={1}
       getRowId={menu => menu.id}

@@ -109,26 +109,26 @@ function downloadCsv(filename: string, csv: string) {
 
 ## Fuzzy global search
 
-Register a custom filter function through the escape hatch and point the global filter at it:
+Register a custom filter function on the first-class registry and point the global filter at its id:
 
 ```tsx
 import { rankItem } from "@tanstack/match-sorter-utils";   // app-side dependency, deliberately not bundled
 
 <DataTable
   enableGlobalFilter
-  tableOptions={{
-    filterFns: { fuzzy: (row, columnId, value, addMeta) => {
+  filterFns={{
+    fuzzy: (row, columnId, value, addMeta) => {
       const rank = rankItem(row.getValue(columnId), value);
       addMeta({ rank });
       return rank.passed;
-    } },
-    globalFilterFn: "fuzzy"
+    }
   }}
+  tableOptions={{ globalFilterFn: "fuzzy" }}
   …
 />;
 ```
 
-`tableOptions.filterFns` is merged with ledger's registry; only the reserved `ledger-one-of` and `ledger-date-range` ids cannot be replaced. This global recipe accepts the registry id through `tableOptions.globalFilterFn`; a custom string id on a raw `ColumnDef.filterFn` still uses TanStack's standard `FilterFns` declaration merging (or pass the function directly).
+`filterFns` merges over the built-ins (registries wire code, so they are read once at mount); only the reserved `ledger-one-of` and `ledger-date-range` ids cannot be replaced. `tableOptions.globalFilterFn` deliberately accepts any string so a registered custom id typechecks; on a raw `ColumnDef.filterFn`, pass the function directly (v9 replaced the old `FilterFns` declaration merging with registry slots).
 
 ## A row-actions column
 

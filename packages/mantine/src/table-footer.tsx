@@ -1,4 +1,6 @@
-import type { Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
+
+import type { TableInstance } from "./types";
 
 /**
  * Column footers (totals row). Rendered only when at least one leaf column declares a `footer`;
@@ -10,15 +12,15 @@ import { flexRender } from "@tanstack/react-table";
 import { useDataTableContext } from "./context";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 
-export function tableHasFooter<TData>(table: Table<TData>): boolean {
+export function tableHasFooter<TData extends RowData>(table: TableInstance<TData>): boolean {
   return table.getVisibleLeafColumns().some(column => column.columnDef.footer !== undefined);
 }
 
-export function TableFooter<TData>({
+export function TableFooter<TData extends RowData>({
   table,
   ariaRowIndexStart
 }: {
-  table: Table<TData>;
+  table: TableInstance<TData>;
   ariaRowIndexStart?: number;
 }) {
   const { getStyles } = useDataTableContext();

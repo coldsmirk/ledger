@@ -76,8 +76,7 @@ function isColumnPinningState(value: unknown): boolean {
     return false;
   }
 
-  return (value.left === undefined || isStringArray(value.left))
-    && (value.right === undefined || isStringArray(value.right));
+  return isStringArray(value.start) && isStringArray(value.end);
 }
 
 /**

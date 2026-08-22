@@ -26,7 +26,8 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `filter-fns.ts` | `ledger-one-of`, `ledger-date-range`, variant → filterFn map |
 | `persist.ts` | `persistState`: guarded synchronous hydration, debounced writes, per-slice shape guards |
 | `labels.ts` / `locales.ts` | Label catalog + `zhCN` (published as `./locales`) |
-| `context.ts` | The one deliberate `TData` erasure boundary (see below) |
+| `context.ts` | The deliberate `TData` erasure boundary (see below) |
+| `ledger-features.ts` | The canonical TanStack v9 feature set (`LedgerFeatures`) — features, row models, fn registries |
 | `env.ts` | `isDev` + `warnOnce` — dependency-free on purpose |
 | `styles.css` | The entire stylesheet, `@layer ledger` |
 | `icons.tsx` | Inlined SVG paths — no icon-library dependency |
@@ -35,7 +36,9 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 
 **Option partition with compile-time exhaustiveness.** Sugar mode splits props into behavior options vs presentation by the `OPTION_KEYS` list; `AssertNever<MissingOptionKeys>` makes *forgetting to list a new `UseDataTableOptions` key* a type error at the `Set` construction site. Add an option → add it to `OPTION_KEYS` or the build fails.
 
-**One erasure boundary.** `context.ts` erases `TData` (`Table<any>`) for table-wide plumbing (styles getter, labels, row handlers); cells and filter popovers receive their strongly-typed TanStack objects as props. Any new cast belongs *at that boundary*, not scattered through the tree.
+**One erasure boundary.** `context.ts` erases `TData` (`TableInstance<any>`) for table-wide plumbing (styles getter, labels, row handlers), and since the v9 migration the internal render layer below it is `any`-bound as well — TanStack v9's `in out` (invariant) generics make cross-instantiation unification of generic internals a fight with no type-safety payoff, so the erasure happens once at `DataTableCore` and the public surface stays strongly typed. Any new cast belongs *at that boundary*, not scattered through the tree.
+
+**State reads inside the library go through `table.atoms.<slice>.get()`**, never `table.state`: `.state` exists only on the wrapper `useTable` returns, while a component hosted in a header renderer (the columns panel behind a cog) receives the core instance — atoms live on both, and they are also the correct event-time snapshot.
 
 **Header, body, and footer are separate tables under one ARIA table.** The header (and, when any column declares a `footer`, the totals region) sits in an `overflow: hidden` viewport outside the body ScrollArea, so the vertical scrollbar spans exactly the rows (never occluded, never bounced by overscroll) and totals stay visible. Three invariants keep the tables pixel-equal: identical Mantine props, identical `<colgroup>`s, and the shared root-level column variables — which requires `table-layout: fixed` on all, always (auto layout would distribute each table independently). Horizontal sync is one assignment — the body's scroll event mirrors `scrollLeft` onto the header and footer viewports in the same frame; native non-passive wheel listeners forward **dominantly horizontal** deltas (`|deltaX| > |deltaY|`, so vertical-leaning wheels keep scrolling the page) from those regions to the body. The body viewport is `overscroll-behavior: none` (inline via `viewportProps`): rubber-band overscroll translates the body past the clamped scroll position the mirrors read, shearing the regions apart for the duration of the bounce. Because the native tables would split the semantics, all are `role="presentation"` and the explicit ARIA table lives on `main` with `row` / `columnheader` / `cell` roles on the parts — keep those roles when adding new row kinds.
 

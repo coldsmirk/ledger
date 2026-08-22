@@ -1,4 +1,6 @@
-import type { Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
+
+import type { TableInstance } from "./types";
 
 import { isInternalColumn } from "./build-columns";
 
@@ -8,7 +10,7 @@ import { isInternalColumn } from "./build-columns";
  * (`columns-panel.tsx`).
  *
  * The flat array is the ONLY thing `columnOrder` governs — a pinned column's position comes from
- * its index inside `columnPinning.left` / `.right` instead (TanStack's `getLeftLeafColumns` maps
+ * its index inside `columnPinning.start` / `.end` instead (TanStack's `getStartLeafColumns` maps
  * over that array, while `getCenterLeafColumns` filters the `columnOrder`-sorted leaf list). So
  * reordering the center zone edits `columnOrder`, and reordering a pinned zone edits
  * `columnPinning` — never both.
@@ -19,9 +21,10 @@ import { isInternalColumn } from "./build-columns";
  * any column it never mentioned appended in definition order. An empty slice means "definition
  * order", which is exactly `getAllLeafColumns()`.
  */
-export function resolveColumnOrder<TData>(table: Table<TData>): string[] {
+export function resolveColumnOrder<TData extends RowData>(table: TableInstance<TData>): string[] {
   const leafIds = table.getAllLeafColumns().map(column => column.id);
-  const { columnOrder } = table.getState();
+  // Slice atoms exist on both the hook wrapper and the core instance handed to header renderers.
+  const columnOrder = table.atoms.columnOrder.get();
 
   if (columnOrder.length === 0) {
     return leafIds;
@@ -38,12 +41,12 @@ export interface ColumnDropTarget {
   side: "before" | "after";
 }
 
-export type ColumnZone = "left" | "center" | "right";
+export type ColumnZone = "start" | "center" | "end";
 
-export function getColumnZone<TData>(table: Table<TData>, columnId: string): ColumnZone | null {
+export function getColumnZone<TData extends RowData>(table: TableInstance<TData>, columnId: string): ColumnZone | null {
   const pinned = table.getColumn(columnId)?.getIsPinned();
 
-  return pinned === "left" || pinned === "right" ? pinned : pinned === false ? "center" : null;
+  return pinned === "start" || pinned === "end" ? pinned : pinned === false ? "center" : null;
 }
 
 /**
@@ -80,8 +83,8 @@ export function applyCenterOrder(order: string[], nextCenterIds: string[]): stri
  * Reorder a header inside its current display zone. Pin controls are the only way to cross a
  * zone boundary; a drop across one is rejected so the visual affordance never lies.
  */
-export function reorderColumnWithinZone<TData>(
-  table: Table<TData>,
+export function reorderColumnWithinZone<TData extends RowData>(
+  table: TableInstance<TData>,
   columnId: string,
   target: ColumnDropTarget
 ): boolean {
@@ -102,18 +105,18 @@ export function reorderColumnWithinZone<TData>(
     return true;
   }
 
-  const left = table.getLeftLeafColumns()
+  const start = table.getStartLeafColumns()
     .map(column => column.id)
     .filter(id => !isInternalColumn(id));
-  const right = table.getRightLeafColumns()
+  const end = table.getEndLeafColumns()
     .map(column => column.id)
     .filter(id => !isInternalColumn(id));
-  const zoneOrder = zone === "left" ? left : right;
+  const zoneOrder = zone === "start" ? start : end;
   const nextZoneOrder = moveColumnBeside(zoneOrder, columnId, target);
 
   table.setColumnPinning({
-    left: zone === "left" ? nextZoneOrder : left,
-    right: zone === "right" ? nextZoneOrder : right
+    start: zone === "start" ? nextZoneOrder : start,
+    end: zone === "end" ? nextZoneOrder : end
   });
 
   return true;

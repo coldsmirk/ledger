@@ -1,4 +1,6 @@
-import type { Column, Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
+
+import type { Column, TableInstance } from "./types";
 
 /**
  * The width engine (docs/sizing.md): every visible leaf column resolves to an exact integer
@@ -213,8 +215,8 @@ function minWidthPx(tableMinWidth: number | string | undefined, viewport: HTMLEl
   return Number.parseFloat(getComputedStyle(tableElement).minWidth) || 0;
 }
 
-export function useColumnWidths<TData>(
-  table: Table<TData>,
+export function useColumnWidths<TData extends RowData>(
+  table: TableInstance<TData>,
   /**
    * Visible leaf columns in DISPLAY order (pinned-aware) — the same order the colgroup renders.
    */
@@ -247,7 +249,7 @@ export function useColumnWidths<TData>(
     return () => observer.disconnect();
   }, [viewport, measure]);
 
-  const { columnSizing } = table.getState();
+  const { columnSizing } = table.state;
   const { defaultColumn } = table.options;
 
   const resolved = useMemo(

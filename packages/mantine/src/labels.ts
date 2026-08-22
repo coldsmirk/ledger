@@ -23,15 +23,19 @@ export interface DataTableLabels {
   /* Columns panel */
   columnsPanel: string;
   resetColumns: string;
-  pinLeft: string;
-  pinRight: string;
+  /**
+   * Logical positions (TanStack v9 vocabulary): start/end map to left/right in LTR layouts and
+   * mirror under RTL.
+   */
+  pinStart: string;
+  pinEnd: string;
   unpin: string;
   /**
    * Zone captions the columns panel shows above its pinned columns; nouns for the state, where
-   * `pinLeft` / `pinRight` name the action.
+   * `pinStart` / `pinEnd` name the action.
    */
-  pinnedLeft: string;
-  pinnedRight: string;
+  pinnedStart: string;
+  pinnedEnd: string;
   groupByColumn: string;
   ungroupColumn: string;
   columnWidth: string;
@@ -80,11 +84,11 @@ export const defaultLabels: DataTableLabels = {
 
   columnsPanel: "Columns",
   resetColumns: "Reset",
-  pinLeft: "Pin to left",
-  pinRight: "Pin to right",
+  pinStart: "Pin to start",
+  pinEnd: "Pin to end",
   unpin: "Unpin",
-  pinnedLeft: "Pinned left",
-  pinnedRight: "Pinned right",
+  pinnedStart: "Pinned start",
+  pinnedEnd: "Pinned end",
   groupByColumn: "Group by this column",
   ungroupColumn: "Ungroup",
   columnWidth: "Width",

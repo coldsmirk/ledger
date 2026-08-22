@@ -9,7 +9,7 @@
 - [5. Non-goals](#5-non-goals)
 - [6. First consumers](#6-first-consumers)
 - [7. Decision log](#7-decision-log)
-- [Appendix A: TanStack Table v8 feature coverage](#appendix-a-tanstack-table-v8-feature-coverage)
+- [Appendix A: TanStack Table feature coverage](#appendix-a-tanstack-table-feature-coverage)
 
 ## 1. Vision
 
@@ -17,7 +17,7 @@ Mantine deliberately ships no data grid. The community fills the gap either by r
 
 > **The behavior layer speaks TanStack's language; the presentation layer speaks Mantine's.**
 
-One sentence teaches the whole API. TanStack Table v8 supplies column model, state, and row pipelines — ledger does not wrap them in a second dialect. Mantine supplies the visual system — table styling, spacing tokens, Styles API, theme — and ledger's presentation surface is indistinguishable from a first-party Mantine component.
+One sentence teaches the whole API. TanStack Table (v9 since 2026-08-21; born on v8) supplies column model, state, and row pipelines — ledger does not wrap them in a second dialect. Mantine supplies the visual system — table styling, spacing tokens, Styles API, theme — and ledger's presentation surface is indistinguishable from a first-party Mantine component.
 
 **Feature bar**: the union of what MUI DataGrid and Ant Design Table are used for in real applications — sorting, filtering, pagination, selection, pinning, resizing, visibility, master–detail, inline editing, virtualization — *without* referencing either library's API design.
 
@@ -28,7 +28,7 @@ One sentence teaches the whole API. TanStack Table v8 supplies column model, sta
 Every name in the public surface is adjudicated by this procedure, in order:
 
 1. **The concept belongs to presentation** → Mantine vocabulary, verbatim: `value` / `defaultValue` / `onChange`-style controlled trios, `with*` structural switches, `render*` render props, state via `data-*` attributes.
-2. **The concept belongs to table behavior** → TanStack v8 vocabulary, verbatim against the real 8.21 option names: `enable*` switches, state slice names and shapes, `getRowId`, `rowCount`, `defaultColumn`.
+2. **The concept belongs to table behavior** → TanStack vocabulary, verbatim against the real option names of the pinned major (v9.1 today): `enable*` switches, state slice names and shapes, `getRowId`, `rowCount`, `defaultColumn`.
 3. **Neither side has it** → adopt the widest industry precedent and record the source (`'client' | 'server'` modes: MUI DataGrid; `onEndReached`: React Native FlatList).
 4. **No precedent at all** → invention is allowed only as a last resort and must be shaped like its nearest family (`enablePagination` and `enableColumnOrdering` borrow the `enable*` shape — TanStack expresses both by row-model inclusion or state-without-a-switch, so there is no name to borrow).
 5. **Literal casing**: JS identifiers are camelCase; string enum values, CSS classes, CSS custom properties, and data-attributes are kebab-case (`'multi-select'`, `'double-click'`, `.ledger-header-cell`, `--ledger-row-bg`, `data-pinned`).
@@ -46,7 +46,7 @@ Deliberate divergences from TanStack, each with cause:
 
 - **Columns are raw `ColumnDef`s.** No bespoke column DSL: every column-level TanStack capability is automatically present. Presentation concerns ride the typed `meta` extension.
 - **State shapes are TanStack's verbatim** (`SortingState`, `RowSelectionState`, …); knowledge and code transfer directly, and the escape-hatch instance never disagrees with the props.
-- **Escape hatches are never sealed**: `tableOptions` merges through to `useReactTable`, `useDataTable` returns the bare TanStack `Table`, `flexRender` is re-exported.
+- **Escape hatches are never sealed**: `tableOptions` merges through to `useTable`, `useDataTable` returns the bare TanStack instance, `flexRender` is re-exported.
 - **TanStack is an implementation dependency, not a peer**: consumers import everything from `@coldsmirk/ledger-mantine` and never from `@tanstack/*`.
 
 ## 3. Structural decisions
@@ -134,7 +134,7 @@ Rejected: EP's `background: inherit` on fixed cells (the `--ledger-row-bg` pipel
 
 **Scrollbars float above pinned cells (2026-07-17, owner-decided).** Mantine's ScrollArea scrollbars carry no z-index, so pinned cells (z-index 2) covered them: the covered track stretch was unreachable (the pinned cell intercepts the pointer) and the thumb vanished under a pinned column exactly at the scroll extremes. Options weighed: EP raises its bar above fixed columns (fixed `+1`, bar `+2` — verified in `table.scss`) and native overlay scrollbars always paint above sticky content (MUI DataGrid / AntD inherit this); AG Grid's center-only fake scrollbar was rejected (dynamic track insets, thumb rescaling, and against native muscle memory). Resolution: `.ledger-scroller > [data-orientation] { z-index: 3 }` — Mantine's own styling hook attribute, because the sealed stylelint config (correctly) rejects the PascalCase `.mantine-*` class in a selector.
 
-**Date filters ride `@mantine/dates` (2026-07-17, owner-decided — reverses the founding no-dates-dependency rule).** The native `type="date"` inputs were chosen to keep the dependency tree lean, but their UX is browser chrome we cannot style or localize: `mm/dd` order from the OS locale, an English calendar, no range affordance. The owner called it too primitive; the `date-range` filter now renders an inline `DatePicker type="range"` (no nested popover to misread as an outside click), whose `YYYY-MM-DD` string values feed the existing `ledger-date-range` filter fn unchanged. Cost accepted: `@mantine/dates` + `dayjs` become peer dependencies and consumers import one more stylesheet; localization flows from the host's `DatesProvider`, so the `filterDateFrom`/`filterDateTo` labels died with the inputs.
+**Date filters ride `@mantine/dates` (2026-07-17, owner-decided — reverses the founding no-dates-dependency rule).** The native `type="date"` inputs were chosen to keep the dependency tree lean, but their UX is browser chrome we cannot style or localize: `mm/dd` order from the OS locale, an English calendar, no range affordance. The owner called it too primitive; the `date-range` filter now renders an inline `DatePicker type="range"` (no nested popover to misread as an outside click), whose `YYYY-MM-DD` string values feed the existing `ledger-date-range` filter fn unchanged. Cost accepted: `@mantine/dates` becomes a peer dependency (`dayjs` arrives transitively as its own peer — corrected 2026-08-21; this line originally overstated dayjs as a direct peer) and consumers import one more stylesheet; localization flows from the host's `DatesProvider`, so the `filterDateFrom`/`filterDateTo` labels died with the inputs.
 
 **Injected column headers are controls, not text (2026-07-17, owner-reported).** The expand-all icon rendered half-clipped: every header went through the label scaffolding, whose `[data-truncate]` span (`overflow: hidden`, for text ellipsis) cut the 22px ActionIcon at the 36px column's 16px content box — the select-all checkbox escaped only because it happens to measure exactly 16px. Internal columns now bypass the label/truncate wrapper entirely (they never sort, filter, or resize) and center through the existing `data-align` pipeline. Fourth header-scaffolding lesson: never route non-text header content through the truncating wrapper.
 
@@ -149,41 +149,62 @@ Rejected: EP's `background: inherit` on fixed cells (the `--ledger-row-bg` pipel
 - **dnd-kit through its React adapter.** `@dnd-kit/react` 0.5 *is* the framework-agnostic core (`@dnd-kit/abstract` + `@dnd-kit/dom` + `@dnd-kit/state`) plus the one part a React host cannot skip: the renderer bridge assigning `manager.renderer` so dnd-kit awaits React's commit before settling a drop. Without it `renderer.rendering` is an already-resolved promise while `OptimisticSortingPlugin` has physically moved the DOM nodes and React has not yet re-rendered the new `columnOrder` — the row flicks back before it jumps. The header's own pointer drag was left alone deliberately: it is a horizontal drag with an edge indicator across a fixed-layout table with sticky pinned columns, not a vertical list sort, and it carries no dependency today.
 - **At rest, state; under the pointer, machinery (owner-rejected the first presentation).** The first cut showed every control on every row — three pin buttons, a bordered width field, and a handle apiece, twenty-seven accent-colored icons at once — and the column names drowned in their own chrome. The redesign keeps a resting row to checkbox + name plus dimmed marks only where the layout *deviates* (captions over pinned zones via the `pinnedLeft`/`pinnedRight` labels, an overridden width, a grouped column's glyph, a dimmed hidden name — `data-hidden`); the machinery reveals per-row on hover/focus-within as an overlaid toolbar, so resting names keep the full row width. Precedent: the row-dense settings lists of Linear/Notion/Airtable. The reveal is stylesheet-only (everything stays in the DOM and the accessibility tree; `hover: none` renders the toolbar inline), the three pin buttons fused into one `ActionIcon.Group` segment, and the accent color retreated to the checkbox and the active segment. Cascade lesson learned here: Mantine's Checkbox label declares `color: inherit` in a stylesheet hosts may load *unlayered*, where it beats any `@layer ledger` rule — so the hidden-column dimming sits on ledger's own wrapper element, which inheritance faithfully relays.
 
-## Appendix A: TanStack Table v8 feature coverage
+**TanStack Table v9 migration (2026-08-21, owner-directed).** v8.21.3 (final v8) → v9.1.2 — the core's architectural rewrite (state on TanStack Store, explicit feature registration, logical pinning, `TFeatures` generics), absorbed whole rather than bridged: the official `useLegacyTable` shim was rejected outright (never leave debt). The naming constitution's rule 2 makes v9's renames ledger's renames — no aliases. The decisions:
 
-Audit question: *is every TanStack Table capability accounted for?* Structural answer first: because columns are **raw `ColumnDef`s** and `tableOptions` merges through to `useReactTable`, **100% of TanStack's column-level and table-level option surface is reachable**. This matrix records which capabilities get first-class treatment (props / UI / state trios) and which remain escape-hatch-only, so nothing is unaccounted for. Dispositions reflect the implemented state.
+- **`TFeatures` is pre-bound, never exposed.** One canonical feature object (`ledger-features.ts`, `LedgerFeatures = typeof ledgerFeatures`) binds the new leading generic of every re-exported type, so the public surface keeps its v8 arity (`ColumnDef<TData, TValue>`, `Row<TData>`, …) and `createColumnHelper<TData>()` keeps its calling shape through a ledger wrapper. The feature set is an implementation detail of the package, exactly as the dependency itself is.
+- **Every built-in fn ships registered.** v9 resolves string ids — the `'auto'` defaults included — only against registered `filterFns` / `sortFns` / `aggregationFns`. Ledger's contract that every capability of a raw `ColumnDef` keeps working outranks fn-level tree-shaking, so the full conventional-name registries are part of the canonical set; consumer filter functions join through the new first-class `filterFns` option (registry slots replaced the v8 `FilterFns` declaration merging).
+- **`columnResizingFeature` is deliberately unregistered** — resolving the audit finding that `column.getIsResizing()` lied (ledger's own pointer session never wrote `columnSizingInfo`). v9's sizing/resizing split makes the honest position structural: the drag machinery ledger replaced simply does not exist on the instance, feature-gated APIs cannot misreport it, and `enableColumnResizing` becomes a ledger-owned switch on `meta.ledger` with the per-column `enableResizing` knob re-attached to ledger's `ColumnDef` alias.
+- **Pinning goes logical.** `left`/`right` → `start`/`end` everywhere TanStack renamed it — state shape, `data-pinned` values, panel zones, labels (`pinStart` / `pinnedEnd`…) — with no compatibility spellings, matching the stylesheet's existing logical-property stance.
+- **The custom shift-range selection dies.** v9's `getToggleSelectedHandler()` carries inclusive range selection natively (`enableRowRangeSelection`, default on), so ledger's own range code and the `meta.ledger.selectionAnchor` seam were deleted; the injected checkbox also gained the sub-row indeterminate state the audit flagged. `meta.ledger.totalRowCount` died the same way — v9's `rowCount` option and `getRowCount()` carry it.
+- **Three v9 behaviors ledger had to counter, each found by test or browser, each fixed at the root:**
+  - `useTable` returns a fresh `{ ...core, options, state }` wrapper per state tick. Holding it in the context value re-rendered every consumer straight through the row memos — the context now exposes the current wrapper through a ref-backed getter (identity-stable, reads fresh), which also retired a latent v8-era weakness where any parent re-render could bust the row memo via context churn.
+  - `table.options` is re-resolved per tick, so `options.columns` identity is no longer a "definitions changed" signal; the stable processed columns ride `meta.ledger.columns` as the render layer's memo token.
+  - `.state` exists only on the hook's wrapper, while header renderers hand out the core instance — the columns panel crashed under its own header-cog demo. Internal rule since: ledger code reads state through `table.atoms.<slice>.get()` (present on both shapes, and the correct event-time snapshot); `table.state` belongs to consumers.
+- **Internal render generics were erased.** v9's `in out` (invariant) generics made cross-instantiation unification of internal `TData` generics a permanent fight with no safety payoff; the documented single erasure boundary (context.ts) now covers the render layer wholesale, erased once at `DataTableCore`. The public surface stays strongly typed.
+- Costs accepted: TanStack is ESM-only ES2022 (ledger's CJS entry now relies on Node ≥ 24 `require(esm)`); `ColumnPinningState` requires both arrays; persisted v8-era `columnPinning` entries fail the shape guard and degrade to defaults (pre-1.0, no migration shim); `VisibilityState` is spelled `ColumnVisibilityState`.
+- Unlocked for later design rounds: v9 core now ships `cellSelectionFeature` and `cellSpanningFeature` — exactly two of the deferred features below — plus external state atoms and `table.Subscribe` for fine-grained re-render control.
+
+
+## Appendix A: TanStack Table feature coverage
+
+Audit question: *is every TanStack Table capability accounted for?* (Originally audited against v8.21; re-audited line by line against v9.1 during the migration — including the option-surface sweep that added the previously unrecorded rows marked below.) Structural answer first: because columns are **raw `ColumnDef`s** and `tableOptions` merges through to `useTable`, **the entire column-level and table-level option surface of the registered features is reachable**. This matrix records which capabilities get first-class treatment (props / UI / state trios) and which remain escape-hatch-only, so nothing is unaccounted for. Dispositions reflect the implemented state.
 
 | TanStack capability | Disposition |
 | --- | --- |
-| Column defs: `accessorKey` / `accessorFn` / display / group | First-class — raw `ColumnDef`, `createColumnHelper` re-exported |
+| Column defs: `accessorKey` / `accessorFn` / display / group | First-class — raw `ColumnDef`, feature-bound `createColumnHelper` |
 | Header groups & placeholder headers | First-class — rendered |
 | Column footers | First-class — rendered (totals row) |
 | `getRowId`, `defaultColumn`, table/column `meta` | First-class (`meta.ledger` namespace reserved) |
-| Sorting: multi-sort, `sortDescFirst`, `sortUndefined`, `invertSorting`, custom `sortingFn`s | First-class; column-level knobs free via raw `ColumnDef` |
-| `maxMultiSortColCount`, `isMultiSortEvent`, `sortingFns` registry | Escape hatch (`tableOptions`) — niche tuning |
-| Column filtering: `filterFn`s, `enableColumnFilters` | First-class — `meta.filter` popovers (`text` / `select` / `multi-select` / `range` / `date-range`) |
-| `filterFromLeafRows`, `maxLeafRowFilterDepth` | Escape hatch |
-| Global filtering + `globalFilterFn` | First-class — `enableGlobalFilter` + `DataTable.Search`; custom fn via `tableOptions` |
+| The v9 `features` option, row-model factories, fn registries | Ledger-managed — the canonical set (`ledger-features.ts`); consumer `filterFns` join via the first-class option; custom feature plugins remain out of scope (as `_features` was in v8) |
+| Sorting: multi-sort, `sortDescFirst`, `sortUndefined`, `invertSorting`, custom `sortFn`s | First-class; column-level knobs free via raw `ColumnDef` (built-in `sortFns` pre-registered, `'auto'` resolves) |
+| `maxMultiSortColCount`, `isMultiSortEvent`, `enableMultiRemove`, table-level `sortDescFirst`, `autoResetSorting` | Escape hatch (`tableOptions`) — niche tuning; `autoResetSorting` is consumed under server pagination like `autoResetExpanded` |
+| Column filtering: `filterFn`s, `enableColumnFilters` | First-class — `meta.filter` popovers (`text` / `select` / `multi-select` / `range` / `date-range`); custom registries via the `filterFns` option |
+| `enableFilters` (master switch), `filterFromLeafRows`, `maxLeafRowFilterDepth`, `manualFiltering`-adjacent tuning | Escape hatch. *`enableFilters` recorded by the 2026-08-21 re-audit.* |
+| Global filtering + `globalFilterFn` | First-class — `enableGlobalFilter` + `DataTable.Search`; custom fn via `tableOptions.globalFilterFn` (accepts registered string ids) |
 | Fuzzy filtering (`@tanstack/match-sorter-utils`) | Recipe ([recipes.md](recipes.md)) — not bundled, keeps the dependency optional |
 | Column faceting (`getFacetedUniqueValues`, `getFacetedMinMaxValues`) | First-class — auto-populates select-family options and range bounds in client mode |
-| Global faceting (`getGlobalFaceted*`) | Escape hatch — no first-class UI planned |
-| Pagination (client), `pageCount` / `rowCount`, `manualPagination` | First-class — `enablePagination`, `paginationMode`, `rowCount`; built-in bar + `DataTable.Pagination` |
-| Auto-resets (`autoResetPageIndex`, …) | First-class policy (§4.4). *Surfaced by this audit.* |
-| Row selection: multi/single, predicate, select-all | First-class — incl. shift ranges and `DataTable.SelectionBar` |
-| `enableSubRowSelection` | Escape hatch (`tableOptions`). *Surfaced by this audit.* |
+| Global faceting (`getGlobalFaceted*`) | Escape hatch — instance APIs work in client filter mode (the faceted row models are registered); no first-class UI planned |
+| Pagination (client), `pageCount` / `rowCount`, `manualPagination` | First-class — `enablePagination`, `paginationMode`, `rowCount` (v9 derives `pageCount`); built-in bar + `DataTable.Pagination` |
+| Auto-resets (`autoResetPageIndex`, `autoResetAll`, …) | First-class policy (§4.4) |
+| Row selection: multi/single, predicate, select-all | First-class — incl. v9's native Shift ranges (`enableRowRangeSelection` default on; `isRowRangeSelectionEvent` via `tableOptions`) and `DataTable.SelectionBar` |
+| `enableSubRowSelection` | Escape hatch (`tableOptions`); the injected checkbox renders the parent indeterminate state |
 | Expanding: detail panels | First-class — `renderDetailPanel` (synthetic display rows under virtualization) |
 | Expanding: sub-rows / tree data | First-class — `getSubRows`, indent UI, expand-all header affordance |
-| `paginateExpandedRows` | Escape hatch |
-| Grouping & aggregation (`getGroupedRowModel`, `aggregationFn`, `aggregatedCell`) | First-class — `enableGrouping`, `ColumnsPanel` toggle, grouped/aggregated cells; `groupedColumnMode` via `tableOptions` |
+| `paginateExpandedRows`, `getIsRowExpanded`, `manualExpanding` | Escape hatch. *`manualExpanding` recorded by the 2026-08-21 re-audit.* |
+| Grouping & aggregation (`groupedRowModel`, `aggregationFn`, `aggregatedCell`, v9 multi-aggregation) | First-class — `enableGrouping`, `ColumnsPanel` toggle, grouped/aggregated cells; `groupedColumnMode`, `manualGrouping` via `tableOptions` (*`manualGrouping` recorded by the 2026-08-21 re-audit*); built-in `aggregationFns` pre-registered |
 | Row pinning (`enableRowPinning`, `keepPinnedRows`, `getTopRows` / `getBottomRows`) | First-class state + sticky rendering; trigger UI is the page's (`row.pin()`); `keepPinnedRows` via `tableOptions` |
 | Column ordering (`columnOrder`) | First-class — state trio + drag reordering, in the header and in `ColumnsPanel` (`enableColumnOrdering`) |
-| Column pinning | First-class — `ColumnsPanel` three-state control, sticky offsets, edge shadows |
-| Column sizing / resizing (`columnResizeMode`, `columnResizeDirection`) | First-class — CSS-variable pipeline; mode fixed to `onChange` (deliberate); direction follows Mantine `dir` |
+| Column pinning (v9 logical `start`/`end`) | First-class — `ColumnsPanel` three-state control, sticky offsets, edge shadows |
+| Column sizing (`columnSizing`, `size`/`minSize`/`maxSize`) | First-class — the width engine's CSS-variable pipeline |
+| Column resizing (`columnResizingFeature`: `columnResizing` state, `getIsResizing`, `getResizeHandler`, `columnResizeMode`/`Direction`) | **Replaced, feature unregistered** — ledger's pointer session owns the interaction ([sizing.md](sizing.md#resizing-interplay)); the TanStack surface deliberately does not exist on the instance |
 | Column visibility | First-class — `enableHiding`, `ColumnsPanel` checkboxes |
-| Row models | First-class — wired automatically per feature switch |
-| Rendering: `flexRender`, `renderFallbackValue` | `flexRender` re-exported; `renderFallbackValue` via `tableOptions` |
-| Custom features API (`_features`) | Out of scope — ledger's extension lives in `meta.ledger`; `_features` remains reachable but unsupported |
-| Debug options (`debugTable`, …) | Escape hatch (`tableOptions`) |
+| Row models | First-class — registered on the canonical feature set; `*Mode` translations govern them at runtime |
+| State reads: `table.state`, `table.store`, `table.atoms`, `table.Subscribe` | Consumer surface as v9 defines it; `onStateChange` no longer exists (removed by v9 — per-slice trios were always ledger's contract) |
+| External state atoms (`options.atoms`) | Escape hatch (`tableOptions.atoms`) — an atom deliberately outranks the controlled trio for its slice |
+| `mergeOptions`, debug options, `renderFallbackValue` | Escape hatch (`tableOptions`). *`mergeOptions` recorded by the 2026-08-21 re-audit.* |
+| Rendering: `flexRender`, `FlexRender` / `table.FlexRender` | `flexRender` re-exported; the component forms remain reachable on the instance |
+| Cell selection (`cellSelectionFeature`, new in v9) | **Deferred — needs a design round** (now available in core; unregistered until then) |
+| Cell spanning (`cellSpanningFeature`, new in v9) | **Deferred — needs a design round** (now available in core; unregistered until then) |
 | Virtualization (TanStack Virtual — separate library) | Row virtualization first-class (spacer rows, adaptive viewport); **column virtualization deferred — needs a design round** |
 
-Net-new obligations this audit added to the design: the auto-reset policy, the `tableOptions` collision warning, `enableSubRowSelection` recorded as escape-hatch, the expand-all affordance, and row pinning's disposition.
+Net-new obligations the original audit added to the design: the auto-reset policy, the `tableOptions` collision warning, `enableSubRowSelection` recorded as escape-hatch, the expand-all affordance, and row pinning's disposition. The 2026-08-21 re-audit added the previously unrecorded `enableFilters` / `manualGrouping` / `manualExpanding` / `mergeOptions` dispositions and retired the stale `columnResizeMode` managed-key claim in state.md.

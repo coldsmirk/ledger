@@ -24,13 +24,19 @@ export type {
 } from "./data-table";
 export { defaultLabels } from "./labels";
 export type { DataTableLabels } from "./labels";
+// TanStack surface, curated — knowledge and code transfer directly. Object types are
+// pre-bound to the canonical feature set (`LedgerFeatures`), keeping their v8 arity.
+export { createColumnHelper } from "./ledger-features";
+export type { LedgerFeatures } from "./ledger-features";
 export { DataTablePagination } from "./pagination-bar";
+
 export type { DataTablePaginationProps } from "./pagination-bar";
 export { DataTableSearch } from "./search";
-
 export type { DataTableSearchProps } from "./search";
 export { DataTableSelectionBar } from "./selection-bar";
+
 export type { DataTableSelectionBarProps } from "./selection-bar";
+
 /* Public types (docs/api.md) */
 export type {
   ActiveCellEditor,
@@ -51,25 +57,21 @@ export type {
   TableInstance,
   UseDataTableOptions
 } from "./types";
-
+export type { Cell, Column, ColumnDef, Row } from "./types";
 export { useDataTable } from "./use-data-table";
 
-/* TanStack surface, curated — knowledge and code transfer directly */
-export { createColumnHelper, flexRender } from "@tanstack/react-table";
+export { flexRender } from "@tanstack/react-table";
 export type {
-  Cell,
-  Column,
-  ColumnDef,
   ColumnFiltersState,
   ColumnOrderState,
   ColumnPinningState,
   ColumnSizingState,
+  ColumnVisibilityState,
   ExpandedState,
   GroupingState,
   PaginationState,
-  Row,
+  RowData,
   RowPinningState,
   RowSelectionState,
-  SortingState,
-  VisibilityState
+  SortingState
 } from "@tanstack/react-table";

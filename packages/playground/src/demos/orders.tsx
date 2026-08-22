@@ -93,7 +93,7 @@ const columns = [
     header: "金额",
     size: 130,
     cell: context => context.getValue().toFixed(2),
-    footer: ({ table }) => amountTotal(table),
+    footer: ({ table }) => amountTotal(table as TableInstance<Order>),
     meta: { align: "end", filter: "range" }
   }),
   helper.accessor("placedAt", {

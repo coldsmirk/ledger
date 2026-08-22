@@ -16,13 +16,13 @@ All of TanStack's column-level sorting knobs apply unchanged on the `ColumnDef`:
 ```tsx
 helper.accessor("createdAt", {
   header: "Created",
-  sortingFn: "datetime",
+  sortFn: "datetime",      // TanStack v9 name (was sortingFn)
   sortDescFirst: true,     // first click sorts newest-first
   sortUndefined: "last"    // missing values sink to the bottom
 });
 ```
 
-`invertSorting`, custom `sortingFn` functions, and the registry (`tableOptions.sortingFns`) are equally available. Niche table-level tuning (`maxMultiSortColCount`, `isMultiSortEvent`) goes through `tableOptions` — see [state.md](state.md).
+`invertSorting` and custom `sortFn` functions are equally available. Every built-in sorting function ships pre-registered on ledger's feature set, so the string ids (`"alphanumeric"`, `"datetime"`, …) and the `"auto"` default all resolve ([state.md](state.md#the-feature-set-and-fn-registries)); a custom sort is passed as a function on the def. Niche table-level tuning (`maxMultiSortColCount`, `isMultiSortEvent`) goes through `tableOptions` — see [state.md](state.md).
 
 ## State
 

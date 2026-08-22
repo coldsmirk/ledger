@@ -21,7 +21,7 @@ enableRowSelection={row => row.original.status !== "archived"}
 ## Semantics
 
 - **Multi-select** is the default. `enableMultiRowSelection={false}` switches to single-select — toggling a row replaces the previous selection, and the header checkbox disappears (select-all is meaningless there).
-- **Shift-click range**: clicking a checkbox with Shift held selects the contiguous range between the last plainly-toggled row (the anchor) and the target, in the current view order (after sorting/filtering). The range respects the selection predicate — disabled rows inside it are skipped — and merges into the existing selection. The anchor survives range clicks, so successive Shift-clicks re-extend from the same origin.
+- **Shift-click range** is TanStack v9's own `getToggleSelectedHandler()` behavior (`enableRowRangeSelection`, default `true`; opt out via `tableOptions`): an ordinary click sets the anchor, a Shift-click selects or deselects the contiguous range to the target in the current view order (after sorting/filtering). The range respects the selection predicate — disabled rows inside it are skipped.
 - **Select-all scope**: the header checkbox covers the **current page** while pagination is active (`enablePagination` or `paginationMode: "server"`), and **all filtered rows** otherwise. It shows an indeterminate state while partially selected.
 - **Selection survives view changes**: because state is id-keyed, paging, sorting, and filtering never drop selected rows — a row selected on page 1 stays selected while you browse page 3. Render `DataTable.SelectionBar` so the running total stays visible.
 - Checkbox clicks stop propagation — selecting never triggers `onRowClick`.
@@ -49,4 +49,4 @@ The count comes from the full selection state (not just the visible page). `tabl
 
 The `rowSelection` slice follows the standard trio with TanStack's `RowSelectionState` shape (`Record<rowId, true>`); the full TanStack selection API is available on the instance — `table.getSelectedRowModel().rows`, `row.getIsSelected()`, `row.toggleSelected()`, `table.toggleAllRowsSelected(false)`, and so on.
 
-Sub-row selection cascading for tree data (`enableSubRowSelection`) is not surfaced as a first-class option; it passes through `tableOptions` untouched ([state.md](state.md)).
+Sub-row selection cascading for tree data (`enableSubRowSelection`) is not surfaced as a first-class option; it passes through `tableOptions` untouched ([state.md](state.md)) — the injected checkbox does render the indeterminate state for a parent whose subtree is partially selected. Note the v9 semantics of `getIsSomeRowsSelected()` / `getIsSomePageRowsSelected()`: they now mean "at least one" and stay `true` at full selection.

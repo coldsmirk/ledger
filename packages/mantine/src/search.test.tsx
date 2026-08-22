@@ -20,7 +20,7 @@ function SearchHarness() {
     <MantineProvider>
       <DataTableSearch debounce={200} table={table} />
       <button type="button" onClick={() => table.resetGlobalFilter(true)}>External reset</button>
-      <output data-testid="filter-value">{table.getState().globalFilter}</output>
+      <output data-testid="filter-value">{table.state.globalFilter}</output>
     </MantineProvider>
   );
 }

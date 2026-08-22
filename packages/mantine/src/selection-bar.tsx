@@ -1,3 +1,4 @@
+import type { RowData } from "@tanstack/react-table";
 import type { CSSProperties, ReactNode } from "react";
 
 import type { DataTableLabels } from "./labels";
@@ -13,7 +14,7 @@ import clsx from "clsx";
 import { IconX } from "./icons";
 import { resolveLabels } from "./labels";
 
-export interface DataTableSelectionBarProps<TData> {
+export interface DataTableSelectionBarProps<TData extends RowData> {
   table: TableInstance<TData>;
   labels?: Partial<DataTableLabels>;
   /**
@@ -24,9 +25,9 @@ export interface DataTableSelectionBarProps<TData> {
   style?: CSSProperties;
 }
 
-const selectionBarDefaultProps = {} satisfies Partial<DataTableSelectionBarProps<unknown>>;
+const selectionBarDefaultProps = {} satisfies Partial<DataTableSelectionBarProps<RowData>>;
 
-export function DataTableSelectionBar<TData>(props: DataTableSelectionBarProps<TData>) {
+export function DataTableSelectionBar<TData extends RowData>(props: DataTableSelectionBarProps<TData>) {
   const {
     table,
     labels,
@@ -40,7 +41,7 @@ export function DataTableSelectionBar<TData>(props: DataTableSelectionBarProps<T
   );
 
   const resolved = resolveLabels(labels);
-  const count = Object.values(table.getState().rowSelection).filter(Boolean).length;
+  const count = Object.values(table.atoms.rowSelection.get()).filter(Boolean).length;
 
   if (count === 0) {
     return null;

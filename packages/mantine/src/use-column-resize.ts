@@ -1,5 +1,7 @@
-import type { Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
+
+import type { TableInstance } from "./types";
 
 /**
  * Pointer-based column resizing, exact by construction: the drag starts from the width the
@@ -27,8 +29,8 @@ interface ResizeSession {
   cleanup: () => void;
 }
 
-export function useColumnResize<TData>(
-  table: Table<TData>,
+export function useColumnResize<TData extends RowData>(
+  table: TableInstance<TData>,
   columnWidths: RefObject<Record<string, number>>
 ): ColumnResize {
   const [resizingId, setResizingId] = useState<string | null>(null);
@@ -102,7 +104,8 @@ export function useColumnResize<TData>(
           columnId,
           startX: event.clientX,
           startWidth: columnWidths.current?.[columnId] ?? column.getSize(),
-          previousEntry: table.getState().columnSizing[columnId],
+          // Event-time snapshot: atoms are the blessed non-render read surface in v9.
+          previousEntry: table.atoms.columnSizing.get()[columnId],
           rtl: getComputedStyle(event.currentTarget).direction === "rtl",
           cleanup: () => {
             removeEventListener("pointermove", onPointerMove);

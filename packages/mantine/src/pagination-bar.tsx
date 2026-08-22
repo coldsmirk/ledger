@@ -1,4 +1,4 @@
-import type { Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import type { CSSProperties } from "react";
 
 import type { DataTableLabels } from "./labels";
@@ -19,23 +19,24 @@ import { resolveLabels } from "./labels";
 
 export const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
-interface PaginationBarCoreProps<TData> {
-  table: Table<TData>;
+interface PaginationBarCoreProps<TData extends RowData> {
+  table: TableInstance<TData>;
   labels: DataTableLabels;
   pageSizeOptions: number[];
   className?: string;
   style?: CSSProperties;
 }
 
-function PaginationBarCore<TData>({
+function PaginationBarCore<TData extends RowData>({
   table,
   labels,
   pageSizeOptions,
   className,
   style
 }: PaginationBarCoreProps<TData>) {
-  const { pageIndex, pageSize } = table.getState().pagination;
-  const total = table.options.meta?.ledger?.totalRowCount ?? table.getPrePaginationRowModel().rows.length;
+  const { pageIndex, pageSize } = table.atoms.pagination.get();
+  // `options.rowCount` (server mode) wins inside TanStack; client mode counts pre-paginated rows.
+  const total = table.getRowCount();
   const pageCount = Math.max(1, table.getPageCount());
   const from = total === 0 ? 0 : pageIndex * pageSize + 1;
   const to = Math.min(total, (pageIndex + 1) * pageSize);
@@ -76,7 +77,7 @@ function PaginationBarCore<TData>({
 /**
  * The built-in bar rendered by <DataTable> (context-styled).
  */
-export function PaginationBar<TData>({ table, pageSizeOptions }: { table: Table<TData>; pageSizeOptions: number[] }) {
+export function PaginationBar<TData extends RowData>({ table, pageSizeOptions }: { table: TableInstance<TData>; pageSizeOptions: number[] }) {
   const { labels, getStyles } = useDataTableContext();
   const { className, style } = getStyles("paginationBar");
 
@@ -91,7 +92,7 @@ export function PaginationBar<TData>({ table, pageSizeOptions }: { table: Table<
   );
 }
 
-export interface DataTablePaginationProps<TData> {
+export interface DataTablePaginationProps<TData extends RowData> {
   table: TableInstance<TData>;
   pageSizeOptions?: number[];
   labels?: Partial<DataTableLabels>;
@@ -99,12 +100,12 @@ export interface DataTablePaginationProps<TData> {
   style?: CSSProperties;
 }
 
-const paginationDefaultProps = {} satisfies Partial<DataTablePaginationProps<unknown>>;
+const paginationDefaultProps = {} satisfies Partial<DataTablePaginationProps<RowData>>;
 
 /**
  * Standalone compound (`DataTable.Pagination`) — place it anywhere, theme it via defaultProps.
  */
-export function DataTablePagination<TData>(props: DataTablePaginationProps<TData>) {
+export function DataTablePagination<TData extends RowData>(props: DataTablePaginationProps<TData>) {
   const {
     table,
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,

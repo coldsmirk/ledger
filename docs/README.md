@@ -1,6 +1,6 @@
 # ledger documentation
 
-`@coldsmirk/ledger-mantine` — a Mantine-native `<DataTable>` on TanStack Table v8 and TanStack Virtual v3. One sentence teaches the whole API: **the behavior layer speaks TanStack's language, the presentation layer speaks Mantine's.**
+`@coldsmirk/ledger-mantine` — a Mantine-native `<DataTable>` on TanStack Table v9 and TanStack Virtual v3. One sentence teaches the whole API: **the behavior layer speaks TanStack's language, the presentation layer speaks Mantine's.**
 
 Start with [getting-started.md](getting-started.md); the guides are grounded in the implemented behavior and each one is authoritative for its feature.
 

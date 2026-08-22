@@ -1,7 +1,6 @@
-import type { Cell, Row } from "@tanstack/react-table";
 import type { KeyboardEvent, ReactNode } from "react";
 
-import type { DataTableEditConfig, DataTableEditContext } from "./types";
+import type { Cell, DataTableEditConfig, DataTableEditContext, Row } from "./types";
 
 /**
  * The inline cell editor host (docs/editing.md). Owns the draft value, validation, and the
@@ -16,9 +15,9 @@ import { useEffect, useRef, useState } from "react";
 import { useDataTableContext } from "./context";
 import { useEventCallback } from "./utils";
 
-type NormalizedEdit<TData>
-  = | { kind: "variant"; config: DataTableEditConfig<TData, unknown> }
-    | { kind: "custom"; render: (ctx: DataTableEditContext<TData, unknown>) => ReactNode };
+type NormalizedEdit
+  = | { kind: "variant"; config: DataTableEditConfig<any, unknown> }
+    | { kind: "custom"; render: (ctx: DataTableEditContext<any, unknown>) => ReactNode };
 
 type CommitResult = boolean | Promise<boolean>;
 
@@ -30,9 +29,9 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function normalizeEdit<TData>(
-  edit: NonNullable<Cell<TData, unknown>["column"]["columnDef"]["meta"]>["edit"]
-): NormalizedEdit<TData> | null {
+export function normalizeEdit(
+  edit: NonNullable<Cell<any, unknown>["column"]["columnDef"]["meta"]>["edit"]
+): NormalizedEdit | null {
   if (!edit) {
     return null;
   }
@@ -47,7 +46,7 @@ export function normalizeEdit<TData>(
 /**
  * Whether this cell is editable right now (column meta + table switch + per-row gate).
  */
-export function canEditCell<TData>(cell: Cell<TData, unknown>, row: Row<TData>): boolean {
+export function canEditCell(cell: Cell<any, unknown>, row: Row<any>): boolean {
   const { table } = cell.getContext();
   const ledger = table.options.meta?.ledger;
 
@@ -64,17 +63,17 @@ export function canEditCell<TData>(cell: Cell<TData, unknown>, row: Row<TData>):
   return !(typeof edit === "object" && edit.enabled && !edit.enabled(row));
 }
 
-export function isCheckboxEdit<TData>(cell: Cell<TData, unknown>): boolean {
-  const normalized = normalizeEdit<TData>(cell.column.columnDef.meta?.edit);
+export function isCheckboxEdit(cell: Cell<any, unknown>): boolean {
+  const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
 
   return normalized?.kind === "variant" && normalized.config.variant === "checkbox";
 }
 
-export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
+export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const { labels, getStyles } = useDataTableContext();
   const { table } = cell.getContext();
   const ledger = table.options.meta?.ledger;
-  const normalized = normalizeEdit<TData>(cell.column.columnDef.meta?.edit);
+  const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
 
   const initialValue = useRef(cell.getValue());
   const draftRef = useRef<unknown>(initialValue.current);
@@ -352,8 +351,8 @@ export function CellEditor<TData>({ cell }: { cell: Cell<TData, unknown> }) {
   );
 }
 
-interface VariantEditorProps<TData> {
-  config: DataTableEditConfig<TData, unknown>;
+interface VariantEditorProps {
+  config: DataTableEditConfig<any, unknown>;
   draft: unknown;
   error: string | null;
   pending: boolean;
@@ -361,14 +360,14 @@ interface VariantEditorProps<TData> {
   onCommit: () => CommitResult;
 }
 
-function VariantEditor<TData>({
+function VariantEditor({
   config,
   draft,
   error,
   pending,
   onValueChange,
   onCommit
-}: VariantEditorProps<TData>) {
+}: VariantEditorProps) {
   switch (config.variant) {
     case "text": {
       return (
@@ -430,7 +429,7 @@ function VariantEditor<TData>({
 /**
  * Tab / Shift+Tab: commit-and-move to the row's adjacent editable cell (docs/editing.md keyboard map).
  */
-function moveToAdjacentEditableCell<TData>(cell: Cell<TData, unknown>, backwards: boolean): void {
+function moveToAdjacentEditableCell(cell: Cell<any, unknown>, backwards: boolean): void {
   const { table } = cell.getContext();
   const editing = table.options.meta?.ledger?.editing;
 

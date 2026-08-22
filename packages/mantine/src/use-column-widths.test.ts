@@ -1,5 +1,4 @@
-import type { ColumnDef } from "@tanstack/react-table";
-
+import type { ColumnDef } from "./types";
 import type { ColumnWidthSpec } from "./use-column-widths";
 
 import { renderHook } from "@testing-library/react";
@@ -191,9 +190,9 @@ describe("useColumnWidths", () => {
       ({ columns }: { columns: Array<ColumnDef<RowData>> }) => {
         const table = useDataTable({ columns, data: [] });
         const displayColumns = [
-          ...table.getLeftVisibleLeafColumns(),
+          ...table.getStartVisibleLeafColumns(),
           ...table.getCenterVisibleLeafColumns(),
-          ...table.getRightVisibleLeafColumns()
+          ...table.getEndVisibleLeafColumns()
         ];
 
         return useColumnWidths(table, displayColumns, null, undefined);

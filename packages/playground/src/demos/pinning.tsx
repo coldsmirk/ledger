@@ -1,3 +1,5 @@
+import type { TableInstance } from "@coldsmirk/ledger-mantine";
+
 import type { Person } from "../data";
 
 import { createColumnHelper, DataTable, useDataTable } from "@coldsmirk/ledger-mantine";
@@ -48,7 +50,7 @@ const columns = [
     header: ({ table }) => (
       <Group gap={2} justify="center" wrap="nowrap">
         操作
-        <DataTable.ColumnsPanel labels={zhCN} table={table}>
+        <DataTable.ColumnsPanel labels={zhCN} table={table as TableInstance<Person>}>
           <ActionIcon aria-label="列设置" color="gray" size="sm" variant="subtle">
             <CogIcon />
           </ActionIcon>
@@ -73,7 +75,7 @@ export function PinningDemo() {
     getRowId: person => person.id,
     enableColumnOrdering: true,
     enableColumnResizing: true,
-    defaultColumnPinning: { left: ["name"], right: ["actions"] },
+    defaultColumnPinning: { start: ["name"], end: ["actions"] },
     persistState: { key: "playground-pinning" }
   });
 

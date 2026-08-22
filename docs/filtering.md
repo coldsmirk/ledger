@@ -59,7 +59,7 @@ helper.accessor("owner", {
 });
 ```
 
-Custom registries passed through `tableOptions.filterFns` merge with ledger's functions. The ids `ledger-one-of` and `ledger-date-range` are reserved; ledger keeps its implementation and warns if either is redefined. Raw `ColumnDef.filterFn` keeps TanStack's strict id typing: use a function directly, or declaration-merge a custom string id into TanStack's `FilterFns` interface as its guide prescribes.
+Custom registries go through the first-class `filterFns` option (TanStack v9 moved fn registries onto the feature set, replacing the v8 `FilterFns` declaration merging): registered ids become valid `filterFn` and `globalFilterFn` strings, merged over the built-ins and read once at mount. The ids `ledger-one-of` and `ledger-date-range` are reserved; ledger keeps its implementation and warns if either is redefined. Raw `ColumnDef.filterFn` keeps TanStack's strict id typing — pass a function directly, or reference a registered custom id on `tableOptions.globalFilterFn`, which deliberately accepts any string for exactly this case.
 
 ### Faceted options
 

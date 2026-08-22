@@ -1,9 +1,9 @@
 import type { GetStylesApi } from "@mantine/core";
-import type { Row, Table } from "@tanstack/react-table";
 import type { MouseEvent, RefObject } from "react";
 
 import type { DataTableFactory } from "./data-table";
 import type { DataTableLabels } from "./labels";
+import type { Row, TableInstance } from "./types";
 
 /**
  * Internal context for everything rendered inside the <DataTable> tree. The data generic is
@@ -15,7 +15,7 @@ import type { DataTableLabels } from "./labels";
 import { createSafeContext } from "@mantine/core";
 
 export interface DataTableContextValue {
-  table: Table<any>;
+  table: TableInstance<any>;
   getStyles: GetStylesApi<DataTableFactory>;
   labels: DataTableLabels;
   filterMode: "client" | "server";

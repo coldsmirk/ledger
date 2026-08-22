@@ -1,5 +1,6 @@
-import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
+
+import type { ColumnDef } from "./types";
 
 import { MantineProvider } from "@mantine/core";
 import { fireEvent, render } from "@testing-library/react";

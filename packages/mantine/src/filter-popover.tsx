@@ -1,7 +1,7 @@
-import type { Column } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 
 import type { DateRangeFilterValue } from "./filter-fns";
-import type { DataTableFilterConfig } from "./types";
+import type { Column, DataTableFilterConfig } from "./types";
 
 /**
  * Header filter UI: a funnel trigger (filled while active) opening a popover with the control
@@ -22,11 +22,11 @@ import { IconFilter, IconX } from "./icons";
 
 const FACETED_OPTIONS_CAP = 100;
 
-export interface FilterPopoverProps<TData> {
+export interface FilterPopoverProps<TData extends RowData> {
   column: Column<TData, unknown>;
 }
 
-export function FilterPopover<TData>({ column }: FilterPopoverProps<TData>) {
+export function FilterPopover<TData extends RowData>({ column }: FilterPopoverProps<TData>) {
   const {
     labels,
     getStyles,
@@ -84,13 +84,13 @@ export function FilterPopover<TData>({ column }: FilterPopoverProps<TData>) {
   );
 }
 
-interface VariantFilterControlProps<TData> {
+interface VariantFilterControlProps<TData extends RowData> {
   column: Column<TData, unknown>;
   config: DataTableFilterConfig;
   filterMode: "client" | "server";
 }
 
-function VariantFilterControl<TData>({
+function VariantFilterControl<TData extends RowData>({
   column,
   config,
   filterMode
@@ -157,7 +157,7 @@ function VariantFilterControl<TData>({
   }
 }
 
-function TextFilter<TData>({ column, placeholder }: { column: Column<TData, unknown>; placeholder: string }) {
+function TextFilter<TData extends RowData>({ column, placeholder }: { column: Column<TData, unknown>; placeholder: string }) {
   const { table } = useDataTableContext();
   const filterValue = (column.getFilterValue() as string | undefined) ?? "";
   const [value, setValue] = useState(filterValue);
@@ -191,7 +191,7 @@ function TextFilter<TData>({ column, placeholder }: { column: Column<TData, unkn
   );
 }
 
-function RangeFilter<TData>({ column }: { column: Column<TData, unknown> }) {
+function RangeFilter<TData extends RowData>({ column }: { column: Column<TData, unknown> }) {
   const { labels } = useDataTableContext();
   const [min, max] = (column.getFilterValue() as [number | undefined, number | undefined] | undefined) ?? [
     undefined,
@@ -224,7 +224,7 @@ function RangeFilter<TData>({ column }: { column: Column<TData, unknown> }) {
   );
 }
 
-function DateRangeFilter<TData>({ column }: { column: Column<TData, unknown> }) {
+function DateRangeFilter<TData extends RowData>({ column }: { column: Column<TData, unknown> }) {
   const value = (column.getFilterValue() as DateRangeFilterValue | undefined) ?? [null, null];
 
   return (
@@ -239,7 +239,7 @@ function DateRangeFilter<TData>({ column }: { column: Column<TData, unknown> }) 
   );
 }
 
-function facetedOptions<TData>(column: Column<TData, unknown>): string[] {
+function facetedOptions<TData extends RowData>(column: Column<TData, unknown>): string[] {
   const values: string[] = [];
 
   for (const key of column.getFacetedUniqueValues().keys()) {

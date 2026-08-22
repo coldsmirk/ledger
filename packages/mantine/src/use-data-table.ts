@@ -6,45 +6,38 @@ import type {
   ExpandedState,
   GroupingState,
   PaginationState,
+  RowData,
   RowPinningState,
   RowSelectionState,
   SortingState,
-  Table,
   TableOptions,
+  TableState,
   Updater
 } from "@tanstack/react-table";
 
+import type { LedgerFeatures } from "./ledger-features";
 import type {
   ActiveCellEditor,
   DataTableEditingCell,
   LedgerMeta,
+  TableInstance,
   UseDataTableOptions
 } from "./types";
 
 /**
- * The behavior core (docs/api.md): wires row models per feature switch, translates
- * `*Mode: "server"` into TanStack's manual flags, injects the selection/expander columns,
- * normalizes every state slice into the controlled/uncontrolled trio, and carries ledger-private
- * state through `table.options.meta.ledger`. Returns the bare TanStack `Table` instance.
+ * The behavior core (docs/api.md): assembles the canonical v9 feature set (plus consumer
+ * `filterFns`), translates `*Mode: "server"` into TanStack's manual flags, injects the
+ * selection/expander columns, normalizes every state slice into the controlled/uncontrolled
+ * trio, and carries ledger-private state through `table.options.meta.ledger`. Returns the bare
+ * TanStack table instance.
  */
-import {
-  functionalUpdate,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFacetedMinMaxValues,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getGroupedRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable
-} from "@tanstack/react-table";
+import { functionalUpdate, useTable } from "@tanstack/react-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buildColumns, EXPANDER_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
 import { isDev, warnOnce } from "./env";
 import { ledgerFilterFns } from "./filter-fns";
+import { buildLedgerFeatures } from "./ledger-features";
 import { readPersistedState, usePersistWriter } from "./persist";
 import { useSlice } from "./use-slice";
 import { useEventCallback } from "./utils";
@@ -55,14 +48,14 @@ const NO_COLUMN_FILTERS: ColumnFiltersState = [];
 const NO_ROW_SELECTION: RowSelectionState = {};
 const NO_EXPANDED: ExpandedState = {};
 const NO_VISIBILITY: Record<string, boolean> = {};
-const NO_PINNING: ColumnPinningState = {};
+const NO_PINNING: ColumnPinningState = { start: [], end: [] };
 const NO_COLUMN_ORDER: ColumnOrderState = [];
 const NO_COLUMN_SIZING: ColumnSizingState = {};
 const NO_GROUPING: GroupingState = [];
 const NO_ROW_PINNING: RowPinningState = { top: [], bottom: [] };
 const DEFAULT_PAGINATION: PaginationState = { pageIndex: 0, pageSize: 20 };
 
-export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<TData> {
+export function useDataTable<TData extends RowData>(options: UseDataTableOptions<TData>): TableInstance<TData> {
   const {
     data,
     columns,
@@ -94,6 +87,20 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     defaultColumn,
     tableOptions
   } = options;
+
+  /* ---- the feature set: canonical modules + the consumer's filterFns, fixed at mount ---- */
+  const [features] = useState<LedgerFeatures>(() => buildLedgerFeatures(options.filterFns));
+
+  if (isDev && options.filterFns) {
+    for (const filterFnId of Object.keys(ledgerFilterFns)) {
+      if (Object.hasOwn(options.filterFns, filterFnId)) {
+        warnOnce(
+          `filterFns.${filterFnId}`,
+          `filterFns.${filterFnId} is reserved by ledger and has been overridden.`
+        );
+      }
+    }
+  }
 
   /* ---- persistence hydrates uncontrolled slices, once, synchronously ---- */
   const [persisted] = useState(() => readPersistedState(persistState));
@@ -261,8 +268,6 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     activeEditorRef.current = editor;
   }, []);
 
-  const selectionAnchor = useRef<string | null>(null);
-
   const subscribeColumnFilters = useCallback((listener: (value: ColumnFiltersState) => void) => {
     const listeners = filterSetListeners.current.columnFilters;
     listeners.add(listener);
@@ -283,9 +288,21 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
   const selectAllScope: "page" | "all"
     = enablePagination || paginationMode === "server" ? "page" : "all";
 
+  /* ---- columns: injected selection/expander + meta.filter variant wiring ---- */
+  const withExpander = Boolean(renderDetailPanel || getSubRows);
+  const processedColumns = useMemo(
+    () => buildColumns({
+      columns,
+      withSelection: Boolean(enableRowSelection),
+      withExpander
+    }),
+    [columns, enableRowSelection, withExpander]
+  );
+
   const ledger: LedgerMeta<TData> = useMemo(
     () => {
       return {
+        columns: processedColumns,
         editing: {
           cell: editingCell,
           start: startEditing,
@@ -302,13 +319,13 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
         onEditCommit,
         renderDetailPanel,
         selectAllScope,
-        selectionAnchor,
-        totalRowCount: rowCount,
         enableColumnOrdering,
+        enableColumnResizing,
         enablePagination
       };
     },
     [
+      processedColumns,
       editingCell,
       startEditing,
       stopEditing,
@@ -321,24 +338,13 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
       onEditCommit,
       renderDetailPanel,
       selectAllScope,
-      rowCount,
       enableColumnOrdering,
+      enableColumnResizing,
       enablePagination
     ]
   );
 
-  /* ---- columns: injected selection/expander + meta.filter variant wiring ---- */
-  const withExpander = Boolean(renderDetailPanel || getSubRows);
-  const processedColumns = useMemo(
-    () => buildColumns({
-      columns,
-      withSelection: Boolean(enableRowSelection),
-      withExpander
-    }),
-    [columns, enableRowSelection, withExpander]
-  );
-
-  /* Injected columns are always pinned left, invisibly merged over the consumer's slice. */
+  /* Injected columns are always pinned to the start, invisibly merged over the consumer's slice. */
   const mergedColumnPinning = useMemo<ColumnPinningState>(() => {
     const internal: string[] = [];
 
@@ -350,9 +356,9 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
       internal.push(EXPANDER_COLUMN_ID);
     }
 
-    const left = (columnPinning.left ?? []).filter(id => !internal.includes(id));
+    const start = columnPinning.start.filter(id => !internal.includes(id));
 
-    return { left: [...internal, ...left], right: columnPinning.right ?? [] };
+    return { start: [...internal, ...start], end: columnPinning.end };
   }, [columnPinning, enableRowSelection, withExpander]);
 
   /* ---- dev guard rails (docs/state.md) ---- */
@@ -390,11 +396,6 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
   const manualSorting = sortingMode === "server";
   const manualFiltering = filterMode === "server";
   const manualPagination = paginationMode === "server";
-
-  const pageCount
-    = manualPagination && rowCount !== undefined
-      ? Math.max(1, Math.ceil(rowCount / Math.max(1, pagination.pageSize)))
-      : undefined;
 
   const shouldAutoResetPageIndex
     = tableOptions?.autoResetAll ?? tableOptions?.autoResetPageIndex ?? true;
@@ -434,7 +435,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
   // TanStack's slice reset APIs restore `table.initialState`. The live state remains fully
   // controlled; this object exists only to preserve ledger's `defaultX`/fallback contract.
   // Persisted values stay excluded so reset remains useful after hydration.
-  const resetInitialState = {
+  const resetInitialState: Partial<TableState<LedgerFeatures>> = {
     sorting: options.defaultSorting ?? NO_SORTING,
     columnFilters: options.defaultColumnFilters ?? NO_COLUMN_FILTERS,
     globalFilter: options.defaultGlobalFilter ?? "",
@@ -449,15 +450,11 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     rowPinning: options.defaultRowPinning ?? NO_ROW_PINNING
   };
 
-  const mergedFilterFns = {
-    ...tableOptions?.filterFns,
-    ...ledgerFilterFns
-  };
-
   /* ---- assemble: tableOptions is the base layer, ledger-managed keys override (docs/state.md) ---- */
   const managed = {
     data,
     columns: processedColumns,
+    features,
     ...getRowId && { getRowId },
     ...defaultColumn && { defaultColumn },
     initialState: resetInitialState,
@@ -494,7 +491,6 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     enableGlobalFilter,
     enableRowSelection,
     enableMultiRowSelection,
-    enableColumnResizing,
     enableColumnPinning,
     enableHiding,
     enableGrouping,
@@ -505,56 +501,34 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>): Table<
     manualSorting,
     manualFiltering,
     manualPagination,
-    ...(pageCount !== undefined) && { pageCount },
+    ...manualPagination && rowCount !== undefined && { rowCount },
     ...manualPagination && {
       // `autoResetAll` outranks `autoResetPageIndex` inside TanStack. Consume it here so the
       // deterministic server reset remains authoritative, while preserving its only other
-      // upstream effect through the feature-specific expansion option.
+      // upstream effects through the feature-specific options.
       autoResetAll: undefined,
       autoResetExpanded: tableOptions?.autoResetAll ?? tableOptions?.autoResetExpanded,
+      autoResetSorting: tableOptions?.autoResetAll ?? tableOptions?.autoResetSorting,
       autoResetPageIndex: false
     },
-    filterFns: mergedFilterFns,
-    getCoreRowModel: getCoreRowModel(),
-    ...!manualSorting && { getSortedRowModel: getSortedRowModel() },
-    ...!manualFiltering && {
-      getFilteredRowModel: getFilteredRowModel(),
-      getFacetedRowModel: getFacetedRowModel(),
-      getFacetedUniqueValues: getFacetedUniqueValues(),
-      getFacetedMinMaxValues: getFacetedMinMaxValues()
-    },
-    ...enablePagination && !manualPagination && { getPaginationRowModel: getPaginationRowModel() },
-    ...(withExpander || enableGrouping) && { getExpandedRowModel: getExpandedRowModel() },
-    ...enableGrouping && { getGroupedRowModel: getGroupedRowModel() },
     meta: { ...tableOptions?.meta, ledger }
-  } satisfies Partial<TableOptions<TData>>;
+  } satisfies Partial<TableOptions<LedgerFeatures, TData>>;
 
   if (isDev && tableOptions) {
     for (const key of Object.keys(tableOptions)) {
       const isConsumedPaginationPolicy = manualPagination
-        && (key === "autoResetAll" || key === "autoResetExpanded" || key === "autoResetPageIndex");
+        && (key === "autoResetAll" || key === "autoResetExpanded" || key === "autoResetSorting" || key === "autoResetPageIndex");
 
-      if (key !== "meta" && key !== "filterFns" && !isConsumedPaginationPolicy && Object.hasOwn(managed, key)) {
+      if (key !== "meta" && !isConsumedPaginationPolicy && Object.hasOwn(managed, key)) {
         warnOnce(
           `tableOptions.${key}`,
           `tableOptions.${key} is managed by ledger and has been overridden — use the first-class option instead.`
         );
       }
     }
-
-    if (tableOptions.filterFns) {
-      for (const filterFnId of Object.keys(ledgerFilterFns)) {
-        if (Object.hasOwn(tableOptions.filterFns, filterFnId)) {
-          warnOnce(
-            `tableOptions.filterFns.${filterFnId}`,
-            `tableOptions.filterFns.${filterFnId} is reserved by ledger and has been overridden.`
-          );
-        }
-      }
-    }
   }
 
-  const table = useReactTable<TData>({ ...tableOptions, ...managed } as TableOptions<TData>);
+  const table = useTable<LedgerFeatures, TData>({ ...tableOptions, ...managed } as TableOptions<LedgerFeatures, TData>);
 
   usePersistWriter(persistState, {
     sorting,

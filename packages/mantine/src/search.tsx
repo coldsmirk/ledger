@@ -1,4 +1,5 @@
 import type { TextInputProps } from "@mantine/core";
+import type { RowData } from "@tanstack/react-table";
 
 import type { DataTableLabels } from "./labels";
 import type { TableInstance } from "./types";
@@ -14,7 +15,7 @@ import { useEffect, useState } from "react";
 import { IconSearch, IconX } from "./icons";
 import { resolveLabels } from "./labels";
 
-export interface DataTableSearchProps<TData>
+export interface DataTableSearchProps<TData extends RowData>
   extends Omit<TextInputProps, "value" | "defaultValue" | "onChange"> {
   table: TableInstance<TData>;
   /**
@@ -24,9 +25,9 @@ export interface DataTableSearchProps<TData>
   labels?: Partial<DataTableLabels>;
 }
 
-const searchDefaultProps = { debounce: 200 } satisfies Partial<DataTableSearchProps<unknown>>;
+const searchDefaultProps = { debounce: 200 } satisfies Partial<DataTableSearchProps<RowData>>;
 
-export function DataTableSearch<TData>(props: DataTableSearchProps<TData>) {
+export function DataTableSearch<TData extends RowData>(props: DataTableSearchProps<TData>) {
   const {
     table,
     debounce,
@@ -40,7 +41,7 @@ export function DataTableSearch<TData>(props: DataTableSearchProps<TData>) {
   );
 
   const resolved = resolveLabels(labels);
-  const globalFilter = (table.getState().globalFilter as string | undefined) ?? "";
+  const globalFilter = (table.atoms.globalFilter.get() as string | undefined) ?? "";
   const [value, setValue] = useState(globalFilter);
 
   const apply = useDebouncedCallback((next: string) => table.setGlobalFilter(next), debounce);

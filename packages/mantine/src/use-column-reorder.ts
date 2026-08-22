@@ -4,10 +4,11 @@
  * suppresses the click that follows pointerup. Escape cancels. Reordering is limited to
  * single-row headers: with column groups, sibling order inside a group is ambiguous.
  */
-import type { Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import type { ColumnDropTarget } from "./column-order";
+import type { TableInstance } from "./types";
 
 import { useRef, useState } from "react";
 
@@ -46,7 +47,7 @@ interface DragSession {
   cleanup: () => void;
 }
 
-export function useColumnReorder<TData>(table: Table<TData>): ColumnReorder {
+export function useColumnReorder<TData extends RowData>(table: TableInstance<TData>): ColumnReorder {
   const [drag, setDrag] = useState<ColumnDragState>(IDLE);
   const session = useRef<DragSession | null>(null);
   const suppressClick = useRef(false);

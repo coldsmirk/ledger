@@ -1,6 +1,6 @@
 # Getting started
 
-`@coldsmirk/ledger-mantine` renders a Mantine-native `<DataTable>` on top of TanStack Table v8 (behavior) and TanStack Virtual v3 (row virtualization). One sentence teaches the whole API: **the behavior layer speaks TanStack's language, the presentation layer speaks Mantine's.**
+`@coldsmirk/ledger-mantine` renders a Mantine-native `<DataTable>` on top of TanStack Table v9 (behavior) and TanStack Virtual v3 (row virtualization). One sentence teaches the whole API: **the behavior layer speaks TanStack's language, the presentation layer speaks Mantine's.**
 
 ## Installation
 

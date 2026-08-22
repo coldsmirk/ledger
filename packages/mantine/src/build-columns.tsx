@@ -3,7 +3,9 @@
  * left, fixed width, excluded from every data feature) and derive `filterFn`s from
  * `meta.filter` variants for columns that declare none themselves.
  */
-import type { Column, ColumnDef } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
+
+import type { Column, ColumnDef, TableInstance } from "./types";
 
 import { ExpanderCell, ExpanderHeaderCell } from "./expander";
 import { filterFnByVariant } from "./filter-fns";
@@ -19,13 +21,13 @@ export function isInternalColumn(columnId: string): boolean {
 /**
  * Human-readable column title where one is statically known — menus, CSV headers.
  */
-export function columnHeaderText<TData>(column: Column<TData, unknown>): string {
+export function columnHeaderText<TData extends RowData>(column: Column<TData, unknown>): string {
   const { header } = column.columnDef;
 
   return typeof header === "string" ? header : column.id;
 }
 
-export interface BuildColumnsInput<TData> {
+export interface BuildColumnsInput<TData extends RowData> {
 
   columns: Array<ColumnDef<TData, any>>;
   withSelection: boolean;
@@ -50,7 +52,16 @@ export function rawColumnSizing(columnDef: { meta?: object }): RawColumnSizing |
   return columnDef.meta ? rawSizingByMeta.get(columnDef.meta) : undefined;
 }
 
-export function buildColumns<TData>({
+/**
+ * The per-column `enableResizing` knob rides ledger's `ColumnDef` alias — the TanStack module
+ * that would declare it (`columnResizingFeature`) is deliberately unregistered — so reads off
+ * the resolved instance definition narrow here.
+ */
+export function columnEnableResizing(columnDef: object): boolean | undefined {
+  return (columnDef as { enableResizing?: boolean }).enableResizing;
+}
+
+export function buildColumns<TData extends RowData>({
   columns,
   withSelection,
   withExpander
@@ -69,8 +80,10 @@ export function buildColumns<TData>({
       enableColumnFilter: false,
       enableGlobalFilter: false,
       enableGrouping: false,
-      header: ({ table }) => <SelectionHeaderCell table={table} />,
-      cell: ({ row, table }) => <SelectionCell row={row} table={table} />
+      // Contexts carry the core `Table` type, but the runtime object IS the adapter-augmented
+      // instance — the assertion narrows the type to what actually exists.
+      header: ({ table }) => <SelectionHeaderCell table={table as TableInstance<TData>} />,
+      cell: ({ row }) => <SelectionCell row={row} />
     }));
   }
 
@@ -86,7 +99,7 @@ export function buildColumns<TData>({
       enableColumnFilter: false,
       enableGlobalFilter: false,
       enableGrouping: false,
-      header: ({ table }) => <ExpanderHeaderCell table={table} />,
+      header: ({ table }) => <ExpanderHeaderCell table={table as TableInstance<TData>} />,
       cell: ({ row }) => <ExpanderCell row={row} />
     }));
   }
@@ -102,7 +115,7 @@ export function buildColumns<TData>({
  * Group definitions recurse so every LEAF gets processed — its raw sizing registered and its
  * `meta.filter` variant mapped.
  */
-function processColumn<TData>(column: ColumnDef<TData, any>): ColumnDef<TData, any> {
+function processColumn<TData extends RowData>(column: ColumnDef<TData, any>): ColumnDef<TData, any> {
   if ("columns" in column && Array.isArray(column.columns)) {
     return { ...column, columns: column.columns.map(child => processColumn(child)) };
   }
@@ -110,7 +123,7 @@ function processColumn<TData>(column: ColumnDef<TData, any>): ColumnDef<TData, a
   return processLeaf(column);
 }
 
-function processLeaf<TData>(column: ColumnDef<TData, any>): ColumnDef<TData, any> {
+function processLeaf<TData extends RowData>(column: ColumnDef<TData, any>): ColumnDef<TData, any> {
   // A fresh meta clone per leaf keys the raw-sizing registry (and survives TanStack's merge).
   const meta = { ...column.meta };
   rawSizingByMeta.set(meta, {
@@ -122,7 +135,7 @@ function processLeaf<TData>(column: ColumnDef<TData, any>): ColumnDef<TData, any
   return withVariantFilterFn({ ...column, meta });
 }
 
-function withVariantFilterFn<TData>(column: ColumnDef<TData, any>): ColumnDef<TData, any> {
+function withVariantFilterFn<TData extends RowData>(column: ColumnDef<TData, any>): ColumnDef<TData, any> {
   const filter = column.meta?.filter;
 
   if (!filter || typeof filter === "function" || column.filterFn) {

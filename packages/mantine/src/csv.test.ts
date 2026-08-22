@@ -1,4 +1,4 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef } from "./types";
 
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -70,7 +70,7 @@ describe("toCsv", () => {
       data: orders,
       columns,
       getRowId: order => order.id,
-      defaultColumnPinning: { right: ["customer"] }
+      defaultColumnPinning: { start: [], end: ["customer"] }
     }));
 
     expect(toCsv(result.current).split("\r\n", 1)[0]).toBe("Total,Customer");

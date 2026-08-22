@@ -1,4 +1,4 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef } from "./types";
 
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -89,14 +89,14 @@ describe("reorderColumnWithinZone", () => {
       data: people,
       columns,
       getRowId,
-      defaultColumnPinning: { left: ["name", "email"] }
+      defaultColumnPinning: { start: ["name", "email"], end: [] }
     }));
 
     act(() => {
       expect(reorderColumnWithinZone(result.current, "email", { id: "name", side: "before" })).toBe(true);
     });
 
-    expect(result.current.getState().columnPinning.left).toEqual(["email", "name"]);
+    expect(result.current.state.columnPinning.start).toEqual(["email", "name"]);
   });
 
   it("rejects cross-zone drops without changing either order slice", () => {
@@ -104,16 +104,16 @@ describe("reorderColumnWithinZone", () => {
       data: people,
       columns,
       getRowId,
-      defaultColumnPinning: { left: ["email"] }
+      defaultColumnPinning: { start: ["email"], end: [] }
     }));
-    const previousOrder = result.current.getState().columnOrder;
-    const previousPinning = result.current.getState().columnPinning;
+    const previousOrder = result.current.state.columnOrder;
+    const previousPinning = result.current.state.columnPinning;
 
     act(() => {
       expect(reorderColumnWithinZone(result.current, "name", { id: "email", side: "before" })).toBe(false);
     });
 
-    expect(result.current.getState().columnOrder).toBe(previousOrder);
-    expect(result.current.getState().columnPinning).toBe(previousPinning);
+    expect(result.current.state.columnOrder).toBe(previousOrder);
+    expect(result.current.state.columnPinning).toBe(previousPinning);
   });
 });

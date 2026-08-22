@@ -2,36 +2,64 @@
  * The public type surface (docs/api.md), plus the declaration merging that gives every
  * consumer typed `meta` on TanStack's `ColumnDef` and the `meta.ledger` extension point
  * (docs/state.md) without importing anything extra.
+ *
+ * TanStack v9 threads a `TFeatures` generic through every type; ledger pre-binds it to the
+ * canonical `LedgerFeatures` set here, so the re-exported types keep their v8 arity
+ * (`ColumnDef<TData, TValue>`, `Row<TData>`, …) — the feature set is an implementation
+ * detail of the package, never a parameter consumers manage.
  */
 import type { ComboboxData } from "@mantine/core";
 import type {
-  Cell,
-  Column,
-  ColumnDef,
+  CellData,
   ColumnFiltersState,
   ColumnOrderState,
   ColumnPinningState,
   ColumnSizingState,
+  ColumnVisibilityState,
   ExpandedState,
   FilterFn,
   FilterFnOption,
   GroupingState,
   PaginationState,
-  Row,
+  ReactTable,
   RowData,
   RowPinningState,
   RowSelectionState,
   SortingState,
-  Table,
-  TableOptions,
-  VisibilityState
+  TableFeatures,
+  Cell as TanStackCell,
+  Column as TanStackColumn,
+  ColumnDef as TanStackColumnDef,
+  Header as TanStackHeader,
+  Row as TanStackRow,
+  TableOptions as TanStackTableOptions
 } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 
+import type { LedgerFeatures } from "./ledger-features";
+
 /**
- * TanStack's `Table`, renamed so it never collides with Mantine's `Table` in consumer imports.
+ * TanStack's table instance (the enriched React shape: `state`, `Subscribe`, `FlexRender`),
+ * feature-bound and renamed so it never collides with Mantine's `Table` in consumer imports.
  */
-export type TableInstance<TData> = Table<TData>;
+export type TableInstance<TData extends RowData> = ReactTable<LedgerFeatures, TData>;
+
+// Feature-bound aliases for the TanStack object types ledger re-exports (docs/api.md). The
+// `enableResizing` knob is re-attached to `ColumnDef` by hand: ledger owns the resize
+// interaction, so TanStack's `columnResizingFeature` — the module that normally contributes
+// the option — is deliberately not registered.
+export type ColumnDef<TData extends RowData, TValue extends CellData = CellData>
+  = TanStackColumnDef<LedgerFeatures, TData, TValue> & { enableResizing?: boolean };
+export type Column<TData extends RowData, TValue extends CellData = CellData>
+  = TanStackColumn<LedgerFeatures, TData, TValue>;
+export type Row<TData extends RowData> = TanStackRow<LedgerFeatures, TData>;
+export type Cell<TData extends RowData, TValue extends CellData = CellData>
+  = TanStackCell<LedgerFeatures, TData, TValue>;
+/**
+ * Internal-only binding (header rendering); not part of the public re-export set.
+ */
+export type Header<TData extends RowData, TValue extends CellData = CellData>
+  = TanStackHeader<LedgerFeatures, TData, TValue>;
 
 // ------------------------------------------------------------------------------------------------
 // Filtering
@@ -54,7 +82,7 @@ export interface DataTableFilterConfig {
 
 export type DataTableEditVariant = "text" | "number" | "select" | "checkbox";
 
-export interface DataTableEditConfig<TData, TValue> {
+export interface DataTableEditConfig<TData extends RowData, TValue> {
   variant: DataTableEditVariant;
   /**
    * `select` options.
@@ -70,7 +98,7 @@ export interface DataTableEditConfig<TData, TValue> {
   validate?: (value: TValue, row: Row<TData>) => string | null;
 }
 
-export interface DataTableEditContext<TData, TValue> {
+export interface DataTableEditContext<TData extends RowData, TValue> {
   row: Row<TData>;
   column: Column<TData, TValue>;
   value: TValue;
@@ -84,7 +112,7 @@ export interface DataTableEditContext<TData, TValue> {
   error: string | null;
 }
 
-export interface DataTableEditCommit<TData> {
+export interface DataTableEditCommit<TData extends RowData> {
   row: Row<TData>;
   column: Column<TData, unknown>;
   value: unknown;
@@ -132,12 +160,12 @@ export interface DataTablePersistState {
 // Behavior options — the useDataTable surface (docs/api.md)
 // ----------------------------------------------------------------------------------------------
 
-export interface UseDataTableOptions<TData> {
+export interface UseDataTableOptions<TData extends RowData> {
   data: TData[];
   columns: Array<ColumnDef<TData, any>>;
   getRowId?: (originalRow: TData, index: number, parent?: Row<TData>) => string;
 
-  /* Feature switches — TanStack 8.x names wherever one exists */
+  /* Feature switches — TanStack 9.x names wherever one exists */
   enableSorting?: boolean;
   enableMultiSort?: boolean;
   enableSortingRemoval?: boolean;
@@ -146,6 +174,10 @@ export interface UseDataTableOptions<TData> {
   enablePagination?: boolean;
   enableRowSelection?: boolean | ((row: Row<TData>) => boolean);
   enableMultiRowSelection?: boolean;
+  /**
+   * Ledger-owned switch (TanStack's name): the resize interaction is ledger's own pointer
+   * session, so no TanStack option backs it (docs/sizing.md).
+   */
   enableColumnResizing?: boolean;
   enableColumnPinning?: boolean;
   enableColumnOrdering?: boolean;
@@ -190,9 +222,9 @@ export interface UseDataTableOptions<TData> {
   expanded?: ExpandedState;
   defaultExpanded?: ExpandedState;
   onExpandedChange?: (value: ExpandedState) => void;
-  columnVisibility?: VisibilityState;
-  defaultColumnVisibility?: VisibilityState;
-  onColumnVisibilityChange?: (value: VisibilityState) => void;
+  columnVisibility?: ColumnVisibilityState;
+  defaultColumnVisibility?: ColumnVisibilityState;
+  onColumnVisibilityChange?: (value: ColumnVisibilityState) => void;
   columnPinning?: ColumnPinningState;
   defaultColumnPinning?: ColumnPinningState;
   onColumnPinningChange?: (value: ColumnPinningState) => void;
@@ -219,11 +251,19 @@ export interface UseDataTableOptions<TData> {
 
   defaultColumn?: Partial<ColumnDef<TData, unknown>>;
   /**
-   * Full escape hatch, merged first; ledger-managed keys override with a dev warning (docs/state.md).
+   * Custom filter functions, registered by id on the table's feature set so their names are
+   * valid `filterFn` / `globalFilterFn` strings (TanStack v9 registry slots). Merged over the
+   * built-ins; ledger's two reserved ids win with a dev warning. Read once at mount — the
+   * registry wires code, not reactive state.
    */
-  tableOptions?: Omit<Partial<TableOptions<TData>>, "filterFns" | "globalFilterFn"> & {
-    filterFns?: Record<string, FilterFn<TData>>;
-    globalFilterFn?: FilterFnOption<TData> | string;
+  filterFns?: Record<string, FilterFn<any, any>>;
+  /**
+   * Full escape hatch, merged first; ledger-managed keys override with a dev warning (docs/state.md).
+   * `globalFilterFn` additionally accepts any string so ids registered through `filterFns`
+   * stay usable without a cast — unregistered ids fail at runtime with TanStack's dev warning.
+   */
+  tableOptions?: Omit<Partial<TanStackTableOptions<LedgerFeatures, TData>>, "globalFilterFn"> & {
+    globalFilterFn?: FilterFnOption<LedgerFeatures, TData> | (string & {});
   };
 }
 
@@ -236,7 +276,7 @@ export interface DataTableScrollToRowOptions {
   behavior?: "auto" | "smooth";
 }
 
-export interface DataTableHandle<TData> {
+export interface DataTableHandle<TData extends RowData> {
   table: TableInstance<TData>;
   /**
    * The ScrollArea viewport element.
@@ -274,7 +314,13 @@ export interface LedgerEditingController {
   registerEditor: (editor: ActiveCellEditor | null) => void;
 }
 
-export interface LedgerMeta<TData> {
+export interface LedgerMeta<TData extends RowData> {
+  /**
+   * The stable processed column definitions — the render layer's memo token. TanStack v9
+   * re-resolves `table.options` on every state tick, so `options.columns` identity is not a
+   * "definitions changed" signal anymore; this reference is.
+   */
+  columns: Array<ColumnDef<TData, any>>;
   editing: LedgerEditingController;
   filtering: {
     subscribeColumnFilters: (listener: (value: ColumnFiltersState) => void) => () => void;
@@ -289,14 +335,6 @@ export interface LedgerMeta<TData> {
    */
   selectAllScope: "page" | "all";
   /**
-   * Anchor row id for shift-range selection.
-   */
-  selectionAnchor: { current: string | null };
-  /**
-   * Server-mode total row count (`rowCount`) — the pagination summary's denominator.
-   */
-  totalRowCount?: number;
-  /**
    * Header drag-reorder affordance (ledger-owned; TanStack has state but no switch).
    */
   enableColumnOrdering: boolean;
@@ -304,10 +342,16 @@ export interface LedgerMeta<TData> {
    * Pagination master switch (ledger-owned; TanStack expresses it via row-model inclusion).
    */
   enablePagination: boolean;
+  /**
+   * Resize affordance switch (ledger-owned; the TanStack option belongs to the unregistered
+   * `columnResizingFeature`).
+   */
+  enableColumnResizing: boolean;
 }
 
 declare module "@tanstack/react-table" {
-  interface ColumnMeta<TData extends RowData, TValue> {
+  // eslint-disable-next-line unused-imports/no-unused-vars -- declaration merging requires TanStack's exact type parameter list
+  interface ColumnMeta<in out TFeatures extends TableFeatures, in out TData extends RowData, TValue extends CellData = CellData> {
     /**
      * Logical text alignment — RTL-correct by construction.
      */
@@ -334,7 +378,8 @@ declare module "@tanstack/react-table" {
     cellClassName?: string | ((cell: Cell<TData, TValue>) => string | undefined);
   }
 
-  interface TableMeta<TData extends RowData> {
+  // eslint-disable-next-line unused-imports/no-unused-vars -- declaration merging requires TanStack's exact type parameter list
+  interface TableMeta<in out TFeatures extends TableFeatures, in out TData extends RowData> {
     ledger?: LedgerMeta<TData>;
   }
 }

@@ -1,3 +1,5 @@
+import type { RowData } from "@tanstack/react-table";
+
 import type { TableInstance } from "./types";
 
 /**
@@ -22,7 +24,7 @@ export interface ToCsvOptions {
   withHeaders?: boolean;
 }
 
-export function toCsv<TData>(table: TableInstance<TData>, options: ToCsvOptions = {}): string {
+export function toCsv<TData extends RowData>(table: TableInstance<TData>, options: ToCsvOptions = {}): string {
   const {
     scope = "filtered",
     delimiter = ",",
@@ -32,9 +34,9 @@ export function toCsv<TData>(table: TableInstance<TData>, options: ToCsvOptions 
   const rows = rowsForScope(table, scope);
 
   const columns = [
-    ...table.getLeftVisibleLeafColumns(),
+    ...table.getStartVisibleLeafColumns(),
     ...table.getCenterVisibleLeafColumns(),
-    ...table.getRightVisibleLeafColumns()
+    ...table.getEndVisibleLeafColumns()
   ].filter(column => !isInternalColumn(column.id) && column.accessorFn !== undefined);
 
   const lines: string[] = [];
@@ -54,7 +56,7 @@ export function toCsv<TData>(table: TableInstance<TData>, options: ToCsvOptions 
   return lines.join("\r\n");
 }
 
-function rowsForScope<TData>(table: TableInstance<TData>, scope: NonNullable<ToCsvOptions["scope"]>) {
+function rowsForScope<TData extends RowData>(table: TableInstance<TData>, scope: NonNullable<ToCsvOptions["scope"]>) {
   switch (scope) {
     case "selected": {
       return table.getSelectedRowModel().rows;
@@ -65,7 +67,7 @@ function rowsForScope<TData>(table: TableInstance<TData>, scope: NonNullable<ToC
     }
 
     case "filtered": {
-      return table.getPrePaginationRowModel().rows;
+      return table.getPrePaginatedRowModel().rows;
     }
   }
 }

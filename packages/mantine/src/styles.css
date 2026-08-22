@@ -4,7 +4,7 @@
  * Contract (docs/styling.md):
  *   - every class is kebab-case under the `ledger-` prefix, mapped 1:1 from a camelCase
  *     Styles API selector (root -> .ledger-root, headerCell -> .ledger-header-cell);
- *   - state is expressed through data-attributes (data-selected, data-pinned="left"),
+ *   - state is expressed through data-attributes (data-selected, data-pinned="start"),
  *     never through state classes;
  *   - custom properties use the `--ledger-*` prefix;
  *   - colors and metrics consume Mantine CSS variables only, so dark mode and RTL follow
@@ -331,30 +331,30 @@
     opacity: 0;
   }
 
-  [data-pinned-edge="left"]::after {
+  [data-pinned-edge="start"]::after {
     inset-inline-end: 0;
     background: linear-gradient(to right, rgb(0 0 0 / 10%), transparent);
     translate: 100% 0;
   }
 
-  [data-pinned-edge="right"]::after {
+  [data-pinned-edge="end"]::after {
     inset-inline-start: 0;
     background: linear-gradient(to left, rgb(0 0 0 / 10%), transparent);
     translate: -100% 0;
   }
 
-  [dir="rtl"] [data-pinned-edge="left"]::after {
+  [dir="rtl"] [data-pinned-edge="start"]::after {
     background: linear-gradient(to left, rgb(0 0 0 / 10%), transparent);
     translate: -100% 0;
   }
 
-  [dir="rtl"] [data-pinned-edge="right"]::after {
+  [dir="rtl"] [data-pinned-edge="end"]::after {
     background: linear-gradient(to right, rgb(0 0 0 / 10%), transparent);
     translate: 100% 0;
   }
 
-  .ledger-root[data-scrolled-start] [data-pinned-edge="left"]::after,
-  .ledger-root[data-scrolled-end] [data-pinned-edge="right"]::after {
+  .ledger-root[data-scrolled-start] [data-pinned-edge="start"]::after,
+  .ledger-root[data-scrolled-end] [data-pinned-edge="end"]::after {
     opacity: 1;
   }
 

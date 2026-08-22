@@ -1,7 +1,6 @@
-import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 
-import type { DataTableHandle } from "./types";
+import type { ColumnDef, DataTableHandle } from "./types";
 
 import { MantineProvider } from "@mantine/core";
 import { act, fireEvent, render, screen } from "@testing-library/react";
@@ -247,7 +246,7 @@ describe("DataTable", () => {
       <DataTable
         columns={columns}
         data={people}
-        defaultColumnPinning={{ left: ["age"] }}
+        defaultColumnPinning={{ start: ["age"], end: [] }}
         getRowId={getRowId}
       />,
       { wrapper }
@@ -627,7 +626,7 @@ describe("DataTable", () => {
         virtualized
         columns={columns}
         data={people}
-        defaultRowPinning={{ top: ["1"] }}
+        defaultRowPinning={{ top: ["1"], bottom: [] }}
         getRowId={getRowId}
         handleRef={handle}
       />,

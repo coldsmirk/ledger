@@ -60,7 +60,7 @@ Style states by attribute selector (the Mantine convention). The inventory:
 | Element | Attributes |
 | --- | --- |
 | root | `data-striped="odd" \| "even"`, `data-highlight-on-hover`, `data-loading`, `data-empty`, `data-virtualized`, `data-with-table-border`, `data-with-row-borders`, `data-with-column-borders`, `data-scrolled-start`, `data-scrolled-end` |
-| header cell | `data-align`, `data-sortable`, `data-sorted` (on the indicator), `data-pinned="left" \| "right"`, `data-pinned-edge`, `data-resizing`, `data-dragging`, `data-drop-side="before" \| "after"` |
+| header cell | `data-align`, `data-sortable`, `data-sorted` (on the indicator), `data-pinned="start" \| "end"`, `data-pinned-edge`, `data-resizing`, `data-dragging`, `data-drop-side="before" \| "after"` |
 | row | `data-selected`, `data-expanded`, `data-clickable`, `data-parity="odd" \| "even"`, `data-pinned-row="top" \| "bottom"`, `data-row-id`, `data-detail-row` |
 | cell | `data-align`, `data-editable`, `data-editing`, `data-pinned`, `data-pinned-edge`, `data-truncate` (inner span), `data-group-cell` / `data-group-count` (grouped) |
 | editor | `data-pending` |

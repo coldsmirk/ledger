@@ -6,7 +6,7 @@ import type {
   MantineSpacing,
   StylesApiProps
 } from "@mantine/core";
-import type { Row, Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import type { JSX, MouseEvent, ReactNode, Ref } from "react";
 
@@ -15,6 +15,7 @@ import type { DataTableLabels } from "./labels";
 import type { VirtualizationConfig } from "./table-body";
 import type {
   DataTableHandle,
+  Row,
   TableInstance,
   UseDataTableOptions
 } from "./types";
@@ -131,7 +132,7 @@ const classes: Record<DataTableStylesNames, string> = {
 // Props
 // ----------------------------------------------------------------------------------------------
 
-export interface DataTableBaseProps<TData>
+export interface DataTableBaseProps<TData extends RowData>
   extends BoxProps,
   StylesApiProps<DataTableFactory>,
   ElementProps<"div"> {
@@ -188,7 +189,7 @@ export interface DataTableBaseProps<TData>
 /**
  * Data source — a discriminated pair: a hook-mode instance XOR inline behavior options.
  */
-export type DataTableProps<TData = unknown> = DataTableBaseProps<TData>
+export type DataTableProps<TData extends RowData = RowData> = DataTableBaseProps<TData>
   & (
     | ({ table: TableInstance<TData> } & { data?: never; columns?: never })
     | ({ table?: never } & UseDataTableOptions<TData>)
@@ -199,7 +200,7 @@ export type DataTableFactory = Factory<{
   ref: HTMLDivElement;
   stylesNames: DataTableStylesNames;
   vars: DataTableCssVariables;
-  signature: <TData>(props: DataTableProps<TData>) => JSX.Element;
+  signature: <TData extends RowData>(props: DataTableProps<TData>) => JSX.Element;
   staticComponents: {
     Search: typeof DataTableSearch;
     ColumnsPanel: typeof DataTableColumnsPanel;
@@ -315,13 +316,14 @@ const OPTION_KEYS = [
   "onEditingCellChange",
   "persistState",
   "defaultColumn",
+  "filterFns",
   "tableOptions"
-] as const satisfies ReadonlyArray<keyof UseDataTableOptions<unknown>>;
+] as const satisfies ReadonlyArray<keyof UseDataTableOptions<RowData>>;
 
 /**
  * Compile-time exhaustiveness: adding an option without listing it above is a type error.
  */
-type MissingOptionKeys = Exclude<keyof UseDataTableOptions<unknown>, (typeof OPTION_KEYS)[number]>;
+type MissingOptionKeys = Exclude<keyof UseDataTableOptions<RowData>, (typeof OPTION_KEYS)[number]>;
 
 type AssertNever<T extends never> = T;
 
@@ -333,7 +335,7 @@ const OPTION_KEY_SET: ReadonlySet<string> = new Set<AssertNever<MissingOptionKey
 // Component
 // ----------------------------------------------------------------------------------------------
 
-function DataTableRoot<TData>(_props: DataTableProps<TData>) {
+function DataTableRoot<TData extends RowData>(_props: DataTableProps<TData>) {
   const props = useProps("DataTable", defaultProps as Partial<DataTableProps<TData>>, _props);
 
   if (props.table) {
@@ -347,17 +349,17 @@ function DataTableRoot<TData>(_props: DataTableProps<TData>) {
 
 export const DataTable = genericFactory<DataTableFactory>(DataTableRoot);
 
-interface RoutedProps<TData> {
+interface RoutedProps<TData extends RowData> {
   presentation: DataTableBaseProps<TData>;
-  table: Table<TData>;
+  table: TableInstance<TData>;
 }
 
 /**
  * Resolve a row against the exact list owned by the virtualizer. Pinned rows are mounted outside
  * that list, so they deliberately have no scroll index.
  */
-export function resolveVirtualDisplayIndex<TData>(
-  table: Table<TData>,
+export function resolveVirtualDisplayIndex<TData extends RowData>(
+  table: TableInstance<TData>,
   rowId: string,
   withDetailPanels: boolean
 ): number | null {
@@ -378,7 +380,7 @@ export function resolveVirtualDisplayIndex<TData>(
   return index === -1 ? null : index;
 }
 
-function DataTableFromOptions<TData>({ props }: { props: DataTableProps<TData> }) {
+function DataTableFromOptions<TData extends RowData>({ props }: { props: DataTableProps<TData> }) {
   const options: Record<string, unknown> = {};
   const presentation: Record<string, unknown> = {};
 
@@ -394,7 +396,7 @@ function DataTableFromOptions<TData>({ props }: { props: DataTableProps<TData> }
   );
 }
 
-function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
+function DataTableCore<TData extends RowData>({ presentation, table }: RoutedProps<TData>) {
   const {
     striped,
     // Consumed by varsResolver from raw props; destructured only to keep them off the DOM node.
@@ -467,18 +469,19 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
   }, []);
 
   // ---- the width engine (docs/sizing.md) ----
-  // Display order is pinned-aware (left + center + right) — header groups and row cells
+  // Display order is pinned-aware (start + center + end) — header groups and row cells
   // already render in it, so the colgroup and every width/offset must follow the same order
   // (`getVisibleLeafColumns` alone ignores pinning). Stabilized by id signature so downstream
   // memos only recompute when the composition or order actually changes.
   const displayColumns = [
-    ...table.getLeftVisibleLeafColumns(),
+    ...table.getStartVisibleLeafColumns(),
     ...table.getCenterVisibleLeafColumns(),
-    ...table.getRightVisibleLeafColumns()
+    ...table.getEndVisibleLeafColumns()
   ];
   const displayOrderSignature = JSON.stringify(displayColumns.map(column => column.id));
-  // eslint-disable-next-line @eslint-react/exhaustive-deps -- the signature encodes order/composition; columns identity covers definition swaps
-  const visibleLeafColumns = useMemo(() => displayColumns, [displayOrderSignature, table.options.columns]);
+  const ledgerColumns = table.options.meta?.ledger?.columns;
+  // eslint-disable-next-line @eslint-react/exhaustive-deps -- the signature encodes order/composition; meta.ledger.columns identity covers definition swaps (options.columns re-resolves per v9 state tick)
+  const visibleLeafColumns = useMemo(() => displayColumns, [displayOrderSignature, ledgerColumns]);
   const columnWidths = useColumnWidths(table, visibleLeafColumns, viewport, tableMinWidth);
 
   /* Live drags read the rendered width through this ref — stable identity, no context churn. */
@@ -504,10 +507,22 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
 
   const filterMode: "client" | "server" = table.options.manualFiltering ? "server" : "client";
 
+  /* The documented single TData erasure (context.ts) — the render layer below is `any`-bound. */
+  const erasedTable = table as TableInstance<any>;
+
+  // v9's useTable returns a fresh `{...core, options, state}` wrapper on every state tick.
+  // Holding that identity in the context value would rebuild the context each tick and
+  // re-render every consumer straight through the row memos. The context therefore exposes
+  // the CURRENT wrapper through a ref-backed getter: identity-stable, reads always fresh.
+  const tableBoxRef = useRef(erasedTable);
+  tableBoxRef.current = erasedTable;
+
   const contextValue = useMemo<DataTableContextValue>(
     () => {
       return {
-        table: table as Table<unknown>,
+        get table() {
+          return tableBoxRef.current;
+        },
         getStyles: stableGetStyles,
         labels,
         filterMode,
@@ -524,7 +539,6 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
       };
     },
     [
-      table,
       stableGetStyles,
       labels,
       filterMode,
@@ -541,7 +555,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
 
   // ---- column geometry: the width engine resolves every column to exact integer pixels,
   // written as CSS variables (a resize updates variables, never re-renders rows) ----
-  const tableState = table.getState();
+  const tableState = table.state;
 
   const columnVars = useMemo(() => {
     const varsMap: Record<string, string> = {};
@@ -551,7 +565,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
       const width = columnWidths.byId[column.id] ?? 0;
       varsMap[columnWidthVar(column.id)] = `${width}px`;
 
-      if (column.getIsPinned() === "left") {
+      if (column.getIsPinned() === "start") {
         varsMap[columnStartVar(column.id)] = `${leftOffset}px`;
         leftOffset += width;
       }
@@ -562,7 +576,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
     for (let index = visibleLeafColumns.length - 1; index >= 0; index -= 1) {
       const column = visibleLeafColumns[index]!;
 
-      if (column.getIsPinned() === "right") {
+      if (column.getIsPinned() === "end") {
         varsMap[columnAfterVar(column.id)] = `${rightOffset}px`;
         rightOffset += columnWidths.byId[column.id] ?? 0;
       }
@@ -848,7 +862,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
           <div ref={headerViewportRef} {...getStyles("header")}>
             <MantineTable {...sharedTableProps} {...tableStyleProps()}>
               <colgroup>{colElements}</colgroup>
-              <TableHeader table={table} />
+              <TableHeader table={erasedTable} />
             </MantineTable>
           </div>
 
@@ -877,7 +891,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
                 loading={loading === true}
                 loadingMore={loadingMore === true}
                 skeletonRowCount={skeletonRowCount}
-                table={table}
+                table={erasedTable}
                 viewportRef={viewportRef}
                 virtualization={virtualization}
                 onVirtualizerChange={handleVirtualizerChange}
@@ -905,7 +919,7 @@ function DataTableCore<TData>({ presentation, table }: RoutedProps<TData>) {
 
                 <TableFooter
                   ariaRowIndexStart={virtualEnabled ? footerAriaRowIndexStart : undefined}
-                  table={table}
+                  table={erasedTable}
                 />
               </MantineTable>
             </div>

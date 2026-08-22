@@ -1,4 +1,6 @@
-import type { ColumnDef, FilterFn, SortingState } from "@tanstack/react-table";
+import type { FilterFn, SortingState } from "@tanstack/react-table";
+
+import type { ColumnDef } from "./types";
 
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
@@ -37,8 +39,8 @@ const columns: Array<ColumnDef<Person, any>> = [
 ];
 
 const getRowId = (person: Person) => person.id;
-const startsWithFilter: FilterFn<Person> = (row, columnId, value: string) => String(row.getValue(columnId)).startsWith(value);
-const rejectFilter: FilterFn<Person> = () => false;
+const startsWithFilter: FilterFn<any, any> = (row, columnId, value: string) => String(row.getValue(columnId)).startsWith(value);
+const rejectFilter: FilterFn<any, any> = () => false;
 
 describe("useDataTable", () => {
   it("sorts client-side through the full asc → desc → cleared cycle", () => {
@@ -75,10 +77,10 @@ describe("useDataTable", () => {
 
     expect(onSortingChange).toHaveBeenCalledWith([{ id: "age", desc: false }]);
     // Controlled: the instance still renders the prop's (empty) sorting.
-    expect(result.current.getState().sorting).toEqual([]);
+    expect(result.current.state.sorting).toEqual([]);
   });
 
-  it("injects the selection and expander columns pinned to the left", () => {
+  it("injects the selection and expander columns pinned to the start", () => {
     const { result } = renderHook(() => useDataTable({
       data: people,
       columns,
@@ -90,7 +92,7 @@ describe("useDataTable", () => {
     const leafIds = result.current.getAllLeafColumns().map(column => column.id);
 
     expect(leafIds.slice(0, 2)).toEqual([SELECTION_COLUMN_ID, EXPANDER_COLUMN_ID]);
-    expect(result.current.getState().columnPinning.left?.slice(0, 2)).toEqual([
+    expect(result.current.state.columnPinning.start?.slice(0, 2)).toEqual([
       SELECTION_COLUMN_ID,
       EXPANDER_COLUMN_ID
     ]);
@@ -160,12 +162,12 @@ describe("useDataTable", () => {
 
     expect(result.current.options.manualPagination).toBe(true);
     expect(result.current.getPageCount()).toBe(10);
-    expect(result.current.getState().pagination.pageIndex).toBe(3);
+    expect(result.current.state.pagination.pageIndex).toBe(3);
 
     act(() => result.current.setGlobalFilter("ali"));
 
     // §10.4: in server mode ledger performs the deterministic reset itself.
-    expect(result.current.getState().pagination.pageIndex).toBe(0);
+    expect(result.current.state.pagination.pageIndex).toBe(0);
   });
 
   it("does not reset server pagination during a root StrictMode mount", () => {
@@ -178,7 +180,7 @@ describe("useDataTable", () => {
       defaultPagination: { pageIndex: 3, pageSize: 10 }
     }), { reactStrictMode: true });
 
-    expect(result.current.getState().pagination).toEqual({ pageIndex: 3, pageSize: 10 });
+    expect(result.current.state.pagination).toEqual({ pageIndex: 3, pageSize: 10 });
   });
 
   it.each([
@@ -198,7 +200,7 @@ describe("useDataTable", () => {
 
     act(() => result.current.setGlobalFilter("ali"));
 
-    expect(result.current.getState().pagination.pageIndex).toBe(3);
+    expect(result.current.state.pagination.pageIndex).toBe(3);
   });
 
   it("keeps the deterministic zero reset authoritative when autoResetAll is true", async () => {
@@ -220,7 +222,7 @@ describe("useDataTable", () => {
       queueMicrotask(resolve);
     }));
 
-    expect(result.current.getState().pagination.pageIndex).toBe(0);
+    expect(result.current.state.pagination.pageIndex).toBe(0);
     expect(result.current.options.autoResetAll).toBeUndefined();
     expect(result.current.options.autoResetPageIndex).toBe(false);
     expect(result.current.options.autoResetExpanded).toBe(true);
@@ -237,8 +239,8 @@ describe("useDataTable", () => {
       columns,
       getRowId,
       enableGlobalFilter: true,
+      filterFns,
       tableOptions: {
-        filterFns,
         globalFilterFn: "fuzzy"
       }
     }));
@@ -246,7 +248,7 @@ describe("useDataTable", () => {
     act(() => result.current.setGlobalFilter("Ali"));
 
     expect(result.current.getRowModel().rows.map(row => row.original.name)).toEqual(["Alice"]);
-    expect(result.current.options.filterFns?.["ledger-one-of"]).toBe(ledgerFilterFns["ledger-one-of"]);
+    expect(result.current.options.features.filterFns?.["ledger-one-of"]).toBe(ledgerFilterFns["ledger-one-of"]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("ledger-one-of"));
 
     warn.mockRestore();
@@ -258,10 +260,10 @@ describe("useDataTable", () => {
       columnFilters: [{ id: "name", value: "a" }],
       globalFilter: "a",
       pagination: { pageIndex: 2, pageSize: 1 },
-      rowSelection: { 2: true },
+      rowSelection: { 2: true } as const,
       expanded: { 2: true },
       columnVisibility: { age: false },
-      columnPinning: { left: ["name"] },
+      columnPinning: { start: ["name"], end: [] },
       columnOrder: ["age", "name"],
       columnSizing: { name: 240 },
       grouping: ["name"],
@@ -293,7 +295,7 @@ describe("useDataTable", () => {
       result.current.setRowSelection({});
       result.current.setExpanded({});
       result.current.setColumnVisibility({});
-      result.current.setColumnPinning({});
+      result.current.setColumnPinning({ start: [], end: [] });
       result.current.setColumnOrder([]);
       result.current.setColumnSizing({});
       result.current.setGrouping([]);
@@ -314,7 +316,7 @@ describe("useDataTable", () => {
       result.current.resetRowPinning();
     });
 
-    expect(result.current.getState()).toMatchObject(defaults);
+    expect(result.current.state).toMatchObject(defaults);
   });
 
   it("resets pagination and global filtering to ledger fallbacks", () => {
@@ -333,8 +335,8 @@ describe("useDataTable", () => {
       result.current.resetGlobalFilter(true);
     });
 
-    expect(result.current.getState().pagination).toEqual({ pageIndex: 0, pageSize: 20 });
-    expect(result.current.getState().globalFilter).toBe("");
+    expect(result.current.state.pagination).toEqual({ pageIndex: 0, pageSize: 20 });
+    expect(result.current.state.globalFilter).toBe("");
   });
 
   it("keeps the current editor active when commit rejects navigation", () => {

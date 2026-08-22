@@ -2,6 +2,10 @@
  * The mapping from `meta.filter` variants to TanStack filter functions, plus the one custom
  * function the built-ins lack. A column keeps any `filterFn` it declares itself — the variant
  * mapping only fills the gap (docs/filtering.md).
+ *
+ * The functions are registered on the canonical feature set (`ledger-features.ts`), which is
+ * what makes their ids valid `filterFn` strings for consumers — v9 registry slots replace v8's
+ * `FilterFns` declaration merging.
  */
 import type { FilterFn } from "@tanstack/react-table";
 
@@ -53,7 +57,7 @@ function parsedTime(value: string): number | undefined {
  * use local calendar days; their upper bound is the next local midnight so DST days stay exact.
  * Full timestamp bounds retain their exact instant.
  */
-const dateRange: FilterFn<unknown> = (row, columnId, filterValue: DateRangeFilterValue) => {
+const dateRange: FilterFn<any, any> = (row, columnId, filterValue: DateRangeFilterValue) => {
   const raw = row.getValue(columnId);
 
   if (raw === null || raw === undefined || raw === "") {
@@ -109,7 +113,7 @@ dateRange.autoRemove = (value: DateRangeFilterValue | undefined) => !value || (!
  * array row value and degrades to substring matching on scalars ("active" would match
  * "inactive") — the variant's semantics are exact membership for scalar and array cells.
  */
-const oneOf: FilterFn<unknown> = (row, columnId, filterValue: string[]) => {
+const oneOf: FilterFn<any, any> = (row, columnId, filterValue: string[]) => {
   const raw = row.getValue(columnId);
 
   if (raw === null || raw === undefined || !Array.isArray(filterValue)) {
@@ -127,13 +131,6 @@ export const ledgerFilterFns = {
   "ledger-date-range": dateRange,
   "ledger-one-of": oneOf
 };
-
-declare module "@tanstack/react-table" {
-  interface FilterFns {
-    "ledger-date-range": FilterFn<unknown>;
-    "ledger-one-of": FilterFn<unknown>;
-  }
-}
 
 export type LedgerFilterFnId
   = | "includesString"

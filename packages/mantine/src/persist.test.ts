@@ -64,7 +64,7 @@ describe("readPersistedState", () => {
         globalFilter: 1,
         pagination: { pageIndex: -1, pageSize: 0 },
         columnVisibility: { age: "false" },
-        columnPinning: { left: "name", right: [] },
+        columnPinning: { start: "name", end: [] },
         columnOrder: ["name", 1],
         columnSizing: { name: "240" },
         grouping: ["department", 1]
@@ -95,7 +95,7 @@ describe("readPersistedState", () => {
       globalFilter: "ali",
       pagination: { pageIndex: 2, pageSize: 20 },
       columnVisibility: { age: false },
-      columnPinning: { left: ["name"], right: ["age"] },
+      columnPinning: { start: ["name"], end: ["age"] },
       columnOrder: ["name", "age"],
       columnSizing: { name: 240 },
       grouping: ["department"]

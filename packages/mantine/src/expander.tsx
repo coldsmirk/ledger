@@ -1,4 +1,6 @@
-import type { Row, Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
+
+import type { Row, TableInstance } from "./types";
 
 /**
  * The injected expander column: a per-row chevron (detail panels and sub-row trees share it)
@@ -9,7 +11,7 @@ import { ActionIcon } from "@mantine/core";
 import { useDataTableContext } from "./context";
 import { IconChevronRight } from "./icons";
 
-export function ExpanderHeaderCell<TData>({ table }: { table: Table<TData> }) {
+export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
   const { labels } = useDataTableContext();
 
   // Expand-all only makes sense over a tree; a master–detail table opens panels one at a time.
@@ -35,7 +37,7 @@ export function ExpanderHeaderCell<TData>({ table }: { table: Table<TData> }) {
   );
 }
 
-export function ExpanderCell<TData>({ row }: { row: Row<TData> }) {
+export function ExpanderCell<TData extends RowData>({ row }: { row: Row<TData> }) {
   const { labels } = useDataTableContext();
 
   if (!row.getCanExpand()) {

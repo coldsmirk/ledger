@@ -1,7 +1,6 @@
-import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 
-import type { UseDataTableOptions } from "./types";
+import type { ColumnDef, UseDataTableOptions } from "./types";
 
 import { MantineProvider } from "@mantine/core";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -112,14 +111,14 @@ describe("DataTable.ColumnsPanel", () => {
 
     render(<Panel onColumnPinningChange={onColumnPinningChange} />, { wrapper });
 
-    fireEvent.click(within(rowFor("Name")).getByLabelText("Pin to left"));
-    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ left: ["name"], right: [] });
+    fireEvent.click(within(rowFor("Name")).getByLabelText("Pin to start"));
+    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ start: ["name"], end: [] });
 
-    fireEvent.click(within(rowFor("Name")).getByLabelText("Pin to right"));
-    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ left: [], right: ["name"] });
+    fireEvent.click(within(rowFor("Name")).getByLabelText("Pin to end"));
+    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ start: [], end: ["name"] });
 
     fireEvent.click(within(rowFor("Name")).getByLabelText("Unpin"));
-    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ left: [], right: [] });
+    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ start: [], end: [] });
   });
 
   it("never leaks ledger's injected column ids into the pinning slice", () => {
@@ -127,15 +126,15 @@ describe("DataTable.ColumnsPanel", () => {
 
     render(<Panel enableRowSelection onColumnPinningChange={onColumnPinningChange} />, { wrapper });
 
-    fireEvent.click(within(rowFor("Age")).getByLabelText("Pin to right"));
+    fireEvent.click(within(rowFor("Age")).getByLabelText("Pin to end"));
 
     // `getState().columnPinning` carries the merged `ledger:select`, so any write derived from it
     // would echo that id back to the consumer and into persisted layout.
-    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ left: [], right: ["age"] });
+    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ start: [], end: ["age"] });
   });
 
   it("lists the pinned zones ahead of the centre, in the table's display order", () => {
-    render(<Panel defaultColumnPinning={{ left: ["age"], right: ["name"] }} />, { wrapper });
+    render(<Panel defaultColumnPinning={{ start: ["age"], end: ["name"] }} />, { wrapper });
 
     expect(rows().map(row => row.textContent)).toEqual(["Age", "Email", "Name"]);
   });
@@ -143,14 +142,14 @@ describe("DataTable.ColumnsPanel", () => {
   it("captions the pinned zones, and shows no captions while nothing is pinned", () => {
     const flat = render(<Panel />, { wrapper });
 
-    expect(screen.queryByText("Pinned left")).toBeNull();
-    expect(screen.queryByText("Pinned right")).toBeNull();
+    expect(screen.queryByText("Pinned start")).toBeNull();
+    expect(screen.queryByText("Pinned end")).toBeNull();
 
     flat.unmount();
-    render(<Panel defaultColumnPinning={{ left: ["age"], right: ["name"] }} />, { wrapper });
+    render(<Panel defaultColumnPinning={{ start: ["age"], end: ["name"] }} />, { wrapper });
 
-    expect(screen.getByText("Pinned left")).toBeTruthy();
-    expect(screen.getByText("Pinned right")).toBeTruthy();
+    expect(screen.getByText("Pinned start")).toBeTruthy();
+    expect(screen.getByText("Pinned end")).toBeTruthy();
   });
 
   it("fixes a width and clears it back to auto", () => {
@@ -212,18 +211,18 @@ describe("DataTable.ColumnsPanel", () => {
     const onColumnPinningChange = vi.fn();
 
     render(
-      <Panel defaultColumnPinning={{ left: ["name"], right: [] }} onColumnPinningChange={onColumnPinningChange} />,
+      <Panel defaultColumnPinning={{ start: ["name"], end: [] }} onColumnPinningChange={onColumnPinningChange} />,
       { wrapper }
     );
 
     fireEvent.click(within(rowFor("Name")).getByLabelText("Unpin"));
-    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ left: [], right: [] });
+    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ start: [], end: [] });
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
 
     // Every TanStack resetColumnX() restores `table.initialState`, which useDataTable seeds from
     // the defaultX options — without that seeding the reset would land on an empty slice.
-    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ left: ["name"], right: [] });
+    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ start: ["name"], end: [] });
   });
 
   it("opens from whatever trigger it is handed, and assumes nothing about it", async () => {

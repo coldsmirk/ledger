@@ -1,6 +1,6 @@
 # Columns
 
-Columns are **raw TanStack `ColumnDef`s** — ledger has no bespoke column DSL. Every column-level TanStack capability (`sortingFn`, `sortDescFirst`, `sortUndefined`, `invertSorting`, `filterFn`, `aggregationFn`, `size`/`minSize`/`maxSize`, per-column `enable*`) is therefore automatically present, and knowledge transfers directly from TanStack's docs. Presentation concerns ride the typed `meta` extension described below.
+Columns are **raw TanStack `ColumnDef`s** — ledger has no bespoke column DSL. Every column-level TanStack capability (`sortFn`, `sortDescFirst`, `sortUndefined`, `invertSorting`, `filterFn`, `aggregationFn`, `size`/`minSize`/`maxSize`, per-column `enable*`) is therefore automatically present, and knowledge transfers directly from TanStack's docs. Presentation concerns ride the typed `meta` extension described below.
 
 ## Defining columns
 
@@ -86,7 +86,7 @@ Sized columns are fixed pixels; unsized columns grow to share the leftover viewp
 | --- | --- | --- |
 | Drag handle | `enableColumnOrdering`, single-row headers | `columnOrder` / `columnPinning` |
 | Visibility checkbox | always (disabled where `getCanHide()` is false) | `columnVisibility` |
-| Pin left / unpin / pin right | `enableColumnPinning` ([pinning.md](pinning.md)) | `columnPinning` |
+| Pin start / unpin / pin end | `enableColumnPinning` ([pinning.md](pinning.md)) | `columnPinning` |
 | Width | `enableColumnResizing` ([sizing.md](sizing.md#the-panels-width-control)) | `columnSizing` |
 | Group / ungroup | `enableGrouping` ([grouping.md](grouping.md)) | `grouping` |
 
@@ -96,7 +96,7 @@ Sized columns are fixed pixels; unsized columns grow to share the leftover viewp
 
 **Reset** restores order, visibility, pinning, and width — exactly the layout set `persistState` persists by default — to what the application declared through `defaultColumnOrder` / `defaultColumnVisibility` / `defaultColumnPinning` / `defaultColumnSizing`, falling back to the column definitions' own layout. Grouping is not layout and is left alone.
 
-Rows are grouped into three zones in display order — pinned left, unpinned, pinned right. An occupied pinned zone carries a caption (the `pinnedLeft` / `pinnedRight` labels) and consecutive zones get a seam; nothing pinned means one flat list with no chrome at all. **Dragging reorders within a zone only**: a pinned column's position comes from its index in `columnPinning`, an unpinned one's from `columnOrder`, so the two are different edits. Moving a column between zones is what the pin controls are for.
+Rows are grouped into three zones in display order — pinned start, unpinned, pinned end (TanStack v9's logical positions). An occupied pinned zone carries a caption (the `pinnedStart` / `pinnedEnd` labels) and consecutive zones get a seam; nothing pinned means one flat list with no chrome at all. **Dragging reorders within a zone only**: a pinned column's position comes from its index in `columnPinning`, an unpinned one's from `columnOrder`, so the two are different edits. Moving a column between zones is what the pin controls are for.
 
 ### The trigger is yours
 
@@ -118,13 +118,13 @@ Pass no children and the panel renders **bare** — its primary shape, ready for
 
 `popoverProps` forwards to the Popover (position, width, `withinPortal`, …) and is ignored without a trigger. The dropdown caps itself at `60vh` and the panel's list scrolls inside it; bare, the panel fills whatever box its host gives it and degrades to content height in an indefinite one.
 
-For a trigger inside a header cell — a cog beside an actions column's title — put it on a column that **cannot sort**: a sortable header *is* a `<button>` covering the whole cell, and nesting a control inside it is invalid HTML. A `helper.display({ … })` column never sorts, so its header is a plain box:
+For a trigger inside a header cell — a cog beside an actions column's title — put it on a column that **cannot sort**: a sortable header *is* a `<button>` covering the whole cell, and nesting a control inside it is invalid HTML. A `helper.display({ … })` column never sorts, so its header is a plain box. One v9 note: header renderers receive the **core** table shape, while the panel's prop is typed as the hook's `TableInstance` — assert it across (the runtime object is the same instance family, and the panel only touches the surface the two share):
 
 ```tsx
 helper.display({
   id: "actions",
   header: ({ table }) => (
-    <DataTable.ColumnsPanel table={table}>
+    <DataTable.ColumnsPanel table={table as TableInstance<Person>}>
       <ActionIcon variant="subtle"><IconSettings /></ActionIcon>
     </DataTable.ColumnsPanel>
   ),
@@ -136,6 +136,6 @@ helper.display({
 
 Enabling row selection injects a checkbox column (`ledger:select`, 40px); a detail panel or `getSubRows` injects an expander column (`ledger:expander`, 36px). Both are:
 
-- always pinned left, ahead of any user-pinned columns (merged invisibly over the consumer's `columnPinning` slice);
+- always pinned to the start, ahead of any user-pinned columns (merged invisibly over the consumer's `columnPinning` slice);
 - excluded from sorting, hiding, resizing, filtering, global filtering, grouping, and drag reordering;
 - propagation-stopped — a click on a checkbox or expander never fires `onRowClick`.

@@ -1,10 +1,10 @@
 import type { DragEndEvent } from "@dnd-kit/react";
 import type { PopoverProps } from "@mantine/core";
-import type { Column, ColumnPinningPosition, Table } from "@tanstack/react-table";
+import type { ColumnPinningPosition, RowData } from "@tanstack/react-table";
 import type { CSSProperties, ReactElement } from "react";
 
 import type { DataTableLabels } from "./labels";
-import type { TableInstance } from "./types";
+import type { Column, TableInstance } from "./types";
 
 /**
  * `DataTable.ColumnsPanel` — one surface for every column-layout decision: order (drag),
@@ -38,12 +38,12 @@ import {
 } from "@mantine/core";
 import clsx from "clsx";
 
-import { columnHeaderText, isInternalColumn, rawColumnSizing } from "./build-columns";
+import { columnEnableResizing, columnHeaderText, isInternalColumn, rawColumnSizing } from "./build-columns";
 import { applyCenterOrder, resolveColumnOrder } from "./column-order";
 import { IconGripVertical, IconGroup, IconPinLeft, IconPinRight, IconRestore, IconUnpin } from "./icons";
 import { resolveLabels } from "./labels";
 
-export interface DataTableColumnsPanelProps<TData> {
+export interface DataTableColumnsPanelProps<TData extends RowData> {
   table: TableInstance<TData>;
   /**
    * The control that opens the panel, wrapped as the Popover target — a button, an icon in a
@@ -61,14 +61,14 @@ export interface DataTableColumnsPanelProps<TData> {
 }
 
 /**
- * The three lists the panel renders, in table display order. `left` / `center` / `right` are
- * TanStack's own words (`getLeftLeafColumns` / `getCenterLeafColumns` / `getRightLeafColumns`);
+ * The three lists the panel renders, in table display order. `start` / `center` / `end` are
+ * TanStack's own words (`getStartLeafColumns` / `getCenterLeafColumns` / `getEndLeafColumns`);
  * "zone" is ledger's collective noun for them, because TanStack names the accessors but never
  * the set.
  */
-type ColumnZone = "left" | "center" | "right";
+type ColumnZone = "start" | "center" | "end";
 
-interface ColumnsPanelZone<TData> {
+interface ColumnsPanelZone<TData extends RowData> {
   id: ColumnZone;
   columns: Array<Column<TData, unknown>>;
 }
@@ -79,13 +79,13 @@ interface ColumnsPanelZone<TData> {
  * order is TanStack's: a pinned zone reads its `columnPinning` array, the center reads
  * `columnOrder`.
  */
-function resolveZones<TData>(table: Table<TData>): Array<ColumnsPanelZone<TData>> {
+function resolveZones<TData extends RowData>(table: TableInstance<TData>): Array<ColumnsPanelZone<TData>> {
   const external = (columns: Array<Column<TData, unknown>>) => columns.filter(column => !isInternalColumn(column.id));
 
   return [
-    { id: "left", columns: external(table.getLeftLeafColumns()) },
+    { id: "start", columns: external(table.getStartLeafColumns()) },
     { id: "center", columns: external(table.getCenterLeafColumns()) },
-    { id: "right", columns: external(table.getRightLeafColumns()) }
+    { id: "end", columns: external(table.getEndLeafColumns()) }
   ];
 }
 
@@ -93,8 +93,8 @@ function resolveZones<TData>(table: Table<TData>): Array<ColumnsPanelZone<TData>
  * The pinned zones caption themselves; the center is the default territory and stays unlabeled.
  */
 const zoneCaptionKeys = {
-  left: "pinnedLeft",
-  right: "pinnedRight"
+  start: "pinnedStart",
+  end: "pinnedEnd"
 } satisfies Partial<Record<ColumnZone, keyof DataTableLabels>>;
 
 /**
@@ -102,12 +102,12 @@ const zoneCaptionKeys = {
  */
 const pinSegments: Array<{
   position: ColumnPinningPosition;
-  labelKey: "pinLeft" | "unpin" | "pinRight";
+  labelKey: "pinStart" | "unpin" | "pinEnd";
   Glyph: typeof IconPinLeft;
 }> = [
   {
-    position: "left",
-    labelKey: "pinLeft",
+    position: "start",
+    labelKey: "pinStart",
     Glyph: IconPinLeft
   },
   {
@@ -116,15 +116,15 @@ const pinSegments: Array<{
     Glyph: IconUnpin
   },
   {
-    position: "right",
-    labelKey: "pinRight",
+    position: "end",
+    labelKey: "pinEnd",
     Glyph: IconPinRight
   }
 ];
 
-const columnsPanelDefaultProps = {} satisfies Partial<DataTableColumnsPanelProps<unknown>>;
+const columnsPanelDefaultProps = {} satisfies Partial<DataTableColumnsPanelProps<RowData>>;
 
-export function DataTableColumnsPanel<TData>(props: DataTableColumnsPanelProps<TData>) {
+export function DataTableColumnsPanel<TData extends RowData>(props: DataTableColumnsPanelProps<TData>) {
   const {
     table,
     children,
@@ -163,14 +163,14 @@ export function DataTableColumnsPanel<TData>(props: DataTableColumnsPanelProps<T
   );
 }
 
-interface ColumnsPanelContentProps<TData> {
-  table: Table<TData>;
+interface ColumnsPanelContentProps<TData extends RowData> {
+  table: TableInstance<TData>;
   labels: DataTableLabels;
   className?: string;
   style?: CSSProperties;
 }
 
-function ColumnsPanelContent<TData>({
+function ColumnsPanelContent<TData extends RowData>({
   table,
   labels,
   className,
@@ -212,12 +212,12 @@ function ColumnsPanelContent<TData>({
       return;
     }
 
-    // Assembled from the panel's own zone lists, never from `getState().columnPinning`: that one
+    // Assembled from the panel's own zone lists, never from the columnPinning slice: that one
     // carries the injected column ids useDataTable merges in on every render, and echoing them
     // back would leak `ledger:*` into the consumer's onColumnPinningChange and persisted state.
     table.setColumnPinning({
-      left: zone.id === "left" ? next : zoneIds("left"),
-      right: zone.id === "right" ? next : zoneIds("right")
+      start: zone.id === "start" ? next : zoneIds("start"),
+      end: zone.id === "end" ? next : zoneIds("end")
     });
   };
 
@@ -280,16 +280,16 @@ function ColumnsPanelContent<TData>({
   );
 }
 
-interface ColumnsPanelItemProps<TData> {
+interface ColumnsPanelItemProps<TData extends RowData> {
   column: Column<TData, unknown>;
-  table: Table<TData>;
+  table: TableInstance<TData>;
   labels: DataTableLabels;
   index: number;
   zone: ColumnZone;
   orderable: boolean;
 }
 
-function ColumnsPanelItem<TData>({
+function ColumnsPanelItem<TData extends RowData>({
   column,
   table,
   labels,
@@ -316,7 +316,10 @@ function ColumnsPanelItem<TData>({
   const pinned = column.getIsPinned();
   const grouped = column.getIsGrouped();
   const canPin = column.getCanPin();
-  const canResize = table.options.enableColumnResizing === true && column.getCanResize();
+  // Ledger's own gate — the TanStack `columnResizingFeature` (and `getCanResize`) is unregistered.
+  const canResize
+    = table.options.meta?.ledger?.enableColumnResizing === true
+      && columnEnableResizing(column.columnDef) !== false;
   const canGroup = table.options.enableGrouping === true && column.getCanGroup();
 
   // The field holds the OVERRIDE; empty falls back to whatever the definition prescribes — the
@@ -325,7 +328,9 @@ function ColumnsPanelItem<TData>({
   // Author sizing comes from the RAW registry, never `columnDef.size`: TanStack merges its
   // `size: 150` default into every resolved definition, which would make "unsized"
   // unrepresentable (docs/sizing.md).
-  const width = table.getState().columnSizing[column.id];
+  // Read through the slice atom, not `table.state`: `.state` exists only on the hook's wrapper,
+  // while a panel hosted in a header cell receives the core instance — atoms live on both.
+  const width = table.atoms.columnSizing.get()[column.id];
   const declaredWidth = rawColumnSizing(column.columnDef)?.size ?? table.options.defaultColumn?.size;
 
   const handleWidthChange = (value: number | string) => {

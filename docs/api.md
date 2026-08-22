@@ -31,11 +31,11 @@ import { zhCN } from "@coldsmirk/ledger-mantine/locales";
 import "@coldsmirk/ledger-mantine/styles.css";
 ```
 
-Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `VisibilityState`, `ColumnPinningState`, `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and `Table` renamed to **`TableInstance`** (avoiding the collision with Mantine's `Table`).
+Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape.
 
 ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTablePersistState`, `DataTablePersistableSlice`, `LedgerMeta`, `LedgerEditingController`, `ActiveCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
 
-Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2. Direct dependencies: `@tanstack/react-table` ^8.21, `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
+Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
 ## `UseDataTableOptions<TData>`
 
@@ -62,7 +62,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | `enablePagination` | `false` | [pagination.md](pagination.md) |
 | `enableRowSelection` | `false` — `boolean \| (row) => boolean` | [selection.md](selection.md) |
 | `enableMultiRowSelection` | `true`; `false` = single-select | [selection.md](selection.md) |
-| `enableColumnResizing` | `false` | [columns.md](columns.md) |
+| `enableColumnResizing` | `false` (ledger-owned switch; TanStack's `columnResizingFeature` is unregistered — [sizing.md](sizing.md#resizing-interplay)) | [columns.md](columns.md) |
 | `enableColumnPinning` | `true` | [pinning.md](pinning.md) |
 | `enableColumnOrdering` | `false` (ledger-owned name) | [columns.md](columns.md) |
 | `enableHiding` | `true` | [columns.md](columns.md) |
@@ -93,14 +93,15 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 
 ### State slices
 
-One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange(resolvedValue)`; shapes verbatim TanStack ([state.md](state.md)): `sorting`, `columnFilters`, `globalFilter`, `pagination`, `rowSelection`, `expanded`, `columnVisibility`, `columnPinning`, `columnOrder`, `columnSizing`, `grouping`, `rowPinning` — plus the ledger-owned `editingCell` / `onEditingCellChange` (no default form).
+One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange(resolvedValue)`; shapes verbatim TanStack v9 ([state.md](state.md)): `sorting`, `columnFilters`, `globalFilter`, `pagination`, `rowSelection`, `expanded`, `columnVisibility`, `columnPinning` (`{ start, end }`), `columnOrder`, `columnSizing`, `grouping`, `rowPinning` — plus the ledger-owned `editingCell` / `onEditingCellChange` (no default form).
 
 ### Persistence and escape hatch
 
 | Option | Type | Notes |
 | --- | --- | --- |
 | `persistState` | [`DataTablePersistState`](#persistence-types) | [state.md](state.md#persisted-state) |
-| `tableOptions` | `Omit<Partial<TableOptions<TData>>, "filterFns" \| "globalFilterFn"> & { filterFns?: Record<string, FilterFn<TData>>; globalFilterFn?: FilterFnOption<TData> \| string }` | Base layer; managed keys override with a dev warning. Filter functions merge by id; ledger's two ids are reserved |
+| `filterFns` | `Record<string, FilterFn>` | First-class registry (v9 slots): ids become valid `filterFn`/`globalFilterFn` strings, merged over the built-ins, read once at mount; ledger's two ids are reserved |
+| `tableOptions` | `Partial<TableOptions>` with `globalFilterFn` widened to accept any string | Base layer; managed keys (`features` included) override with a dev warning |
 
 ## `DataTableProps<TData>`
 
@@ -204,7 +205,7 @@ interface DataTableFilterConfig {
 }
 ```
 
-Registered filter functions (usable as `filterFn` ids anywhere): `ledger-one-of` (strict scalar/array set membership) and `ledger-date-range` (inclusive local calendar-date range) — see [filtering.md](filtering.md#variants). `tableOptions.filterFns` merges custom ids beneath these two reserved implementations. Raw `ColumnDef.filterFn` retains TanStack's strict id typing, so custom string ids require its standard `FilterFns` declaration merging; a function needs no augmentation.
+Registered filter functions (usable as `filterFn` ids anywhere): every TanStack built-in under its conventional name, plus `ledger-one-of` (strict scalar/array set membership) and `ledger-date-range` (inclusive local calendar-date range) — see [filtering.md](filtering.md#variants). The first-class `filterFns` option merges custom ids beneath the two reserved implementations. Raw `ColumnDef.filterFn` retains TanStack's strict id typing (registered ids and functions typecheck; v9 replaced `FilterFns` declaration merging with registry slots).
 
 ## Persistence types
 
@@ -272,4 +273,4 @@ RFC 4180 quoting, CRLF line ends. Exports accessor columns only, in their curren
 
 ## `meta.ledger`
 
-`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the editing controller (`cell` / `start` / `stop` / `clear` / `registerEditor`), filter-set subscriptions (`subscribeColumnFilters` / `subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), the shift-selection `selectionAnchor`, `totalRowCount`, `enableColumnOrdering`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
+`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the stable processed `columns` (the render layer's memo token — v9 re-resolves `table.options` per state tick), the editing controller (`cell` / `start` / `stop` / `clear` / `registerEditor`), filter-set subscriptions (`subscribeColumnFilters` / `subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), `enableColumnOrdering`, `enableColumnResizing`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.

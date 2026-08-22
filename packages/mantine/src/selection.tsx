@@ -1,10 +1,14 @@
-import type { Row, Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import type { MouseEvent } from "react";
+
+import type { Row, TableInstance } from "./types";
 
 /**
  * The injected selection column's header and body cells. Both stop propagation so selection
- * never triggers `onRowClick` (docs/rows.md); the body cell implements shift-range
- * selection against the anchor stored in `meta.ledger`.
+ * never triggers `onRowClick` (docs/rows.md). Shift-range selection is TanStack v9's own
+ * `getToggleSelectedHandler()` behavior (`enableRowRangeSelection`, on by default): an ordinary
+ * click sets the anchor, a Shift-click applies the display-order range, `getCanSelect()` rows
+ * excluded — the click event is handed to the handler so it can read the modifier.
  */
 import { Checkbox } from "@mantine/core";
 
@@ -15,7 +19,7 @@ function noop() {
   // needs an onChange to satisfy React's controlled-input contract.
 }
 
-export function SelectionHeaderCell<TData>({ table }: { table: Table<TData> }) {
+export function SelectionHeaderCell<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
   const { labels } = useDataTableContext();
 
   if (table.options.enableMultiRowSelection === false) {
@@ -24,6 +28,8 @@ export function SelectionHeaderCell<TData>({ table }: { table: Table<TData> }) {
 
   const scope = table.options.meta?.ledger?.selectAllScope ?? "all";
   const allSelected = scope === "page" ? table.getIsAllPageRowsSelected() : table.getIsAllRowsSelected();
+  // v9 semantics: "some" means "at least one" and stays true at full selection — the
+  // indeterminate glyph must therefore be gated on the matching all-selected check.
   const someSelected = scope === "page" ? table.getIsSomePageRowsSelected() : table.getIsSomeRowsSelected();
 
   const toggleAll = () => {
@@ -49,57 +55,23 @@ export function SelectionHeaderCell<TData>({ table }: { table: Table<TData> }) {
   );
 }
 
-export function SelectionCell<TData>({ row, table }: { row: Row<TData>; table: Table<TData> }) {
+export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> }) {
   const { labels } = useDataTableContext();
-  const anchor = table.options.meta?.ledger?.selectionAnchor;
-  const multiSelect = table.options.enableMultiRowSelection !== false;
-
-  const selectRange = (anchorId: string) => {
-    const { rows } = table.getRowModel();
-    const anchorIndex = rows.findIndex(candidate => candidate.id === anchorId);
-    const targetIndex = rows.findIndex(candidate => candidate.id === row.id);
-
-    if (anchorIndex === -1 || targetIndex === -1) {
-      return false;
-    }
-
-    const [from, to] = anchorIndex <= targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
-    const patch: Record<string, boolean> = {};
-
-    for (let index = from; index <= to; index += 1) {
-      const candidate = rows[index];
-
-      if (candidate?.getCanSelect()) {
-        patch[candidate.id] = true;
-      }
-    }
-
-    table.setRowSelection(previous => {
-      return { ...previous, ...patch };
-    });
-
-    return true;
-  };
+  const selected = row.getIsSelected();
 
   return (
     <Checkbox
       aria-label={labels.selectRow}
-      checked={row.getIsSelected()}
+      checked={selected}
       disabled={!row.getCanSelect()}
+      // Sub-row selection (escape hatch `enableSubRowSelection`): a parent with a partly
+      // selected subtree reads as indeterminate.
+      indeterminate={!selected && row.getIsSomeSelected()}
       size="xs"
       onChange={noop}
       onClick={(event: MouseEvent<HTMLInputElement>) => {
         event.stopPropagation();
-
-        if (multiSelect && event.shiftKey && anchor?.current && selectRange(anchor.current)) {
-          return;
-        }
-
-        row.toggleSelected();
-
-        if (anchor) {
-          anchor.current = row.id;
-        }
+        row.getToggleSelectedHandler()(event);
       }}
     />
   );

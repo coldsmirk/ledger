@@ -1,6 +1,8 @@
-import type { Cell, Row, Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent, ReactNode, RefObject } from "react";
+
+import type { Cell, Row, TableInstance } from "./types";
 
 /**
  * The body: display-row synthesis (detail panels become synthetic rows so every <tr> is exactly
@@ -30,11 +32,11 @@ export interface VirtualizationConfig {
   overscan: number;
 }
 
-export type DisplayRow<TData>
+export type DisplayRow<TData extends RowData>
   = | { kind: "data"; key: string; row: Row<TData>; dataIndex: number }
     | { kind: "detail"; key: string; row: Row<TData> };
 
-export function buildDisplayRows<TData>(rows: Array<Row<TData>>, withDetailPanels: boolean): Array<DisplayRow<TData>> {
+export function buildDisplayRows<TData extends RowData>(rows: Array<Row<TData>>, withDetailPanels: boolean): Array<DisplayRow<TData>> {
   const display: Array<DisplayRow<TData>> = [];
   let dataIndex = 0;
 
@@ -63,7 +65,7 @@ export function buildDisplayRows<TData>(rows: Array<Row<TData>>, withDetailPanel
 // Cells
 // ------------------------------------------------------------------------------------------------
 
-function cellTitle<TData>(cell: Cell<TData, unknown>): string | undefined {
+function cellTitle(cell: Cell<any, unknown>): string | undefined {
   const value = cell.getValue();
 
   return typeof value === "string" || typeof value === "number" ? String(value) : undefined;
@@ -72,7 +74,7 @@ function cellTitle<TData>(cell: Cell<TData, unknown>): string | undefined {
 /**
  * Grouped cell: expander, the grouped value, and the group size.
  */
-function GroupCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
+function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
   const { labels } = useDataTableContext();
   const { row } = cell;
   const expandedGroup = row.getIsExpanded();
@@ -107,7 +109,7 @@ function GroupCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
 /**
  * The checkbox edit variant never enters edit mode — toggling commits immediately (docs/editing.md).
  */
-function CheckboxCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
+function CheckboxCell({ cell }: { cell: Cell<any, unknown> }) {
   const { labels } = useDataTableContext();
   const { table } = cell.getContext();
   const ledger = table.options.meta?.ledger;
@@ -195,19 +197,19 @@ function CheckboxCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
   );
 }
 
-interface DataCellProps<TData> {
-  cell: Cell<TData, unknown>;
+interface DataCellProps {
+  cell: Cell<any, unknown>;
   editing: boolean;
   isFirstDataCell: boolean;
   depth: number;
 }
 
-function DataCell<TData>({
+function DataCell({
   cell,
   editing,
   isFirstDataCell,
   depth
-}: DataCellProps<TData>) {
+}: DataCellProps) {
   const { getStyles } = useDataTableContext();
   const { column, row } = cell;
   const { table } = cell.getContext();
@@ -290,8 +292,8 @@ function DataCell<TData>({
 // Rows
 // ------------------------------------------------------------------------------------------------
 
-interface DataRowProps<TData> {
-  row: Row<TData>;
+interface DataRowProps {
+  row: Row<any>;
   dataIndex: number;
   editingColumnId: string | null;
   selected: boolean;
@@ -314,7 +316,7 @@ interface DataRowProps<TData> {
   ariaRowIndex?: number;
 }
 
-function DataRowImpl<TData>({
+function DataRowImpl({
   row,
   dataIndex,
   editingColumnId,
@@ -326,7 +328,7 @@ function DataRowImpl<TData>({
   virtualIndex,
   measureRef,
   ariaRowIndex
-}: DataRowProps<TData>) {
+}: DataRowProps) {
   const {
     getStyles,
     onRowClick,
@@ -347,7 +349,7 @@ function DataRowImpl<TData>({
         ? { bottom: `${pinnedOffset ?? 0}px` }
         : undefined;
 
-  const handler = (callback?: (row: Row<TData>, event: MouseEvent) => void) => callback ? (event: MouseEvent) => callback(row, event) : undefined;
+  const handler = (callback?: (row: Row<any>, event: MouseEvent) => void) => callback ? (event: MouseEvent) => callback(row, event) : undefined;
 
   return (
     <MantineTable.Tr
@@ -382,8 +384,8 @@ function DataRowImpl<TData>({
 
 const DataRow = memo(DataRowImpl) as typeof DataRowImpl;
 
-interface DetailRowProps<TData> {
-  row: Row<TData>;
+interface DetailRowProps {
+  row: Row<any>;
   colSpan: number;
   pinnedPosition?: "top" | "bottom";
   pinnedOffset?: number;
@@ -392,7 +394,7 @@ interface DetailRowProps<TData> {
   ariaRowIndex?: number;
 }
 
-function DetailRow<TData>({
+function DetailRow({
   row,
   colSpan,
   pinnedPosition,
@@ -400,7 +402,7 @@ function DetailRow<TData>({
   virtualIndex,
   measureRef,
   ariaRowIndex
-}: DetailRowProps<TData>) {
+}: DetailRowProps) {
   const { table, getStyles } = useDataTableContext();
   const renderDetailPanel = table.options.meta?.ledger?.renderDetailPanel;
   const pinnedStyle
@@ -479,8 +481,8 @@ function LoaderRow({ colSpan, ariaRowIndex }: { colSpan: number; ariaRowIndex?: 
 // Body
 // ------------------------------------------------------------------------------------------------
 
-export interface TableBodyProps<TData> {
-  table: Table<TData>;
+export interface TableBodyProps {
+  table: TableInstance<any>;
   virtualization: VirtualizationConfig | null;
   viewportRef: RefObject<HTMLDivElement | null>;
   loading: boolean;
@@ -489,7 +491,7 @@ export interface TableBodyProps<TData> {
   onVirtualizerChange: (virtualizer: Virtualizer<HTMLDivElement, Element> | null) => void;
 }
 
-export function TableBody<TData>({
+export function TableBody({
   table,
   virtualization,
   viewportRef,
@@ -497,7 +499,7 @@ export function TableBody<TData>({
   loadingMore,
   skeletonRowCount,
   onVirtualizerChange
-}: TableBodyProps<TData>) {
+}: TableBodyProps) {
   const { getStyles } = useDataTableContext();
   const ledger = table.options.meta?.ledger;
 
@@ -539,13 +541,15 @@ export function TableBody<TData>({
   const renderVersion = useMemo(
     () => {
       return {
-        columns: table.options.columns,
+        // meta.ledger.columns, never options.columns: v9 re-resolves options per state tick,
+        // so the options-side identity would bust the row memo on every state change.
+        columns: ledger?.columns,
         editTrigger: ledger?.editTrigger,
         enableEditing: ledger?.enableEditing,
         onEditCommit: ledger?.onEditCommit
       };
     },
-    [table.options.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.onEditCommit]
+    [ledger?.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.onEditCommit]
   );
 
   if (loading && totalDisplayRowCount === 0) {
@@ -561,8 +565,8 @@ export function TableBody<TData>({
   }
 
   /* Memo-busting signatures: rows re-render when pinning or the visible column set changes. */
-  const pinning = table.getState().columnPinning;
-  const pinKey = JSON.stringify([pinning.left ?? [], pinning.right ?? []]);
+  const pinning = table.atoms.columnPinning.get();
+  const pinKey = JSON.stringify([pinning.start, pinning.end]);
   const columnsKey = JSON.stringify(table.getVisibleLeafColumns().map(column => column.id));
   const editingCell = ledger?.editing.cell ?? null;
 
@@ -575,7 +579,7 @@ export function TableBody<TData>({
   }
 
   const renderDisplayRow = (
-    displayRow: DisplayRow<TData>,
+    displayRow: DisplayRow<any>,
     options: DisplayRowRenderOptions
   ): ReactNode => {
     const zoneStart

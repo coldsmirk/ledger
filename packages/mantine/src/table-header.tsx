@@ -1,5 +1,7 @@
-import type { Header, Table } from "@tanstack/react-table";
+import type { RowData } from "@tanstack/react-table";
 import type { MouseEvent } from "react";
+
+import type { Header, TableInstance } from "./types";
 
 /**
  * The header: sortable labels (full-area button, shift for multi-sort, order badges), the
@@ -11,7 +13,7 @@ import type { MouseEvent } from "react";
 import { Table as MantineTable } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 
-import { isInternalColumn } from "./build-columns";
+import { columnEnableResizing, isInternalColumn } from "./build-columns";
 import { useDataTableContext } from "./context";
 import { FilterPopover } from "./filter-popover";
 import { IconChevronDown, IconChevronUp, IconSortable } from "./icons";
@@ -19,7 +21,7 @@ import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { useColumnReorder } from "./use-column-reorder";
 import { useColumnResize } from "./use-column-resize";
 
-export function TableHeader<TData>({ table }: { table: Table<TData> }) {
+export function TableHeader<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
   const {
     getStyles,
     virtualized,
@@ -44,14 +46,14 @@ export function TableHeader<TData>({ table }: { table: Table<TData> }) {
   );
 }
 
-interface HeaderCellProps<TData> {
+interface HeaderCellProps<TData extends RowData> {
   header: Header<TData, unknown>;
-  table: Table<TData>;
+  table: TableInstance<TData>;
   reorder: ReturnType<typeof useColumnReorder>;
   resize: ReturnType<typeof useColumnResize>;
 }
 
-function HeaderCell<TData>({
+function HeaderCell<TData extends RowData>({
   header,
   table,
   reorder,
@@ -64,9 +66,13 @@ function HeaderCell<TData>({
 
   const canSort = column.getCanSort();
   const sorted = column.getIsSorted();
-  const sortCount = table.getState().sorting.length;
+  const sortCount = table.atoms.sorting.get().length;
   const sortIndex = column.getSortIndex();
-  const canResize = column.getCanResize() && table.options.enableColumnResizing === true;
+  // Ledger's own gate: the TanStack `columnResizingFeature` (and its `getCanResize`) is
+  // deliberately unregistered — the drag pipeline is ledger's (docs/sizing.md).
+  const canResize
+    = table.options.meta?.ledger?.enableColumnResizing === true
+      && columnEnableResizing(column.columnDef) !== false;
   const resizing = resize.resizingId === column.id;
 
   const dragged = reorder.drag.draggedId === column.id;
