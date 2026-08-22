@@ -146,7 +146,7 @@ describe("DataTable", () => {
 
   it("replaces the trailing loader with the load-more error row and retries onEndReached", () => {
     const onEndReached = vi.fn();
-    render(
+    const { container } = render(
       <DataTable
         loadMoreError
         columns={columns}
@@ -157,7 +157,11 @@ describe("DataTable", () => {
       { wrapper }
     );
 
-    expect(screen.getByText("Couldn't load more rows")).toBeTruthy();
+    const alert = screen.getByRole("alert");
+
+    expect(alert.textContent).toBe("Couldn't load more rows");
+    // The alert rides inside the cell — announcing it must not cost the row its only cell.
+    expect(container.querySelector(":scope .ledger-loader-row [role=\"cell\"]")?.contains(alert)).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onEndReached).toHaveBeenCalledTimes(1);

@@ -575,8 +575,10 @@ function LoadMoreErrorRow({
 
   return (
     <MantineTable.Tr data-error aria-rowindex={ariaRowIndex} role="row" {...getStyles("loaderRow")}>
-      <MantineTable.Td colSpan={colSpan} role="alert">
-        <span>{message === true ? labels.loadMoreError : message}</span>
+      {/* The alert lives on the message, never on the cell: `role="alert"` would replace
+          `role="cell"` and leave the row with no cell in the accessibility tree. */}
+      <MantineTable.Td colSpan={colSpan} role="cell">
+        <span role="alert">{message === true ? labels.loadMoreError : message}</span>
 
         {onRetry && (
           <Button color="gray" size="compact-xs" variant="subtle" onClick={onRetry}>
