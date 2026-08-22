@@ -138,6 +138,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `emptyState` | `ReactNode` | Mantine `EmptyState`, `labels.empty` / `labels.noResults` | Overlaid and centered; no-results shows while filters are active |
 | `error` | `boolean \| ReactNode` | — | Error panel over the body; precedence over empty ([rows.md](rows.md#loading-empty-and-error-states)) |
 | `onRetry` | `() => void` | — | Adds the retry button to the error panel |
+| `withColumnHeaders` | `boolean` | `true` | Renders the header region ([columns.md](columns.md#hiding-the-header)) |
 | `withPaginationBar` | `boolean` | `true` | Renders only while pagination is enabled |
 | `pageSizeOptions` | `number[]` | `[10, 20, 50, 100]` | |
 | `onRowActivate` | `(row: Row<TData>, event: MouseEvent \| KeyboardEvent) => void` | — | Input-agnostic: click or `Enter` on the current row ([rows.md](rows.md)) |

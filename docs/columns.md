@@ -53,6 +53,13 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 
 `meta.truncate` clips to one line and resolves its `title` on hover, from the rendered text of the element itself — so a custom `cell` renderer's output is what you read, a non-string value still gets a readable tooltip, and text that fits gets no tooltip at all. Truncated **header** labels behave the same way, with no opt-in. Being a native `title`, it reaches pointer users; for a tooltip that survives keyboard and touch, render your own inside `cell` or attach it through `meta.cellProps` ([DOM props](styling.md#dom-props)).
 
+### Hiding the header
+
+`withColumnHeaders={false}` removes the header region entirely — for a compact list, a card-shaped table, a summary strip. Two consequences worth stating before you reach for it:
+
+- Everything that lives in the header goes with it: sort controls, filter popovers, resize handles, drag reordering. `DataTable.ColumnsPanel` still reaches width, order, visibility, pinning, and grouping, and sorting stays available through the `sorting` slice.
+- The columns no longer announce themselves, so the table needs a name of its own (`aria-label`) and cells that read on their own — see [accessibility.md](accessibility.md). ARIA row numbering adjusts automatically: with no header rows, the first body row is row 1.
+
 ## Width model
 
 Sized columns are fixed pixels; unsized columns grow to share the leftover viewport width. The full width contract (`tableMinWidth`, grow columns, why layout is always fixed) lives in [sizing.md](sizing.md).

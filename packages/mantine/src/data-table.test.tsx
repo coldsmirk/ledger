@@ -266,6 +266,24 @@ describe("DataTable", () => {
     expect(container.querySelectorAll("[data-selected]")).toHaveLength(0);
   });
 
+  it("drops the header region and its rows from the ARIA row numbering", () => {
+    const { container } = render(
+      <DataTable
+        virtualized
+        columns={columns}
+        data={people}
+        getRowId={getRowId}
+        withColumnHeaders={false}
+      />,
+      { wrapper }
+    );
+
+    expect(container.querySelector(":scope .ledger-header")).toBeNull();
+    expect(container.querySelectorAll(":scope .ledger-header-cell")).toHaveLength(0);
+    // No header rows to number past, so the count is the three body rows alone.
+    expect(screen.getByRole("table").getAttribute("aria-rowcount")).toBe("3");
+  });
+
   it("names every built-in control by what it acts on", () => {
     const named: Array<ColumnDef<Person, any>> = [
       {

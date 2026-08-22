@@ -196,6 +196,12 @@ export interface DataTableBaseProps<TData extends RowData>
   onRetry?: () => void;
 
   /* Chrome */
+  /**
+   * Renders the column header region. Turning it off takes the header's own affordances with
+   * it — sort controls, filter popovers, resize handles, drag reordering — so name the table
+   * some other way ([accessibility.md](../docs/accessibility.md)).
+   */
+  withColumnHeaders?: boolean;
   withPaginationBar?: boolean;
   pageSizeOptions?: number[];
 
@@ -280,6 +286,7 @@ const defaultProps = {
   endReachedOffset: 240,
   loadingMore: false,
   loading: false,
+  withColumnHeaders: true,
   withPaginationBar: true,
   pageSizeOptions: DEFAULT_PAGE_SIZE_OPTIONS
 } satisfies Partial<DataTableProps>;
@@ -489,6 +496,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     emptyState,
     error,
     onRetry,
+    withColumnHeaders,
     withPaginationBar,
     pageSizeOptions,
     onRowClick,
@@ -627,6 +635,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         labels,
         filterMode,
         virtualized: virtualEnabled,
+        withColumnHeaders: withColumnHeaders !== false,
         columnWidths: columnWidthsRef,
         onRowClick: contextRowClick,
         onRowActivate: contextRowActivate,
@@ -643,6 +652,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       labels,
       filterMode,
       virtualEnabled,
+      withColumnHeaders,
       contextRowClick,
       contextRowActivate,
       contextRowDoubleClick,
@@ -757,7 +767,8 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const headerViewportRef = useRef<HTMLDivElement | null>(null);
   const footerViewportRef = useRef<HTMLDivElement | null>(null);
   const hasFooter = tableHasFooter(table);
-  const headerRowCount = table.getHeaderGroups().length;
+  // No header region means no header rows — every aria-rowindex downstream counts from 0.
+  const headerRowCount = withColumnHeaders ? table.getHeaderGroups().length : 0;
   const withDetailPanels = Boolean(table.options.meta?.ledger?.renderDetailPanel);
   const rowPinningActive = table.options.enableRowPinning === true;
   const logicalDisplayRowCount
@@ -1112,12 +1123,14 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
           role="table"
           {...getStyles("main")}
         >
-          <div ref={headerViewportRef} {...getStyles("header")}>
-            <MantineTable {...sharedTableProps} {...tableStyleProps()}>
-              <colgroup>{colElements}</colgroup>
-              <TableHeader table={erasedTable} />
-            </MantineTable>
-          </div>
+          {withColumnHeaders && (
+            <div ref={headerViewportRef} {...getStyles("header")}>
+              <MantineTable {...sharedTableProps} {...tableStyleProps()}>
+                <colgroup>{colElements}</colgroup>
+                <TableHeader table={erasedTable} />
+              </MantineTable>
+            </div>
+          )}
 
           {/* overscroll-behavior: none — rubber-band overscroll translates the body past its
               clamped scroll position, which the mirrored header/footer can never follow; the

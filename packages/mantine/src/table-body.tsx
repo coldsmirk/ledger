@@ -617,7 +617,7 @@ export function TableBody({
   skeletonRowCount,
   onVirtualizerChange
 }: TableBodyProps) {
-  const { getStyles } = useDataTableContext();
+  const { getStyles, withColumnHeaders } = useDataTableContext();
   const ledger = table.options.meta?.ledger;
 
   const spanningDeclared = useMemo(() => hasSpanningColumns(ledger?.columns), [ledger?.columns]);
@@ -643,8 +643,8 @@ export function TableBody({
   const bottomDisplayRows = buildDisplayRows(bottomRows, withDetailPanels);
   const pinnedRowOffsets = usePinnedRowOffsets(topDisplayRows.length, bottomDisplayRows.length);
 
-  /* aria-rowindex numbers header rows first (docs/virtualization.md). */
-  const headerRowCount = table.getHeaderGroups().length;
+  /* aria-rowindex numbers header rows first (docs/virtualization.md) — none when they are off. */
+  const headerRowCount = withColumnHeaders ? table.getHeaderGroups().length : 0;
 
   const virtualizer = useVirtualizer({
     count: centerDisplayRows.length,

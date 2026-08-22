@@ -29,6 +29,10 @@ export interface DataTableContextValue {
    */
   virtualized: boolean;
   /**
+   * The header region renders — so header rows count toward every `aria-rowindex`.
+   */
+  withColumnHeaders: boolean;
+  /**
    * Engine-resolved column widths (docs/sizing.md), read at event time by resize drags.
    * A ref on purpose: width changes must never re-render every context consumer.
    */
