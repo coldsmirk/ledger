@@ -442,6 +442,31 @@ describe("DataTable", () => {
     expect(renderCell).toHaveBeenCalledTimes(rendersBeforeResize);
   });
 
+  it("keeps memoized data rows out of re-renders from inline row handler props", () => {
+    const renderCell = vi.fn((value: string) => value);
+    const measuredColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: context => renderCell(context.getValue())
+      }
+    ];
+
+    const view = render(
+      <DataTable columns={measuredColumns} data={people} getRowId={getRowId} onRowClick={() => undefined} />,
+      { wrapper }
+    );
+    const rendersBeforeRerender = renderCell.mock.calls.length;
+
+    // A fresh arrow per render is the common consumer shape — the context depends on the
+    // handler's existence, and the stable wrapper absorbs the identity churn.
+    view.rerender(
+      <DataTable columns={measuredColumns} data={people} getRowId={getRowId} onRowClick={() => undefined} />
+    );
+
+    expect(renderCell).toHaveBeenCalledTimes(rendersBeforeRerender);
+  });
+
   it("invalidates column geometry and rows when delimiter-bearing visible ids change", () => {
     const handle = createRef<DataTableHandle<Person>>();
     const collisionColumns: Array<ColumnDef<Person, any>> = [

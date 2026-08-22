@@ -511,6 +511,18 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const rowDoubleClickStable = useEventCallback(onRowDoubleClick);
   const rowContextMenuStable = useEventCallback(onRowContextMenu);
 
+  // The context depends on each handler's EXISTENCE, never its identity — the stable wrappers
+  // absorb per-render inline arrows, so a fresh `onRowClick` prop must not rebuild the context
+  // value (and with it every memoized row). `rowClassName` stays raw below: its return value
+  // feeds the render, so identity is its honest dependency.
+  const contextRowClick = onRowClick ? (rowClickStable as DataTableContextValue["onRowClick"]) : undefined;
+  const contextRowDoubleClick = onRowDoubleClick
+    ? (rowDoubleClickStable as DataTableContextValue["onRowDoubleClick"])
+    : undefined;
+  const contextRowContextMenu = onRowContextMenu
+    ? (rowContextMenuStable as DataTableContextValue["onRowContextMenu"])
+    : undefined;
+
   const filterMode: "client" | "server" = table.options.manualFiltering ? "server" : "client";
 
   /* The documented single TData erasure (context.ts) — the render layer below is `any`-bound. */
@@ -534,13 +546,9 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         filterMode,
         virtualized: virtualEnabled,
         columnWidths: columnWidthsRef,
-        onRowClick: onRowClick ? (rowClickStable as DataTableContextValue["onRowClick"]) : undefined,
-        onRowDoubleClick: onRowDoubleClick
-          ? (rowDoubleClickStable as DataTableContextValue["onRowDoubleClick"])
-          : undefined,
-        onRowContextMenu: onRowContextMenu
-          ? (rowContextMenuStable as DataTableContextValue["onRowContextMenu"])
-          : undefined,
+        onRowClick: contextRowClick,
+        onRowDoubleClick: contextRowDoubleClick,
+        onRowContextMenu: contextRowContextMenu,
         rowClassName: rowClassName as DataTableContextValue["rowClassName"]
       };
     },
@@ -549,12 +557,9 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       labels,
       filterMode,
       virtualEnabled,
-      onRowClick,
-      onRowDoubleClick,
-      onRowContextMenu,
-      rowClickStable,
-      rowDoubleClickStable,
-      rowContextMenuStable,
+      contextRowClick,
+      contextRowDoubleClick,
+      contextRowContextMenu,
       rowClassName
     ]
   );
