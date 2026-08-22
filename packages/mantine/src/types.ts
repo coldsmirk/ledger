@@ -201,6 +201,12 @@ export interface UseDataTableOptions<TData extends RowData> {
   enableEditing?: boolean;
   enableGrouping?: boolean;
   enableRowPinning?: boolean;
+  /**
+   * Cells may merge via the defs' `spanRows` / `spanColumns` (TanStack v9
+   * `cellSpanningFeature`). On by default; spanning is ignored while `virtualized` — a merged
+   * cell breaks the one-`<tr>`-per-virtual-item invariant.
+   */
+  enableCellSpanning?: boolean;
 
   /* Hierarchy / master–detail */
   getSubRows?: (originalRow: TData) => TData[] | undefined;

@@ -70,6 +70,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | `enableActiveRow` | `false` (ledger-owned; keyboard-reachable current row) | [rows.md](rows.md#active-row) |
 | `enableGrouping` | `false` | [grouping.md](grouping.md) |
 | `enableRowPinning` | `false` | [pinning.md](pinning.md) |
+| `enableCellSpanning` | `true` — defs opt in via `spanRows` / `spanColumns`; ignored while `virtualized` | [columns.md](columns.md#merged-cells) |
 
 ### Hierarchy and master–detail
 

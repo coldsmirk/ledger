@@ -2,7 +2,7 @@ import type { RowData } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent, ReactNode, RefObject } from "react";
 
-import type { Cell, Row, TableInstance } from "./types";
+import type { Cell, ColumnDef, Row, TableInstance } from "./types";
 
 /**
  * The body: display-row synthesis (detail panels become synthetic rows so every <tr> is exactly
@@ -19,6 +19,7 @@ import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor } from "./cell-editor";
 import { useDataTableContext } from "./context";
+import { warnOnce } from "./env";
 import { IconChevronRight } from "./icons";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { usePinnedRowOffsets } from "./use-pinned-row-offsets";
@@ -35,6 +36,20 @@ export interface VirtualizationConfig {
 export type DisplayRow<TData extends RowData>
   = | { kind: "data"; key: string; row: Row<TData>; dataIndex: number }
     | { kind: "detail"; key: string; row: Row<TData> };
+
+/**
+ * Whether any leaf definition declares a merge — the gate that keeps span-index reads (and the
+ * per-row span signature) entirely out of tables that never span.
+ */
+function hasSpanningColumns(columns: Array<ColumnDef<any, any>> | undefined): boolean {
+  if (!columns) {
+    return false;
+  }
+
+  return columns.some(column => "columns" in column && Array.isArray(column.columns)
+    ? hasSpanningColumns(column.columns)
+    : column.spanRows !== undefined || column.spanColumns !== undefined);
+}
 
 export function buildDisplayRows<TData extends RowData>(rows: Array<Row<TData>>, withDetailPanels: boolean): Array<DisplayRow<TData>> {
   const display: Array<DisplayRow<TData>> = [];
@@ -202,13 +217,20 @@ interface DataCellProps {
   editing: boolean;
   isFirstDataCell: boolean;
   depth: number;
+  /**
+   * Merged-cell extents (1 = no span); covered cells are skipped by the row, never rendered.
+   */
+  rowSpan: number;
+  colSpan: number;
 }
 
 function DataCell({
   cell,
   editing,
   isFirstDataCell,
-  depth
+  depth,
+  rowSpan,
+  colSpan
 }: DataCellProps) {
   const { getStyles } = useDataTableContext();
   const { column, row } = cell;
@@ -273,6 +295,9 @@ function DataCell({
 
   return (
     <MantineTable.Td
+      aria-colspan={colSpan > 1 ? colSpan : undefined}
+      aria-rowspan={rowSpan > 1 ? rowSpan : undefined}
+      colSpan={colSpan > 1 ? colSpan : undefined}
       data-align={meta?.align}
       data-editable={editable || undefined}
       data-editing={editing || undefined}
@@ -280,6 +305,7 @@ function DataCell({
       data-pinned={column.getIsPinned() || undefined}
       data-pinned-edge={pinnedEdge(column)}
       role="cell"
+      rowSpan={rowSpan > 1 ? rowSpan : undefined}
       onClick={ledger?.editTrigger === "click" ? startEditing : undefined}
       onDoubleClick={ledger?.editTrigger === "double-click" ? startEditing : undefined}
       {...getStyles(selector, { className: cellClassName, style: pinnedCellStyle(column) })}
@@ -304,6 +330,15 @@ interface DataRowProps {
   pinKey: string;
   columnsKey: string;
   /**
+   * Merged cells active for this table (never under virtualization).
+   */
+  spanning: boolean;
+  /**
+   * Per-row span signature — spans depend on NEIGHBOR rows, which this row's own props cannot
+   * see, so the signature busts the memo when an adjacent change reshapes the merge.
+   */
+  spanKey: string;
+  /**
    * Stable memo token for column definitions and editing behavior that cells read indirectly
    * through the stable TanStack table instance.
    */
@@ -326,6 +361,7 @@ function DataRowImpl({
   active,
   expanded,
   depth,
+  spanning,
   pinnedPosition,
   pinnedOffset,
   virtualIndex,
@@ -387,15 +423,23 @@ function DataRowImpl({
       onDoubleClick={handler(onRowDoubleClick)}
       {...getStyles("row", { className: resolvedRowClassName, style: pinnedStyle })}
     >
-      {cells.map((cell, index) => (
-        <DataCell
-          key={cell.id}
-          cell={cell}
-          depth={depth}
-          editing={editingColumnId === cell.column.id}
-          isFirstDataCell={index === firstDataCellIndex}
-        />
-      ))}
+      {cells.map((cell, index) => {
+        if (spanning && cell.getIsCovered()) {
+          return null;
+        }
+
+        return (
+          <DataCell
+            key={cell.id}
+            cell={cell}
+            colSpan={spanning ? cell.getColSpan() : 1}
+            depth={depth}
+            editing={editingColumnId === cell.column.id}
+            isFirstDataCell={index === firstDataCellIndex}
+            rowSpan={spanning ? cell.getRowSpan() : 1}
+          />
+        );
+      })}
     </MantineTable.Tr>
   );
 }
@@ -553,6 +597,16 @@ export function TableBody({
   const { getStyles } = useDataTableContext();
   const ledger = table.options.meta?.ledger;
 
+  const spanningDeclared = useMemo(() => hasSpanningColumns(ledger?.columns), [ledger?.columns]);
+  const spanningActive = spanningDeclared && virtualization === null && table.options.enableCellSpanning !== false;
+
+  if (spanningDeclared && virtualization !== null) {
+    warnOnce(
+      "spanning-virtualized",
+      "spanRows/spanColumns are ignored while virtualized — a merged cell breaks the one-<tr>-per-virtual-item invariant."
+    );
+  }
+
   const withDetailPanels = Boolean(ledger?.renderDetailPanel);
   const rowPinningActive = table.options.enableRowPinning === true;
   const topRows = rowPinningActive ? table.getTopRows() : [];
@@ -657,6 +711,11 @@ export function TableBody({
     }
 
     const { row, dataIndex } = displayRow;
+    const spanKey = spanningActive
+      ? row.getVisibleCells()
+          .map(cell => cell.getIsCovered() ? "x" : `${cell.getRowSpan()}:${cell.getColSpan()}`)
+          .join(" ")
+      : "";
 
     return (
       <DataRow
@@ -675,6 +734,8 @@ export function TableBody({
         renderVersion={renderVersion}
         row={row}
         selected={row.getIsSelected()}
+        spanKey={spanKey}
+        spanning={spanningActive}
         virtualIndex={options.virtualIndex}
       />
     );

@@ -290,6 +290,7 @@ const OPTION_KEYS = [
   "enableEditing",
   "enableGrouping",
   "enableRowPinning",
+  "enableCellSpanning",
   "getSubRows",
   "renderDetailPanel",
   "sortingMode",

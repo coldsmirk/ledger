@@ -92,6 +92,27 @@ helper.accessor("age",     { header: "Age",     meta: { hiddenFrom: "sm" } }),
 
 An off-breakpoint column is removed from the definitions before TanStack sees them, so the width engine redistributes, the colgroup follows, and the columns panel lists only what the viewport can show. Column state keyed by id — `columnVisibility`, ordering, persisted layout — is untouched and reapplies when the column returns. Where `matchMedia` does not exist (SSR first paint, some test environments) every column stays visible.
 
+## Merged cells
+
+Cell spanning is TanStack v9's `cellSpanningFeature`, registered on the canonical set — the switches live on the raw defs, no ledger DSL:
+
+```tsx
+helper.accessor("dept", {
+  header: "Department",
+  spanRows: true                        // adjacent equal values merge vertically
+}),
+helper.accessor("note", {
+  spanColumns: ({ row }) => row.original.isSummary ? Infinity : 1   // per-row colspan
+}),
+```
+
+- `spanRows: true` merges adjacent rows whose values are `Object.is`-equal (nullish never merges); a predicate `({ anchorRow, row, … }) => boolean` replaces the comparison. Spans recompute from the rows actually rendered, so sorting/filtering/paging only change adjacency; runs never cross a page, a pinned-row section, a tree depth change, or a grouped row.
+- `spanColumns` returns the column count (clamped to the cell's pinned region; `Infinity` = the rest of the region).
+- ledger renders real `rowSpan`/`colSpan` attributes (plus `aria-rowspan`/`aria-colspan`) and skips covered cells — the real-`<table>` architecture gets merging natively.
+- `enableCellSpanning` (default `true`) switches the whole mechanism off.
+- **Spanning is ignored while `virtualized`** (with a dev warning): a merged cell would break the one-`<tr>`-per-virtual-item invariant the spacer-row virtualization is built on.
+- A row-spanning cell paints one background across its run, so `striped` reads oddly next to merges — report-style spanning tables usually run with row borders instead.
+
 ## The columns panel
 
 `<DataTable.ColumnsPanel table={table} />` is the single surface for every column-layout decision. One row per leaf column, in the table's display order, each control appearing only when the column can actually do it:

@@ -105,6 +105,7 @@ Decisions that shaped the surface, in the order they were made. Dates are build 
 - **attw config** (`.attw.json`): the `styles.css` entrypoint is excluded (a stylesheet has no types) and the profile is `node16` — with `engines.node >= 24`, node10 subpath resolution is out of contract for `./locales`.
 - **`toCsv` gained opt-in `escapeFormulas`** (2026-08-22): OWASP CSV-injection defusal — a `'` prefix on formula-leading header text and string cells. Naming precedent is PapaParse's `escapeFormulae`, respelled with Excel's own plural; off by default because the quote is data to every non-spreadsheet consumer.
 - **Resizer double-click now autosizes instead of resetting** (2026-08-22): fit-to-rendered-content is the industry meaning of the gesture (MUI, AG Grid); the definition-width reset stays reachable through the columns panel. Under virtualization only the rendered window is measured — the same boundary MUI documents.
+- **Cell spanning registered, mutually exclusive with virtualization** (2026-08-22, closing the deferred design round): the v9 feature's switches ride the raw defs (no ledger DSL), ledger renders native `rowSpan`/`colSpan` and skips covered cells. Under `virtualized` spans are ignored with a dev warning — a merged cell breaks the one-`<tr>`-per-virtual-item invariant, and report-style merged tables are not the 50k-row scenario. Rows carry a per-row span signature so neighbor-driven merge changes bust the row memo.
 
 **Interactive browser pass (2026-07-16, playwright-driven, every demo).** Three defects, each fixed at the root with a regression test where jsdom can express it:
 
@@ -206,7 +207,7 @@ Audit question: *is every TanStack Table capability accounted for?* (Originally 
 | `mergeOptions`, debug options, `renderFallbackValue` | Escape hatch (`tableOptions`). *`mergeOptions` recorded by the 2026-08-21 re-audit.* |
 | Rendering: `flexRender`, `FlexRender` / `table.FlexRender` | `flexRender` re-exported; the component forms remain reachable on the instance |
 | Cell selection (`cellSelectionFeature`, new in v9) | **Deferred — needs a design round** (now available in core; unregistered until then) |
-| Cell spanning (`cellSpanningFeature`, new in v9) | **Deferred — needs a design round** (now available in core; unregistered until then) |
+| Cell spanning (`cellSpanningFeature`, new in v9) | First-class — registered; `spanRows`/`spanColumns` on raw defs, real `rowSpan`/`colSpan` markup; mutually exclusive with virtualization (2026-08-22 design round) |
 | Virtualization (TanStack Virtual — separate library) | Row virtualization first-class (spacer rows, adaptive viewport); **column virtualization deferred — needs a design round** |
 
 Net-new obligations the original audit added to the design: the auto-reset policy, the `tableOptions` collision warning, `enableSubRowSelection` recorded as escape-hatch, the expand-all affordance, and row pinning's disposition. The 2026-08-21 re-audit added the previously unrecorded `enableFilters` / `manualGrouping` / `manualExpanding` / `mergeOptions` dispositions and retired the stale `columnResizeMode` managed-key claim in state.md.

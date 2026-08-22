@@ -28,6 +28,7 @@ import {
   aggregationFn_sum,
   aggregationFn_unique,
   aggregationFn_uniqueCount,
+  cellSpanningFeature,
   columnFacetingFeature,
   columnFilteringFeature,
   columnGroupingFeature,
@@ -110,6 +111,7 @@ const builtInFilterFns = {
 };
 
 export const ledgerFeatures = tableFeatures({
+  cellSpanningFeature,
   columnFacetingFeature,
   columnFilteringFeature,
   columnGroupingFeature,
