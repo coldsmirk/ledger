@@ -108,6 +108,61 @@ describe("DataTable", () => {
     expect(document.querySelectorAll(".ledger-tbody .ledger-row").length).toBeGreaterThan(0);
   });
 
+  it("shows no-results instead of no-data while a filter is active", () => {
+    const filtered = render(
+      <DataTable
+        enableGlobalFilter
+        columns={columns}
+        data={people}
+        defaultGlobalFilter="zzz-no-match"
+        getRowId={getRowId}
+      />,
+      { wrapper }
+    );
+
+    expect(screen.getByText("No matching records")).toBeTruthy();
+    filtered.unmount();
+
+    render(<DataTable columns={columns} data={[]} getRowId={getRowId} />, { wrapper });
+
+    expect(screen.getByText("No data")).toBeTruthy();
+  });
+
+  it("renders the error panel over stale rows and wires the retry button", () => {
+    const onRetry = vi.fn();
+    const { container } = render(
+      <DataTable error columns={columns} data={people} getRowId={getRowId} onRetry={onRetry} />,
+      { wrapper }
+    );
+
+    expect(screen.getByText("Couldn't load data")).toBeTruthy();
+    // Stale rows stay mounted beneath the scrim.
+    expect(container.querySelectorAll(":scope .ledger-tbody .ledger-row")).toHaveLength(3);
+    expect(container.querySelector(":scope .ledger-empty[data-variant=\"error\"][data-over-rows]")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("replaces the trailing loader with the load-more error row and retries onEndReached", () => {
+    const onEndReached = vi.fn();
+    render(
+      <DataTable
+        loadMoreError
+        columns={columns}
+        data={people}
+        getRowId={getRowId}
+        onEndReached={onEndReached}
+      />,
+      { wrapper }
+    );
+
+    expect(screen.getByText("Couldn't load more rows")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onEndReached).toHaveBeenCalledTimes(1);
+  });
+
   it("fires onRowClick with the row, but not from the selection checkbox", () => {
     const onRowClick = vi.fn();
     const { container } = render(

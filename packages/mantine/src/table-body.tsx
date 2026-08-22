@@ -11,7 +11,7 @@ import type { Cell, Row, TableInstance } from "./types";
  * explicit volatile props — resizing never re-renders them (widths and pinned offsets are CSS
  * variables).
  */
-import { ActionIcon, Loader, Table as MantineTable, Skeleton } from "@mantine/core";
+import { ActionIcon, Button, Loader, Table as MantineTable, Skeleton } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -477,6 +477,34 @@ function LoaderRow({ colSpan, ariaRowIndex }: { colSpan: number; ariaRowIndex?: 
   );
 }
 
+function LoadMoreErrorRow({
+  colSpan,
+  message,
+  ariaRowIndex,
+  onRetry
+}: {
+  colSpan: number;
+  message: ReactNode;
+  ariaRowIndex?: number;
+  onRetry?: () => void;
+}) {
+  const { getStyles, labels } = useDataTableContext();
+
+  return (
+    <MantineTable.Tr data-error aria-rowindex={ariaRowIndex} role="row" {...getStyles("loaderRow")}>
+      <MantineTable.Td colSpan={colSpan} role="alert">
+        <span>{message === true ? labels.loadMoreError : message}</span>
+
+        {onRetry && (
+          <Button color="gray" size="compact-xs" variant="subtle" onClick={onRetry}>
+            {labels.retry}
+          </Button>
+        )}
+      </MantineTable.Td>
+    </MantineTable.Tr>
+  );
+}
+
 // ------------------------------------------------------------------------------------------------
 // Body
 // ------------------------------------------------------------------------------------------------
@@ -487,6 +515,8 @@ export interface TableBodyProps {
   viewportRef: RefObject<HTMLDivElement | null>;
   loading: boolean;
   loadingMore: boolean;
+  loadMoreError: boolean | ReactNode;
+  onLoadMoreRetry?: () => void;
   skeletonRowCount: number;
   onVirtualizerChange: (virtualizer: Virtualizer<HTMLDivElement, Element> | null) => void;
 }
@@ -497,6 +527,8 @@ export function TableBody({
   viewportRef,
   loading,
   loadingMore,
+  loadMoreError,
+  onLoadMoreRetry,
   skeletonRowCount,
   onVirtualizerChange
 }: TableBodyProps) {
@@ -678,12 +710,21 @@ export function TableBody({
         pinnedPosition: "bottom"
       }))}
 
-      {loadingMore && (
-        <LoaderRow
-          ariaRowIndex={virtualEnabled ? headerRowCount + totalDisplayRowCount + 1 : undefined}
-          colSpan={leafColumnCount}
-        />
-      )}
+      {loadMoreError
+        ? (
+            <LoadMoreErrorRow
+              ariaRowIndex={virtualEnabled ? headerRowCount + totalDisplayRowCount + 1 : undefined}
+              colSpan={leafColumnCount}
+              message={loadMoreError}
+              onRetry={onLoadMoreRetry}
+            />
+          )
+        : loadingMore && (
+          <LoaderRow
+            ariaRowIndex={virtualEnabled ? headerRowCount + totalDisplayRowCount + 1 : undefined}
+            colSpan={leafColumnCount}
+          />
+        )}
     </MantineTable.Tbody>
   );
 }

@@ -48,7 +48,11 @@ export const zhCN: DataTableLabels = {
 
   loading: "加载中",
   empty: "暂无数据",
+  noResults: "没有匹配的记录",
   loadingMore: "加载更多",
+  error: "数据加载失败",
+  retry: "重试",
+  loadMoreError: "加载更多失败",
 
   editPending: "保存中"
 };

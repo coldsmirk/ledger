@@ -40,6 +40,16 @@ export function IconInbox(props: IconProps) {
   );
 }
 
+export function IconAlertTriangle(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8 2.5 1.9 13a.6.6 0 0 0 .52.9h11.16a.6.6 0 0 0 .52-.9z" />
+      <path d="M8 6.5v3.2" />
+      <path d="M8 12h.01" />
+    </Icon>
+  );
+}
+
 export function IconChevronUp(props: IconProps) {
   return (
     <Icon {...props}>

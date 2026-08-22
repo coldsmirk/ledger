@@ -62,7 +62,15 @@ export interface DataTableLabels {
   /* States */
   loading: string;
   empty: string;
+  /**
+   * Zero rows while a column filter or the global search is active — a different situation
+   * than an empty data set, so it gets its own message.
+   */
+  noResults: string;
   loadingMore: string;
+  error: string;
+  retry: string;
+  loadMoreError: string;
 
   /* Editing */
   editPending: string;
@@ -107,7 +115,11 @@ export const defaultLabels: DataTableLabels = {
 
   loading: "Loading",
   empty: "No data",
+  noResults: "No matching records",
   loadingMore: "Loading more",
+  error: "Couldn't load data",
+  retry: "Retry",
+  loadMoreError: "Couldn't load more rows",
 
   editPending: "Saving"
 };

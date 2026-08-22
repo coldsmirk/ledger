@@ -55,9 +55,10 @@
     min-height: 0;
   }
 
-  /* An empty body has no rows to give the region height — keep a readable floor under
-     indefinite parents; the overlaid empty block itself adds none. */
-  .ledger-root[data-empty] .ledger-scroller {
+  /* An empty (or errored-out) body has no rows to give the region height — keep a readable
+     floor under indefinite parents; the overlaid state block itself adds none. */
+  .ledger-root[data-empty] .ledger-scroller,
+  .ledger-root[data-error] .ledger-scroller {
     min-height: 16rem;
   }
 
@@ -445,6 +446,19 @@
     padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
   }
 
+  /* The error panel keeps the quiet disc but tints it with the light error pair, both
+     color-scheme-adaptive. */
+  .ledger-empty[data-variant="error"] {
+    --empty-state-indicator-bg: var(--mantine-color-red-light);
+    --empty-state-indicator-color: var(--mantine-color-red-light-color);
+  }
+
+  /* Error over stale rows: a body-tinted scrim keeps the rows legible but clearly inert. */
+  .ledger-empty[data-over-rows] {
+    z-index: 2;
+    background-color: color-mix(in srgb, var(--mantine-color-body) 78%, transparent);
+  }
+
   .ledger-loader-row td {
     padding-block: var(--mantine-spacing-sm);
     color: var(--mantine-color-dimmed);
@@ -455,6 +469,12 @@
   .ledger-loader-row td > span {
     margin-inline-start: 8px;
     font-size: var(--mantine-font-size-sm);
+  }
+
+  /* The load-more error row swaps the loader for a message + retry; no loader precedes the
+     text, so the loader gap moves to its trailing side. */
+  .ledger-loader-row[data-error] td > span {
+    margin-inline: 0 4px;
   }
 
   .ledger-pagination-bar {

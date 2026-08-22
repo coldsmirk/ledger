@@ -128,8 +128,11 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `onEndReached` | `() => void` | — | Deduped per data length |
 | `endReachedOffset` | `number` | `240` | px before the bottom |
 | `loadingMore` | `boolean` | `false` | Trailing loader row |
+| `loadMoreError` | `boolean \| ReactNode` | — | Replaces the loader row with a message + retry ([rows.md](rows.md#loading-empty-and-error-states)) |
 | `loading` | `boolean` | `false` | Skeletons (no rows) or overlay (rows present) |
-| `emptyState` | `ReactNode` | Mantine `EmptyState` titled `labels.empty` | Overlaid and centered in the visible body region |
+| `emptyState` | `ReactNode` | Mantine `EmptyState`, `labels.empty` / `labels.noResults` | Overlaid and centered; no-results shows while filters are active |
+| `error` | `boolean \| ReactNode` | — | Error panel over the body; precedence over empty ([rows.md](rows.md#loading-empty-and-error-states)) |
+| `onRetry` | `() => void` | — | Adds the retry button to the error panel |
 | `withPaginationBar` | `boolean` | `true` | Renders only while pagination is enabled |
 | `pageSizeOptions` | `number[]` | `[10, 20, 50, 100]` | |
 | `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | [rows.md](rows.md) |

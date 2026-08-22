@@ -31,6 +31,7 @@ import type {
  */
 import {
   Box,
+  Button,
   createVarsResolver,
   EmptyState,
   genericFactory,
@@ -46,7 +47,7 @@ import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState 
 import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
 import { warnOnce } from "./env";
-import { IconInbox } from "./icons";
+import { IconAlertTriangle, IconInbox, IconSearch } from "./icons";
 import { resolveLabels } from "./labels";
 import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from "./pagination-bar";
 import { DataTableSearch } from "./search";
@@ -169,10 +170,24 @@ export interface DataTableBaseProps<TData extends RowData>
   onEndReached?: () => void;
   endReachedOffset?: number;
   loadingMore?: boolean;
+  /**
+   * The last `onEndReached` load failed — replaces the trailing loader row with the message
+   * (`true` uses `labels.loadMoreError`) and a retry button that fires `onEndReached` again.
+   */
+  loadMoreError?: boolean | ReactNode;
 
   /* State presentation */
   loading?: boolean;
   emptyState?: ReactNode;
+  /**
+   * Loading the data failed — shows an error panel over the body (`true` uses `labels.error`;
+   * a node replaces the message). Takes precedence over the empty state.
+   */
+  error?: boolean | ReactNode;
+  /**
+   * Renders a retry button in the error panel.
+   */
+  onRetry?: () => void;
 
   /* Chrome */
   withPaginationBar?: boolean;
@@ -421,8 +436,11 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     onEndReached,
     endReachedOffset,
     loadingMore,
+    loadMoreError,
     loading,
     emptyState,
+    error,
+    onRetry,
     withPaginationBar,
     pageSizeOptions,
     onRowClick,
@@ -602,7 +620,10 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
 
   /* ---- data flags ---- */
   const rowsLength = table.getRowModel().rows.length;
-  const isEmpty = !loading && rowsLength === 0;
+  const errorActive = Boolean(error) && !loading;
+  const isEmpty = !loading && !errorActive && rowsLength === 0;
+  // Zero rows with an active filter is "nothing matched", not "no data" — a different message.
+  const filtersActive = tableState.columnFilters.length > 0 || tableState.globalFilter !== "";
   const paginationEnabled = table.options.meta?.ledger?.enablePagination === true;
   const skeletonRowCount = Math.min(Math.max(tableState.pagination.pageSize, 3), 12);
   const dataLength = table.options.data.length;
@@ -638,6 +659,12 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     return () => cancelAnimationFrame(frame);
   }, [dataLength, viewport, maybeFireEndReached]);
 
+  // Retry re-arms the once-per-data-length guard — the failed attempt consumed it.
+  const retryLoadMore = useEventCallback(() => {
+    lastEndReachedLength.current = -1;
+    onEndReached?.();
+  });
+
   /* ---- pinned-edge shadows ---- */
   const [scrollEdges, setScrollEdges] = useState({ start: false, end: false });
 
@@ -671,7 +698,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const bodyAriaRowCount
     = loading && logicalDisplayRowCount === 0
       ? skeletonRowCount
-      : logicalDisplayRowCount + (loadingMore ? 1 : 0);
+      : logicalDisplayRowCount + (loadMoreError || loadingMore ? 1 : 0);
   const footerRowCount = hasFooter ? table.getFooterGroups().length : 0;
   const ariaRowCount = headerRowCount + bodyAriaRowCount + footerRowCount;
   const footerAriaRowIndexStart = headerRowCount + bodyAriaRowCount + 1;
@@ -853,6 +880,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         ref={rootRef}
         aria-busy={loading || undefined}
         data-empty={isEmpty || undefined}
+        data-error={errorActive || undefined}
         data-highlight-on-hover={highlightOnHover || undefined}
         data-loading={loading || undefined}
         data-scrolled-end={scrollEdges.end || undefined}
@@ -901,27 +929,54 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
               <TableBody
                 loading={loading === true}
                 loadingMore={loadingMore === true}
+                loadMoreError={loadMoreError ?? false}
                 skeletonRowCount={skeletonRowCount}
                 table={erasedTable}
                 viewportRef={viewportRef}
                 virtualization={virtualization}
+                onLoadMoreRetry={onEndReached ? retryLoadMore : undefined}
                 onVirtualizerChange={handleVirtualizerChange}
               />
             </MantineTable>
 
             {isEmpty && (
-              <div {...getStyles("empty")}>
+              <div {...getStyles("empty")} data-variant={filtersActive ? "no-results" : "no-data"}>
                 {emptyState ?? (
                   <EmptyState
                     withIndicatorBackground
-                    // The indicator forces the svg to 1em (40px at `sm`), so the stroke is set for
-                    // that scale — the Icon default (1.5, drawn for 16px glyphs) turns chunky here.
-                    icon={<IconInbox size={40} strokeWidth={1} />}
                     size="sm"
                     styles={EMPTY_STATE_STYLES}
-                    title={labels.empty}
+                    title={filtersActive ? labels.noResults : labels.empty}
+                    // The indicator forces the svg to 1em (40px at `sm`), so the stroke is set for
+                    // that scale — the Icon default (1.5, drawn for 16px glyphs) turns chunky here.
+                    icon={filtersActive
+                      ? <IconSearch size={40} strokeWidth={1} />
+                      : <IconInbox size={40} strokeWidth={1} />}
                   />
                 )}
+              </div>
+            )}
+
+            {errorActive && (
+              <div
+                {...getStyles("empty")}
+                data-over-rows={rowsLength > 0 || undefined}
+                data-variant="error"
+                role="alert"
+              >
+                <EmptyState
+                  withIndicatorBackground
+                  icon={<IconAlertTriangle size={40} strokeWidth={1} />}
+                  size="sm"
+                  styles={EMPTY_STATE_STYLES}
+                  title={error === true ? labels.error : error}
+                >
+                  {onRetry && (
+                    <Button size="xs" variant="light" onClick={onRetry}>
+                      {labels.retry}
+                    </Button>
+                  )}
+                </EmptyState>
               </div>
             )}
           </ScrollArea>

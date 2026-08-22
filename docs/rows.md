@@ -50,21 +50,27 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 - Expansion rides the same `expanded` trio as detail panels. `renderDetailPanel` and `getSubRows` can coexist — the expander is shared and an expanded row shows both its children and its panel.
 - Sorting and filtering apply TanStack's default tree semantics; the deep-tuning knobs (`filterFromLeafRows`, `maxLeafRowFilterDepth`, `paginateExpandedRows`, `enableSubRowSelection`) pass through `tableOptions` ([state.md](state.md)).
 
-## Loading and empty states
+## Loading, empty, and error states
 
 | Prop | Presentation |
 | --- | --- |
 | `loading` with **no rows yet** | Skeleton rows (count follows the page size, clamped to 3–12) |
 | `loading` with rows present | A blurring `LoadingOverlay` above the current rows — the data stays visible during refetches |
 | `loadingMore` | A trailing loader row under the last data row ([virtualization.md](virtualization.md)) |
-| Zero rows and not loading | The `emptyState` node — or the default Mantine `EmptyState` (inbox icon + `labels.empty`) — overlaid and centered in the visible body region (`data-empty` on the root gives the region a 16rem floor under indefinite parents) |
+| `loadMoreError` | Replaces the trailing loader row with the message (`true` uses `labels.loadMoreError`; a node replaces it) plus a retry button that fires `onEndReached` again |
+| Zero rows and not loading | The `emptyState` node — or the default Mantine `EmptyState` — overlaid and centered in the visible body region (`data-empty` on the root gives the region a 16rem floor under indefinite parents) |
+| `error` | An error panel (warning icon; `true` uses `labels.error`, a node replaces the message; `onRetry` adds a retry button). With stale rows present it overlays them behind a body-tinted scrim; it takes precedence over the empty state |
+
+The default empty rendering distinguishes two situations: zero rows with a column filter or global search active shows `labels.noResults` under a search icon (the data exists — nothing matched), while a genuinely empty data set shows `labels.empty` under an inbox icon. A custom `emptyState` node replaces both.
 
 ```tsx
 <DataTable
   loading={query.isLoading}
+  error={query.isError}
+  onRetry={() => query.refetch()}
   emptyState={<EmptyIllustration onCreate={openCreateModal} />}
   …
 />
 ```
 
-The root exposes `data-loading` and `aria-busy` while loading. Empty states center inside the elastic scroller, so they respect the adaptive sizing contract ([sizing.md](sizing.md)).
+The root exposes `data-loading` and `aria-busy` while loading, `data-empty` on the empty states, and `data-error` while the error panel shows; the panel itself carries `data-variant="no-data" | "no-results" | "error"`. All states center inside the elastic scroller, so they respect the adaptive sizing contract ([sizing.md](sizing.md)).
