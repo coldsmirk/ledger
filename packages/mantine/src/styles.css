@@ -423,8 +423,12 @@
   }
 
   /* Overlaid on the whole body region (the scroller is its positioning context): centered in
-     the VISIBLE area, and immune to horizontal scrolling of the empty table underneath. */
+     the VISIBLE area, and immune to horizontal scrolling of the empty table underneath.
+     The EmptyState variables soften Mantine's stock indicator (gray-1 disc, dimmed icon) —
+     inside a bare table body it reads heavy; both substitutes are color-scheme-adaptive. */
   .ledger-empty {
+    --empty-state-indicator-bg: var(--mantine-color-default-hover);
+    --empty-state-indicator-color: var(--mantine-color-placeholder);
     position: absolute;
     inset: 0;
     display: flex;

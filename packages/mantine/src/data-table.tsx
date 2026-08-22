@@ -128,6 +128,12 @@ const classes: Record<DataTableStylesNames, string> = {
   paginationBar: "ledger-pagination-bar"
 };
 
+// Mantine styles the EmptyState title as a headline (bright, 600) for full-page empties with
+// description and actions; a bare table caption reads better dimmed.
+const EMPTY_STATE_STYLES = {
+  title: { color: "var(--mantine-color-dimmed)", fontWeight: 500 }
+} as const;
+
 // ------------------------------------------------------------------------------------------------
 // Props
 // ----------------------------------------------------------------------------------------------
@@ -903,8 +909,11 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
                 {emptyState ?? (
                   <EmptyState
                     withIndicatorBackground
-                    icon={<IconInbox size={22} />}
+                    // The indicator forces the svg to 1em (40px at `sm`), so the stroke is set for
+                    // that scale — the Icon default (1.5, drawn for 16px glyphs) turns chunky here.
+                    icon={<IconInbox size={40} strokeWidth={1} />}
                     size="sm"
+                    styles={EMPTY_STATE_STYLES}
                     title={labels.empty}
                   />
                 )}
