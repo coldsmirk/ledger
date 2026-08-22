@@ -79,7 +79,7 @@ The behavioral contract, stated once here; each rule's mechanics are specified i
 - No div-soup grid: a real `<table>` always, even virtualized.
 - No Tailwind inside the library (Tailwind is an app-side convention; the library must be portable).
 - No SSR hydration gymnastics: SPA-targeted; rendering stays SSR-safe, nothing more.
-- Deferred, not rejected — each needs its own design round before any code: **column virtualization, cell selection, row editing mode**.
+- Deferred, not rejected — each needs its own design round before any code: **column virtualization, cell selection**.
 - Never: config-bag props, mega `onChange`, compatibility shims, legacy aliases.
 
 ## 6. First consumers
