@@ -142,6 +142,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | [rows.md](rows.md) |
 | `rowClassName` | `string \| (row) => string \| undefined` | — | |
 | `labels` | `Partial<DataTableLabels>` | `defaultLabels` | [i18n.md](i18n.md) |
+| `aria-label` / `aria-labelledby` / `aria-describedby` | `string` | — | Routed to the ARIA table (`.ledger-main`), not the root wrapper |
 
 Styles API selector names (`DataTableStylesNames`) and the `vars` surface (`DataTableCssVariables`: root `--ledger-striped-color` / `--ledger-hover-color` / `--ledger-border-color`) are catalogued in [styling.md](styling.md).
 

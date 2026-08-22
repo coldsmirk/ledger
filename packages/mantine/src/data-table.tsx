@@ -467,6 +467,11 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     className,
     style,
     attributes,
+    // The ARIA table is `main`, not the root — a name left on the root would describe a
+    // roleless wrapper and never reach the table. Routed below, never duplicated.
+    "aria-label": ariaLabel,
+    "aria-labelledby": ariaLabelledBy,
+    "aria-describedby": ariaDescribedBy,
     ...others
   } = presentation;
 
@@ -1009,6 +1014,9 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         {...others}
       >
         <div
+          aria-describedby={ariaDescribedBy}
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           aria-rowcount={virtualEnabled ? ariaRowCount : undefined}
           role="table"
           {...getStyles("main")}

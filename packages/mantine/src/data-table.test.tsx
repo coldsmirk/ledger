@@ -128,6 +128,16 @@ describe("DataTable", () => {
     expect(screen.getByText("No data")).toBeTruthy();
   });
 
+  it("names the ARIA table itself, leaving the root wrapper anonymous", () => {
+    const { container } = render(
+      <DataTable aria-label="People" columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    expect(screen.getByRole("table", { name: "People" }).className).toContain("ledger-main");
+    expect(container.querySelector<HTMLElement>(":scope .ledger-root")?.getAttribute("aria-label")).toBeNull();
+  });
+
   it("renders the error panel over stale rows and wires the retry button", () => {
     const onRetry = vi.fn();
     const { container } = render(
