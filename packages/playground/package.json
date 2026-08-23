@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@coldsmirk/ledger-mantine": "workspace:^",
+    "@mantine/code-highlight": "9.5.1",
     "@mantine/core": "^9.5.1",
     "@mantine/dates": "^9.5.1",
     "@mantine/hooks": "^9.5.1",

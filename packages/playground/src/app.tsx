@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 
 import type { Copy, Lang } from "./i18n";
 
-import { AppShell, Burger, Group, NavLink, ScrollArea, SegmentedControl, Stack, Text, Title, useMatches } from "@mantine/core";
+import { AppShell, Burger, Button, Group, NavLink, ScrollArea, SegmentedControl, Stack, Text, Title, useMatches } from "@mantine/core";
 import { useRef, useState } from "react";
 
 import { AppearanceDemo } from "./demos/appearance";
@@ -23,12 +23,14 @@ import { StatesDemo } from "./demos/states";
 import { TreeDemo } from "./demos/tree";
 import { VirtualizedDemo } from "./demos/virtualized";
 import { useCopy, useLang } from "./i18n";
+import { SourceDrawer } from "./source-drawer";
 
 const en = {
   shell: {
     title: "ledger playground",
     language: "Language",
-    toggleNavigation: "Toggle navigation"
+    toggleNavigation: "Toggle navigation",
+    viewSource: "View source"
   },
   groups: {
     start: "Getting started",
@@ -121,7 +123,8 @@ const copy: Copy<AppCopy> = {
     shell: {
       title: "ledger playground",
       language: "语言",
-      toggleNavigation: "切换导航"
+      toggleNavigation: "切换导航",
+      viewSource: "查看源码"
     },
     groups: {
       start: "入门",
@@ -266,6 +269,7 @@ export function App() {
   const { lang, setLang } = useLang();
   const [activeId, setActiveId] = useState<DemoId>("basic");
   const [mobileNavOpened, setMobileNavOpened] = useState(false);
+  const [sourceOpened, setSourceOpened] = useState(false);
   const desktop = useMatches({ base: false, xs: true }, { getInitialValueInEffect: false });
   const burgerRef = useRef<HTMLButtonElement>(null);
   const active = ALL_DEMOS.find(demo => demo.id === activeId) ?? ALL_DEMOS[0]!;
@@ -366,17 +370,32 @@ export function App() {
             minHeight: 0
           }}
         >
-          <div>
-            <Title order={3}>{activeCopy.label}</Title>
+          <Group align="flex-start" gap="sm" justify="space-between" wrap="nowrap">
+            {/* The description is the elastic half: minWidth 0 lets it wrap instead of pushing
+                the button off the row, and the button never shrinks below its own label. */}
+            <div style={{ minWidth: 0 }}>
+              <Title order={3}>{activeCopy.label}</Title>
 
-            <Text c="dimmed" size="sm">
-              {activeCopy.description}
-            </Text>
-          </div>
+              <Text c="dimmed" size="sm">
+                {activeCopy.description}
+              </Text>
+            </div>
+
+            <Button
+              size="xs"
+              style={{ flexShrink: 0 }}
+              variant="default"
+              onClick={() => setSourceOpened(true)}
+            >
+              {t.shell.viewSource}
+            </Button>
+          </Group>
 
           <ActiveComponent />
         </Stack>
       </AppShell.Main>
+
+      <SourceDrawer demoId={active.id} opened={sourceOpened} onClose={() => setSourceOpened(false)} />
     </AppShell>
   );
 }

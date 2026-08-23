@@ -106,10 +106,12 @@ describe("playground navigation", () => {
     render(<App />, { wrapper });
 
     expect(screen.getByRole("heading", { name: "Basic table" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View source" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("radio", { name: "中文" }));
 
     expect(screen.getByRole("heading", { name: "基础表格" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "查看源码" })).toBeTruthy();
     expect(document.documentElement.lang).toBe("zh-CN");
   });
 });
