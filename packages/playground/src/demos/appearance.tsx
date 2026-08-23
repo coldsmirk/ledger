@@ -51,6 +51,8 @@ export function AppearanceDemo() {
   const [roomy, setRoomy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [empty, setEmpty] = useState(false);
+  const [tintedHeader, setTintedHeader] = useState(false);
+  const [showHeader, setShowHeader] = useState(true);
 
   return (
     <>
@@ -91,10 +93,28 @@ export function AppearanceDemo() {
           size="xs"
           onChange={event => setEmpty(event.currentTarget.checked)}
         />
+
+        <Switch
+          checked={tintedHeader}
+          label="表头底色"
+          size="xs"
+          onChange={event => setTintedHeader(event.currentTarget.checked)}
+        />
+
+        <Switch
+          checked={showHeader}
+          label="显示表头"
+          size="xs"
+          onChange={event => setShowHeader(event.currentTarget.checked)}
+        />
       </Group>
 
       <DataTable
         tabularNums
+        // The header tint has no prop by design (it would not match Mantine's own bare
+        // `<thead>`); it is a CSS variable an application sets, reached here through the
+        // Styles API's root slot. See app.css.
+        classNames={{ root: tintedHeader ? "app-tinted-header" : "" }}
         columns={columns}
         data={empty ? [] : data}
         flex={1}
@@ -106,6 +126,7 @@ export function AppearanceDemo() {
         striped={striped}
         verticalSpacing={roomy ? "md" : "xs"}
         withColumnBorders={borders === "grid"}
+        withColumnHeaders={showHeader}
         withTableBorder={borders !== "horizontal"}
       />
     </>

@@ -2,7 +2,7 @@ import type { Person } from "../data";
 
 import { createColumnHelper, DataTable } from "@coldsmirk/ledger-mantine";
 import { zhCN } from "@coldsmirk/ledger-mantine/locales";
-import { Code, Group, SegmentedControl, Switch, Text } from "@mantine/core";
+import { Button, Code, Group, SegmentedControl, Stack, Switch, Text } from "@mantine/core";
 import { useMemo, useState } from "react";
 
 import { makePeople } from "../data";
@@ -26,19 +26,36 @@ const SCENARIOS: Array<{ value: Scenario; label: string }> = [
 const helper = createColumnHelper<Person>();
 
 const columns = [
-  helper.accessor("name", { header: "姓名", size: 130 }),
-  helper.accessor("role", { header: "角色", size: 140 }),
+  // Two grow columns rather than one: a lone grow column absorbs the entire surplus, which on a
+  // wide page turns an e-mail cell into half the table.
+  helper.accessor("name", {
+    header: "姓名",
+    minSize: 110
+  }),
+  helper.accessor("role", {
+    header: "角色",
+    size: 140
+  }),
   helper.accessor("status", {
     header: "状态",
     size: 110,
     cell: context => <StatusBadge status={context.getValue()} />
   }),
-  helper.accessor("email", { header: "邮箱", meta: { truncate: true } })
+  helper.accessor("email", {
+    header: "邮箱",
+    minSize: 200,
+    meta: { truncate: true }
+  }),
+  helper.accessor("joinedAt", {
+    header: "入职日期",
+    size: 130
+  })
 ];
 
 export function StatesDemo() {
   const [scenario, setScenario] = useState<Scenario>("normal");
   const [keepStale, setKeepStale] = useState(true);
+  const [customEmpty, setCustomEmpty] = useState(false);
   const [recoveries, setRecoveries] = useState(0);
   const data = useMemo(() => makePeople(12), []);
 
@@ -67,6 +84,14 @@ export function StatesDemo() {
           onChange={event => setKeepStale(event.currentTarget.checked)}
         />
 
+        <Switch
+          checked={customEmpty}
+          description="空态是一块 ReactNode，不是一串文案"
+          label="自定义空态"
+          size="xs"
+          onChange={event => setCustomEmpty(event.currentTarget.checked)}
+        />
+
         <Text c="dimmed" size="xs">
           重试成功
           <Code>{recoveries}</Code>
@@ -86,6 +111,21 @@ export function StatesDemo() {
         loading={scenario === "loading"}
         loadMoreError={scenario === "load-more-error"}
         mih={0}
+        emptyState={customEmpty
+          ? (
+              <Stack align="center" gap="xs" py="xl">
+                <Text fw={600}>还没有成员</Text>
+
+                <Text c="dimmed" size="sm">
+                  邀请同事加入后，他们会出现在这里。
+                </Text>
+
+                <Button size="xs" variant="light" onClick={recover}>
+                  邀请成员
+                </Button>
+              </Stack>
+            )
+          : undefined}
         onEndReached={scenario === "load-more-error" ? recover : undefined}
         onRetry={recover}
       />

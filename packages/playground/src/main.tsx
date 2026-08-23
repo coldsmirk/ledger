@@ -2,6 +2,7 @@ import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "@coldsmirk/ledger-mantine/styles.css";
 import "dayjs/locale/zh-cn";
+import "./app.css";
 
 import { DataTable } from "@coldsmirk/ledger-mantine";
 import { zhCN } from "@coldsmirk/ledger-mantine/locales";

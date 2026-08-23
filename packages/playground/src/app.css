@@ -1,0 +1,18 @@
+/**
+ * App-level styling for the playground itself. Library rules all live in the `ledger` cascade
+ * layer; anything here is what a host application would write.
+ */
+
+/*
+ * The header tint recipe from docs/styling.md#tinting-the-header. It takes a PAIR of values on
+ * purpose: Mantine's only scheme-aware "one step off the body" token is `default-hover`, which
+ * ledger already spends on stripes and hover, so a tinted header would match its own odd rows.
+ * These are the two values Mantine itself uses to fill a `<th>` (`Table variant="vertical"`).
+ */
+.app-tinted-header {
+  --ledger-header-bg: var(--mantine-color-gray-0);
+}
+
+[data-mantine-color-scheme="dark"] .app-tinted-header {
+  --ledger-header-bg: var(--mantine-color-dark-6);
+}

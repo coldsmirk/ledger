@@ -4,7 +4,7 @@ import type { Order } from "../data";
 
 import { createColumnHelper, DataTable } from "@coldsmirk/ledger-mantine";
 import { zhCN } from "@coldsmirk/ledger-mantine/locales";
-import { Badge, Text } from "@mantine/core";
+import { Badge, Menu, Text } from "@mantine/core";
 import { useMemo, useState } from "react";
 
 import { makeOrders } from "../data";
@@ -112,14 +112,53 @@ const columns = [
 export function OrdersDemo() {
   const data = useMemo(() => makeOrders(200), []);
   const [activeOrder, setActiveOrder] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; order: Order } | null>(null);
 
   return (
     <>
       <Text c="dimmed" size="xs">
         {activeOrder === null
-          ? "表头悬停出现筛选与列菜单（五种筛选变体）；合计随筛选联动；点击或聚焦表格后用 ↑/↓/Home/End 移动活动行，Enter 查看订单号；已取消订单经 rowProps 变暗，大额金额经 meta.cellProps 加粗。"
+          ? "表头悬停出现筛选与列菜单（五种筛选变体）；合计随筛选联动；点击或聚焦表格后用 ↑/↓/Home/End 移动活动行，Enter 查看订单号；右键任意行打开操作菜单；已取消订单经 rowProps 变暗，大额金额经 meta.cellProps 加粗。"
           : `当前订单：${activeOrder}`}
       </Text>
+
+      {/* `onRowContextMenu` is the literal pointer event, so the app owns preventDefault and the
+          menu's placement — ledger neither renders a menu nor assumes you want one. */}
+      <Menu
+        withinPortal
+        opened={contextMenu !== null}
+        position="bottom-start"
+        shadow="md"
+        width={180}
+        onClose={() => setContextMenu(null)}
+      >
+        <Menu.Target>
+          <div style={{
+            position: "fixed",
+            left: contextMenu?.x ?? 0,
+            top: contextMenu?.y ?? 0,
+            width: 1,
+            height: 1
+          }}
+          />
+        </Menu.Target>
+
+        <Menu.Dropdown>
+          <Menu.Label>{contextMenu?.order.orderNo}</Menu.Label>
+
+          <Menu.Item onClick={() => setActiveOrder(contextMenu?.order.orderNo ?? null)}>
+            查看订单
+          </Menu.Item>
+
+          <Menu.Item onClick={() => void navigator.clipboard?.writeText(contextMenu?.order.orderNo ?? "")}>
+            复制订单号
+          </Menu.Item>
+
+          <Menu.Item color="red" disabled={contextMenu?.order.status === "cancelled"}>
+            取消订单
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
 
       <DataTable
         enableActiveRow
@@ -143,6 +182,14 @@ export function OrdersDemo() {
             }
           : undefined}
         onRowActivate={row => setActiveOrder(row.original.orderNo)}
+        onRowContextMenu={(row, event) => {
+          event.preventDefault();
+          setContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            order: row.original
+          });
+        }}
       />
     </>
   );

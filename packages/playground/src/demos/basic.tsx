@@ -12,18 +12,36 @@ const columns: Array<ColumnDef<Person, any>> = [
   {
     accessorKey: "name",
     header: "姓名",
-    size: 140
+    minSize: 120
+  },
+  {
+    // The classic responsive pair: below md one column carries the summary, and from md up it
+    // steps aside for the real columns. `hiddenFrom` / `visibleFrom` are Box vocabulary, and
+    // the column is removed from the table rather than merely hidden with CSS.
+    id: "summary",
+    accessorFn: person => `${person.role} · ${person.email}`,
+    header: "角色 / 邮箱",
+    minSize: 200,
+    enableSorting: false,
+    meta: {
+      hiddenFrom: "md",
+      truncate: true
+    }
   },
   {
     accessorKey: "role",
     header: "角色",
-    size: 140
+    size: 140,
+    meta: { visibleFrom: "md" }
   },
   {
     accessorKey: "email",
     header: "邮箱",
-    // Responsive column: present only from the md breakpoint up (narrow the window to see).
-    meta: { visibleFrom: "md" }
+    minSize: 200,
+    meta: {
+      visibleFrom: "md",
+      truncate: true
+    }
   },
   {
     accessorKey: "age",
