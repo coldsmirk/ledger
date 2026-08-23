@@ -53,6 +53,11 @@ function hasSpanningColumns(columns: Array<ColumnDef<any, any>> | undefined): bo
     : column.spanRows !== undefined || column.spanColumns !== undefined);
 }
 
+/**
+ * One stable identity for an unoccupied pinned zone, so the display-row memos can hold.
+ */
+const NO_ROWS: Array<Row<any>> = [];
+
 export function buildDisplayRows<TData extends RowData>(rows: Array<Row<TData>>, withDetailPanels: boolean): Array<DisplayRow<TData>> {
   const display: Array<DisplayRow<TData>> = [];
   let dataIndex = 0;
@@ -66,7 +71,9 @@ export function buildDisplayRows<TData extends RowData>(rows: Array<Row<TData>>,
     });
     dataIndex += 1;
 
-    if (withDetailPanels && row.getIsExpanded()) {
+    // A grouped row's expansion reveals its children, not a panel — `renderDetailPanel` speaks
+    // about a data row (docs/grouping.md#boundaries).
+    if (withDetailPanels && row.getIsExpanded() && !row.getIsGrouped()) {
       display.push({
         kind: "detail",
         key: `${row.id}:detail`,
@@ -76,6 +83,27 @@ export function buildDisplayRows<TData extends RowData>(rows: Array<Row<TData>>,
   }
 
   return display;
+}
+
+/**
+ * The same count without the array. `aria-rowcount` needs the number, not the rows, and building
+ * three throwaway `DisplayRow[]`s per render is O(N) allocation the virtualizer then repeats on
+ * every scroll range change.
+ */
+export function countDisplayRows<TData extends RowData>(rows: Array<Row<TData>>, withDetailPanels: boolean): number {
+  if (!withDetailPanels) {
+    return rows.length;
+  }
+
+  let count = rows.length;
+
+  for (const row of rows) {
+    if (row.getIsExpanded() && !row.getIsGrouped()) {
+      count += 1;
+    }
+  }
+
+  return count;
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -621,8 +649,13 @@ export function TableBody({
   const { getStyles, withColumnHeaders } = useDataTableContext();
   const ledger = table.options.meta?.ledger;
 
+  const withDetailPanels = Boolean(ledger?.renderDetailPanel);
   const spanningDeclared = useMemo(() => hasSpanningColumns(ledger?.columns), [ledger?.columns]);
-  const spanningActive = spanningDeclared && virtualization === null && table.options.enableCellSpanning !== false;
+  const spanningActive
+    = spanningDeclared
+      && virtualization === null
+      && !withDetailPanels
+      && table.options.enableCellSpanning !== false;
 
   if (spanningDeclared && virtualization !== null) {
     warnOnce(
@@ -631,17 +664,32 @@ export function TableBody({
     );
   }
 
-  const withDetailPanels = Boolean(ledger?.renderDetailPanel);
+  if (spanningDeclared && withDetailPanels) {
+    // Spans are computed over data rows only, but a detail panel inserts a synthetic <tr>
+    // between them: an unmodified rowSpan would reach across the panel while the covered cell
+    // below it is still dropped, tearing the column structure apart.
+    warnOnce(
+      "spanning-detail-panel",
+      "spanRows/spanColumns are ignored while renderDetailPanel is set — a detail row lands inside the span a merged cell would reach across."
+    );
+  }
+
   const rowPinningActive = table.options.enableRowPinning === true;
-  const topRows = rowPinningActive ? table.getTopRows() : [];
-  const bottomRows = rowPinningActive ? table.getBottomRows() : [];
+  // A fresh `[]` per render would defeat the memos below; the empty zone is one stable array.
+  const topRows = rowPinningActive ? table.getTopRows() : NO_ROWS;
+  const bottomRows = rowPinningActive ? table.getBottomRows() : NO_ROWS;
   const centerRows = rowPinningActive ? table.getCenterRows() : table.getRowModel().rows;
 
   // Every zone uses the same synthesis: an expanded pinned row owns a detail item just like a
-  // center row, and the sticky offset engine measures both items independently.
-  const topDisplayRows = buildDisplayRows(topRows, withDetailPanels);
-  const centerDisplayRows = buildDisplayRows(centerRows, withDetailPanels);
-  const bottomDisplayRows = buildDisplayRows(bottomRows, withDetailPanels);
+  // center row, and the sticky offset engine measures both items independently. Memoized because
+  // the virtualizer re-renders this component on every scroll range change: rebuilding the
+  // display rows there would make each scroll step O(rows) in a table sized for virtualization.
+  // The row arrays are a sufficient key even though the synthesis reads `row.getIsExpanded()`:
+  // v9's expanded row model returns the pre-expanded array while nothing is expanded and a
+  // freshly built one as soon as something is, so every `expanded` transition changes identity.
+  const topDisplayRows = useMemo(() => buildDisplayRows(topRows, withDetailPanels), [topRows, withDetailPanels]);
+  const centerDisplayRows = useMemo(() => buildDisplayRows(centerRows, withDetailPanels), [centerRows, withDetailPanels]);
+  const bottomDisplayRows = useMemo(() => buildDisplayRows(bottomRows, withDetailPanels), [bottomRows, withDetailPanels]);
   const pinnedRowOffsets = usePinnedRowOffsets(topDisplayRows.length, bottomDisplayRows.length);
 
   /* aria-rowindex numbers header rows first (docs/virtualization.md) — none when they are off. */

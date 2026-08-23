@@ -58,7 +58,7 @@ import { resolveLabels } from "./labels";
 import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from "./pagination-bar";
 import { DataTableSearch } from "./search";
 import { DataTableSelectionBar } from "./selection-bar";
-import { buildDisplayRows, TableBody } from "./table-body";
+import { buildDisplayRows, countDisplayRows, TableBody } from "./table-body";
 import { TableFooter, tableHasFooter, visibleFooterGroups } from "./table-footer";
 import { TableHeader } from "./table-header";
 import { useColumnWidths } from "./use-column-widths";
@@ -783,12 +783,14 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const headerRowCount = columnHeadersVisible ? table.getHeaderGroups().length : 0;
   const withDetailPanels = Boolean(table.options.meta?.ledger?.renderDetailPanel);
   const rowPinningActive = table.options.enableRowPinning === true;
+  // Counting, not building: this runs on every render of a component the virtualizer also
+  // re-renders, and three throwaway arrays per scroll step is the same O(rows) cost twice over.
   const logicalDisplayRowCount
     = rowPinningActive
-      ? buildDisplayRows(table.getTopRows(), withDetailPanels).length
-      + buildDisplayRows(table.getCenterRows(), withDetailPanels).length
-      + buildDisplayRows(table.getBottomRows(), withDetailPanels).length
-      : buildDisplayRows(table.getRowModel().rows, withDetailPanels).length;
+      ? countDisplayRows(table.getTopRows(), withDetailPanels)
+      + countDisplayRows(table.getCenterRows(), withDetailPanels)
+      + countDisplayRows(table.getBottomRows(), withDetailPanels)
+      : countDisplayRows(table.getRowModel().rows, withDetailPanels);
   const bodyAriaRowCount
     = loading && logicalDisplayRowCount === 0
       ? skeletonRowCount
