@@ -68,7 +68,7 @@ meta: {
 | Tab / Shift+Tab | Commit, wait for success, then move to the row's next/previous editable cell (checkbox cells are skipped in shorthand and object form; past the row's edge, editing stops with a commit) |
 | Blur | Commit — unless focus moved elsewhere *inside* the editor (e.g. onto a select option) |
 | Starting to edit another cell | Commits the cell being left and switches only after success (spreadsheet semantics); if several destinations are requested while pending, the latest one wins |
-| Scrolling the editing row out of the virtual window | **Commits** (equivalent to blur), never discards — a validation failure has nowhere left to display and degrades to discard |
+| Scrolling the editing row out of the virtual window | **Commits** (equivalent to blur), never discards. This is the one carve-out from "a failure keeps the editor": once the editor is unmounted **any** failure — a `validate` rejection, a thrown handler, a rejected promise — has nowhere left to report itself, so it degrades to discard rather than leaving an invisible cell in edit mode. The rows above describe the editor while it is still mounted. |
 
 Event boundaries: on an editable column, the double-click that enters editing does **not** fire `onRowDoubleClick`, and an editing cell swallows clicks so `onRowClick` never fires through it.
 
