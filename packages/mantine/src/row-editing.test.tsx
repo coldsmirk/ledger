@@ -384,6 +384,51 @@ describe("row editing mode", () => {
     expect(screen.getByText("Carol")).toBeTruthy();
   });
 
+  it("drops every draft when the table-level switch closes mid-edit", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    // The hard case for the rule above: the edited column leaves the definitions *and*
+    // `enableEditing` goes off in the same tick. There is no cell left to test the draft
+    // against, so only the table-level switch can still refuse it.
+    const withoutName: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      },
+      { accessorKey: "id", header: "Id" }
+    ];
+
+    const view = (columnSet: Array<ColumnDef<Person, any>>, editingEnabled: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columnSet}
+            data={people}
+            editMode="row"
+            enableEditing={editingEnabled}
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(columns, true));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    rerender(view(withoutName, false));
+    await waitFor(() => expect(editorInputs()).toHaveLength(0));
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    expect(onRowEditCommit).not.toHaveBeenCalled();
+  });
+
   it("starts and stops row editing through the imperative handle", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

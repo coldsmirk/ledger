@@ -397,6 +397,16 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return true;
     }
 
+    // The table-level switch outranks every per-column case below, so it is tested once here
+    // rather than per cell: with `enableEditing` off nothing in this row is editable, and a
+    // draft for a column that also left the definitions has no cell left to be tested against
+    // (the baseline path further down reconstructs it from the snapshot alone).
+    if (tableInstance.options.meta?.ledger?.enableEditing !== true) {
+      finishRowEditing();
+
+      return true;
+    }
+
     let row: Row<TData> | undefined;
 
     try {
