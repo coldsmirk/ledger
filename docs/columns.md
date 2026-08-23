@@ -137,7 +137,6 @@ helper.accessor("note", {
 - ledger renders real `rowSpan`/`colSpan` attributes (plus `aria-rowspan`/`aria-colspan`) and skips covered cells — the real-`<table>` architecture gets merging natively.
 - Spanning is **ignored (with a dev warning) under `virtualized` or `renderDetailPanel`**. Both break the one-row-per-item invariant a span is computed against: virtualization renders a window, and a detail panel inserts a synthetic `<tr>` *between* data rows that a `rowSpan` would then reach across while the covered cell below it is still dropped.
 - `enableCellSpanning` (default `true`) switches the whole mechanism off.
-- **Spanning is ignored while `virtualized`** (with a dev warning): a merged cell would break the one-`<tr>`-per-virtual-item invariant the spacer-row virtualization is built on.
 - A row-spanning cell paints one background across its run, so `striped` reads oddly next to merges — report-style spanning tables usually run with row borders instead.
 
 ## The columns panel
