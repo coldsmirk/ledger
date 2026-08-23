@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { useLocalStorage } from "@mantine/hooks";
-import { createContext, use, useEffect, useMemo } from "react";
+import { createContext, use, useLayoutEffect, useMemo } from "react";
 
 /**
  * The playground ships in both languages, which is also the only way to see the `zhCN` locale
@@ -41,7 +41,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     getInitialValueInEffect: false
   });
 
-  useEffect(() => {
+  // Layout, not passive: index.html ships the default (`en`), and a returning zh reader's
+  // stored choice has to reach `<html lang>` before the first paint that already shows their
+  // language — otherwise the document announces itself as the wrong one for a frame.
+  useLayoutEffect(() => {
     document.documentElement.lang = HTML_LANG[lang];
   }, [lang]);
 
