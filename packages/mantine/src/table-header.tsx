@@ -78,7 +78,10 @@ function HeaderCell<TData extends RowData>({
   // deliberately unregistered — the drag pipeline is ledger's (docs/sizing.md).
   const canResize
     = table.options.meta?.ledger?.enableColumnResizing === true
-      && columnEnableResizing(column.columnDef) !== false;
+      && columnEnableResizing(column.columnDef) !== false
+      // Only leaves have a width: the engine resolves and consumes leaf sizing, so a handle on
+      // a group header would write a `columnSizing` entry nothing ever reads.
+      && column.columns.length === 0;
   const resizing = resize.resizingId === column.id;
 
   const dragged = reorder.drag.draggedId === column.id;

@@ -120,7 +120,13 @@ export function useColumnReorder<TData extends RowData>(table: TableInstance<TDa
             && getColumnZone(table, targetId) === getColumnZone(table, current.columnId)
           ) {
             const rect = headerCell.getBoundingClientRect();
-            target = { id: targetId, side: move.clientX < rect.left + rect.width / 2 ? "before" : "after" };
+            // `before`/`after` are logical, like the drop indicator that renders them: in RTL a
+            // cell's leading half is its RIGHT half, so the physical test has to be mirrored
+            // (the same reasoning the resize drag applies to its delta).
+            const rtl = getComputedStyle(headerCell).direction === "rtl";
+            const inLeftHalf = move.clientX < rect.left + rect.width / 2;
+
+            target = { id: targetId, side: inLeftHalf === rtl ? "after" : "before" };
           }
 
           current.target = target;
