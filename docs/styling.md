@@ -40,7 +40,7 @@ All the border and background props are rendered by ledger itself rather than Ma
 | `cellEditor` | `.ledger-cell-editor` | Inline editor host |
 | `footerRow` / `footerCell` | `.ledger-footer-row` / `.ledger-footer-cell` | Totals row |
 | `empty` | `.ledger-empty` | Empty-state block |
-| `loaderRow` | `.ledger-loader-row` | Infinite-loading trailing row |
+| `loaderRow` / `loaderRowContent` | `.ledger-loader-row` / `.ledger-loader-row-content` | Infinite-loading trailing row, and the centred flex line inside its cell |
 | `paginationBar` | `.ledger-pagination-bar` | The built-in bar (and the standalone compound) |
 
 ```tsx

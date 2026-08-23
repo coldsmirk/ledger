@@ -55,7 +55,7 @@ import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
 import { mergeElementProps } from "./element-props";
 import { warnOnce } from "./env";
-import { IconAlertTriangle, IconInbox, IconSearch } from "./icons";
+import { IconAlertTriangle, IconInbox, IconRefresh, IconSearch } from "./icons";
 import { resolveLabels } from "./labels";
 import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from "./pagination-bar";
 import { DataTableSearch } from "./search";
@@ -98,6 +98,7 @@ export type DataTableStylesNames
     | "footerCell"
     | "empty"
     | "loaderRow"
+    | "loaderRowContent"
     | "paginationBar";
 
 export interface DataTableCssVariables {
@@ -134,6 +135,7 @@ const classes: Record<DataTableStylesNames, string> = {
   footerCell: "ledger-footer-cell",
   empty: "ledger-empty",
   loaderRow: "ledger-loader-row",
+  loaderRowContent: "ledger-loader-row-content",
   paginationBar: "ledger-pagination-bar"
 };
 
@@ -1328,7 +1330,12 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
                   title={error === true ? labels.error : error}
                 >
                   {onRetry && (
-                    <Button size="xs" variant="light" onClick={onRetry}>
+                    <Button
+                      leftSection={<IconRefresh size={14} />}
+                      size="xs"
+                      variant="light"
+                      onClick={onRetry}
+                    >
                       {labels.retry}
                     </Button>
                   )}

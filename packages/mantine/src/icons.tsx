@@ -161,6 +161,20 @@ export function IconRestore(props: IconProps) {
   );
 }
 
+/**
+ * "Try that again": the same three-quarter circle as `IconRestore`, mirrored so it travels
+ * clockwise. That direction is the industry's refresh and the counter-clockwise one its undo —
+ * the table shows both, so they must not be the same glyph.
+ */
+export function IconRefresh(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M13 8a5 5 0 1 1-5-5" />
+      <path d="M6 1.5L8 3l-2 1.5" />
+    </Icon>
+  );
+}
+
 export function IconSearch(props: IconProps) {
   return (
     <Icon {...props}>

@@ -21,7 +21,7 @@ import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
 import { useDataTableContext } from "./context";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
-import { IconChevronRight } from "./icons";
+import { IconChevronRight, IconRefresh } from "./icons";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { syncTruncationTitle } from "./truncate";
 import { usePinnedRowOffsets } from "./use-pinned-row-offsets";
@@ -582,8 +582,10 @@ function LoaderRow({ colSpan, ariaRowIndex }: { colSpan: number; ariaRowIndex?: 
   return (
     <MantineTable.Tr aria-rowindex={ariaRowIndex} role="row" {...getStyles("loaderRow")}>
       <MantineTable.Td colSpan={colSpan} role="cell">
-        <Loader size="xs" />
-        <span>{labels.loadingMore}</span>
+        <div {...getStyles("loaderRowContent")}>
+          <Loader size="xs" />
+          <span>{labels.loadingMore}</span>
+        </div>
       </MantineTable.Td>
     </MantineTable.Tr>
   );
@@ -607,13 +609,21 @@ function LoadMoreErrorRow({
       {/* The alert lives on the message, never on the cell: `role="alert"` would replace
           `role="cell"` and leave the row with no cell in the accessibility tree. */}
       <MantineTable.Td colSpan={colSpan} role="cell">
-        <span role="alert">{message === true ? labels.loadMoreError : message}</span>
+        <div {...getStyles("loaderRowContent")}>
+          <span role="alert">{message === true ? labels.loadMoreError : message}</span>
 
-        {onRetry && (
-          <Button color="gray" size="compact-xs" variant="subtle" onClick={onRetry}>
-            {labels.retry}
-          </Button>
-        )}
+          {onRetry && (
+            <Button
+              color="gray"
+              leftSection={<IconRefresh size={14} />}
+              size="compact-xs"
+              variant="subtle"
+              onClick={onRetry}
+            >
+              {labels.retry}
+            </Button>
+          )}
+        </div>
       </MantineTable.Td>
     </MantineTable.Tr>
   );

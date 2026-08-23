@@ -174,7 +174,15 @@ describe("DataTable", () => {
     // The alert rides inside the cell — announcing it must not cost the row its only cell.
     expect(container.querySelector(":scope .ledger-loader-row [role=\"cell\"]")?.contains(alert)).toBe(true);
 
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    // Message and button share one flex line. Left as inline boxes they align on the baseline,
+    // which never quite centres a text run against a button — and drifts whenever either
+    // changes height.
+    const line = container.querySelector(":scope .ledger-loader-row-content");
+    const retry = screen.getByRole("button", { name: "Retry" });
+    expect(line?.contains(alert)).toBe(true);
+    expect(line?.contains(retry)).toBe(true);
+
+    fireEvent.click(retry);
     expect(onEndReached).toHaveBeenCalledTimes(1);
   });
 
