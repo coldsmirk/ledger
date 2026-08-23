@@ -120,6 +120,19 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
       return false;
     }
 
+    // Eligibility is re-read here, not trusted from mount: `enableEditing` can switch off,
+    // `meta.edit` can be removed, and `edit.enabled(row)` can turn false while this editor is
+    // open. Committing then would push a value through a gate the application has just shut —
+    // and unvalidated, since a closed gate is exactly what `validate` no longer guards. The
+    // draft is dropped and leaving the cell is safe, the same resolution row mode gives it
+    // (docs/editing.md).
+    if (!canEditCell(cell, cell.row)) {
+      completedRef.current = true;
+      clearIfCurrent();
+
+      return true;
+    }
+
     const previousValue = initialValue.current;
     const value = draftRef.current;
 
@@ -221,6 +234,20 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     completedRef.current = true;
     clearIfCurrent();
   });
+
+  /**
+   * The same rule as a live event: when eligibility closes under an open editor, the editor
+   * cancels. Cancelling clears the editing slice, so the editor leaves through the ordinary
+   * path and the unmount carve-out below — which commits — never arms. An async commit already
+   * in flight is left alone: that value passed the gate before it shut.
+   */
+  const editable = canEditCell(cell, cell.row);
+
+  useEffect(() => {
+    if (!editable) {
+      cancel();
+    }
+  }, [editable, cancel]);
 
   /**
    * Unmount-commit is deferred one tick so a remount of the same cell — React StrictMode's

@@ -53,6 +53,16 @@ function nameColumn(validate?: (value: unknown) => string | null): Array<ColumnD
   ];
 }
 
+function gatedNameColumn(enabled: boolean): Array<ColumnDef<Person, any>> {
+  return [
+    {
+      accessorKey: "name",
+      header: "Name",
+      meta: { edit: { variant: "text", enabled: () => enabled } }
+    }
+  ];
+}
+
 describe("inline editing", () => {
   it("enters on double-click, commits on Enter with value and previousValue", () => {
     const onEditCommit = vi.fn();
@@ -100,6 +110,63 @@ describe("inline editing", () => {
 
     expect(onEditCommit).not.toHaveBeenCalled();
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("closes the open editor when the table switch shuts under it, without committing", () => {
+    const onEditCommit = vi.fn();
+    const view = (editingEnabled: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={nameColumn()}
+            data={people}
+            enableEditing={editingEnabled}
+            getRowId={getRowId}
+            onEditCommit={onEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+
+    rerender(view(false));
+
+    // The gate the application just shut is the whole point: the editor leaves and the draft
+    // goes with it, rather than being pushed through on the next Enter or blur.
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(onEditCommit).not.toHaveBeenCalled();
+    expect(screen.getByText("Carol")).toBeTruthy();
+  });
+
+  it("drops the draft when the row's own edit gate turns false mid-edit", () => {
+    const onEditCommit = vi.fn();
+
+    const view = (enabled: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={gatedNameColumn(enabled)}
+            data={people}
+            getRowId={getRowId}
+            onEditCommit={onEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+
+    rerender(view(false));
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(onEditCommit).not.toHaveBeenCalled();
   });
 
   it("a validation message blocks the commit and stays in editing", () => {
