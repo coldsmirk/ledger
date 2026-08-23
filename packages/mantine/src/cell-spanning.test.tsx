@@ -71,6 +71,37 @@ describe("cell spanning", () => {
     expect(rows[2]?.querySelectorAll(":scope td")).toHaveLength(2);
   });
 
+  it("marks the leading column by display position, not by DOM position", () => {
+    // A covered cell renders nothing, so the next cell in the row becomes `:first-child` while
+    // sitting in the middle of the table. Column borders key on `data-leading` because of it —
+    // otherwise every row under a merged run loses a border it should have.
+    const columns: Array<ColumnDef<Entry, any>> = [
+      {
+        accessorKey: "dept",
+        header: "Department",
+        spanRows: true
+      },
+      { accessorKey: "name", header: "Name" }
+    ];
+
+    const { container } = render(
+      <DataTable withColumnBorders columns={columns} data={entries} getRowId={entry => entry.id} />,
+      { wrapper }
+    );
+
+    const rows = rowsOf(container);
+    const covered = rows[1]?.querySelector<HTMLElement>(":scope td");
+
+    // Row 2 renders only "name": first in the DOM, second in the table.
+    expect(covered?.dataset.ledgerColumnId).toBe("name");
+    expect(covered?.matches(":first-child")).toBe(true);
+    expect(covered?.hasAttribute("data-leading")).toBe(false);
+
+    // The real leading column keeps the marker wherever it renders.
+    expect(rows[0]?.querySelector(":scope td[data-ledger-column-id=\"dept\"]")?.hasAttribute("data-leading")).toBe(true);
+    expect(rows[0]?.querySelector(":scope td[data-ledger-column-id=\"name\"]")?.hasAttribute("data-leading")).toBe(false);
+  });
+
   it("spans columns per row and drops the covered trailing cells", () => {
     const columns: Array<ColumnDef<Entry, any>> = [
       {

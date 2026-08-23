@@ -690,8 +690,12 @@
     border-block-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 
+  /* Header and footer rows always render every position, so DOM order IS column order there.
+     Body rows do not: `spanRows` drops the cells a merged run covers, which promotes whatever
+     renders next to `:first-child` and would strip the border off a mid-table column. The cell
+     carries `data-leading` for its real (pinning-aware) display position instead. */
   .ledger-root[data-with-column-borders] .ledger-table th:not(:first-child),
-  .ledger-root[data-with-column-borders] .ledger-table td:not(:first-child) {
+  .ledger-root[data-with-column-borders] .ledger-table td:not([data-leading]) {
     border-inline-start: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 
