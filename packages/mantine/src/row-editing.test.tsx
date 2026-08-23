@@ -216,6 +216,76 @@ describe("row editing mode", () => {
     expect(editorInputs().length).toBeGreaterThan(0);
   });
 
+  it("does not carry a draft across a controlled editingRowId switch", async () => {
+    const { rerender } = render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editingRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        onRowEditCommit={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // The application moves the edit itself; startRowEditing never runs, so the store has to
+    // notice the row changed on its own.
+    rerender(
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId="2"
+            editMode="row"
+            getRowId={person => person.id}
+            onRowEditCommit={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    await waitFor(() => expect(document.querySelector("[data-row-id=\"2\"][data-editing-row]")).toBeTruthy());
+    expect((editorInputs()[0] as HTMLInputElement).value).toBe("Alice");
+  });
+
+  it("commits a draft whose column was hidden mid-edit", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={onRowEditCommit}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Renamed" } });
+
+    // Hiding the column takes its editor away — exactly what the columns panel does. The pending
+    // value lives in the controller and must still be what the row commits; otherwise `changed`
+    // is false and the whole edit is discarded.
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(false));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
+    expect((onRowEditCommit.mock.calls[0]?.[0] as { values: Record<string, unknown> }).values)
+      .toEqual({ name: "Renamed", age: 30 });
+  });
+
   it("starts and stops row editing through the imperative handle", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

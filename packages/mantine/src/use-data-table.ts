@@ -297,7 +297,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   /* ---- row editing controller (editMode: "row", docs/editing.md#row-mode) ---- */
   // Drafts live here, not in editors: a virtualized editing row that scrolls out unmounts its
   // editors, and the pending values must survive until the atomic commit.
-  const rowDrafts = useRef(new Map<string, unknown>());
+  const rowDrafts = useRef<{ rowId: string | null; values: Map<string, unknown> }>({
+    rowId: null,
+    values: new Map()
+  });
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
   const rowFocusColumn = useRef<string | null>(null);
   const editingRowRef = useRef(editingRowId);
@@ -307,8 +310,28 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const tableRef = useRef<TableInstance<TData> | null>(null);
   editingRowRef.current = editingRowId;
 
+  /**
+   * Drafts belong to exactly one row, and the store re-keys itself rather than trusting a
+   * lifecycle hook to do it: `editingRowId` is a controlled slice, so an application can move
+   * the edit from row A to row B without `startRowEditing` ever running. Keyed by column alone,
+   * B's editors would then read A's pending values — the columns share their ids.
+   */
+  const draftsFor = (rowId: string | null): Map<string, unknown> => {
+    const store = rowDrafts.current;
+
+    if (store.rowId !== rowId) {
+      store.rowId = rowId;
+      store.values = new Map();
+    }
+
+    return store.values;
+  };
+
   const finishRowEditing = useEventCallback(() => {
-    rowDrafts.current.clear();
+    rowDrafts.current = {
+      rowId: null,
+      values: new Map()
+    };
     rowFocusColumn.current = null;
     setEditingRowId(null);
   });
@@ -355,7 +378,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     // v9's `in out` generics make Cell/Row invariant in TData; the editing helpers speak the
     // erased shape (the same single-erasure convention the render layer documents).
     const erasedRow = row as Row<any>;
-    const editableCells = erasedRow.getVisibleCells().filter(cell => canEditCell(cell, erasedRow));
+    // Every editable cell, not just the visible ones (docs/api.md: "every editable column,
+    // drafts merged in"). Hiding a column mid-edit — the columns panel, or a responsive
+    // breakpoint crossing on a window resize — must not silently drop the value typed into it,
+    // still less make `changed` false and discard the whole commit.
+    const editableCells = erasedRow.getAllCells().filter(cell => canEditCell(cell, erasedRow));
+    const drafts = draftsFor(rowId);
     const values: Record<string, unknown> = {};
     const previousValues: Record<string, unknown> = {};
     let changed = false;
@@ -363,7 +391,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     for (const cell of editableCells) {
       const columnId = cell.column.id;
       const previous = cell.getValue();
-      const value = rowDrafts.current.has(columnId) ? rowDrafts.current.get(columnId) : previous;
+      const value = drafts.has(columnId) ? drafts.get(columnId) : previous;
       values[columnId] = value;
       previousValues[columnId] = previous;
       changed ||= !Object.is(value, previous);
@@ -446,7 +474,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     const begin = () => {
-      rowDrafts.current.clear();
+      rowDrafts.current = {
+        rowId,
+        values: new Map()
+      };
       rowFocusColumn.current = startOptions?.focusColumnId ?? null;
       setEditingRowId(rowId);
     };
@@ -498,10 +529,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   }, []);
 
   const rowDraftsApi = useRef({
-    has: (columnId: string) => rowDrafts.current.has(columnId),
-    get: (columnId: string) => rowDrafts.current.get(columnId),
+    has: (columnId: string) => draftsFor(editingRowRef.current).has(columnId),
+    get: (columnId: string) => draftsFor(editingRowRef.current).get(columnId),
     set: (columnId: string, value: unknown) => {
-      rowDrafts.current.set(columnId, value);
+      draftsFor(editingRowRef.current).set(columnId, value);
     }
   }).current;
 
