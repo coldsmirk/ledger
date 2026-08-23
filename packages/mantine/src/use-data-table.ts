@@ -422,7 +422,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     // drafts merged in"). Hiding a column mid-edit — the columns panel, or a responsive
     // breakpoint crossing on a window resize — must not silently drop the value typed into it,
     // still less make `changed` false and discard the whole commit.
-    const editableCells = erasedRow.getAllCells().filter(cell => canEditCell(cell, erasedRow));
+    const allCells = erasedRow.getAllCells();
+    const editableCells = allCells.filter(cell => canEditCell(cell, erasedRow));
+    const presentColumnIds = new Set(allCells.map(cell => cell.column.id));
     const drafts = draftsFor(rowId);
     const values: Record<string, unknown> = {};
     const previousValues: Record<string, unknown> = {};
@@ -437,15 +439,27 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       changed ||= !Object.is(value, previous);
     }
 
-    // A column can leave the definitions mid-edit — a responsive breakpoint crossing removes it
-    // before TanStack sees it, so it has no cell here at all. The value the user typed into it
-    // is still theirs: it commits against the baseline captured when the edit began. Its
-    // `validate` cannot run (the definition is gone), which is why the loop below skips it.
+    // Drafts whose column produced no entry above fall into two very different cases.
     for (const [columnId, value] of drafts) {
       if (Object.hasOwn(values, columnId)) {
         continue;
       }
 
+      if (presentColumnIds.has(columnId)) {
+        // The column is still here, it simply stopped being editable mid-edit — `enableEditing`
+        // switched off, `meta.edit` removed, or `edit.enabled(row)` now false for this row.
+        // Committing that draft would push a value through a gate the application just closed,
+        // and unvalidated besides (the validation pass below only walks editable cells). The
+        // pending value is dropped, not promoted.
+        drafts.delete(columnId);
+
+        continue;
+      }
+
+      // The other case: the column left the definitions entirely — a responsive breakpoint
+      // crossing removes it before TanStack ever sees it, so there is no cell to read. The value
+      // the user typed is still theirs and commits against the baseline captured at edit start.
+      // Its `validate` cannot run, because the definition that carried it is gone.
       const previous = rowDrafts.current.baseline.get(columnId);
       values[columnId] = value;
       previousValues[columnId] = previous;

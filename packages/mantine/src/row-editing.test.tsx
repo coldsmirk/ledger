@@ -335,6 +335,55 @@ describe("row editing mode", () => {
     expect(change.previousValues).toEqual({ age: 30, name: "Carol" });
   });
 
+  it("drops a draft whose column stopped being editable mid-edit", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    // The column stays in the definitions; only its edit gate closes — `meta.edit` removed here,
+    // the same shape as `enableEditing` flipping off or `edit.enabled(row)` turning false.
+    const readOnlyName: Array<ColumnDef<Person, any>> = [
+      { accessorKey: "name", header: "Name" },
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      },
+      { accessorKey: "id", header: "Id" }
+    ];
+
+    const view = (columnSet: Array<ColumnDef<Person, any>>) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columnSet}
+            data={people}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(columns));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    rerender(view(readOnlyName));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+    await waitFor(() => expect(editorInputs()).toHaveLength(0));
+
+    // The draft must not slip through the gate the application just closed — and it would have
+    // arrived unvalidated, since validation only walks currently editable cells. Age is
+    // untouched, so there is nothing left to commit at all.
+    expect(onRowEditCommit).not.toHaveBeenCalled();
+    expect(screen.getByText("Carol")).toBeTruthy();
+  });
+
   it("starts and stops row editing through the imperative handle", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();
