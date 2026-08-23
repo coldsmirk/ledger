@@ -1,50 +1,63 @@
 import type { Product } from "../data";
 
 import { createColumnHelper, DataTable } from "@coldsmirk/ledger-mantine";
-import { zhCN } from "@coldsmirk/ledger-mantine/locales";
 import { Badge, Group, SegmentedControl, Switch } from "@mantine/core";
 import { useMemo, useState } from "react";
 
 import { makeProducts } from "../data";
+import { useCopy, useLang } from "../i18n";
+
+const copy = {
+  en: {
+    name: "Product",
+    spec: "Spec",
+    warehouse: "Bin",
+    price: "Price",
+    stock: "Stock",
+    status: "Status",
+    listed: "On sale",
+    delisted: "Delisted",
+    borders: "Borders",
+    frame: "Frame + rows",
+    grid: "Grid (spreadsheet)",
+    horizontal: "Row lines only",
+    striped: "Stripes",
+    hover: "Hover",
+    roomy: "Roomy rows",
+    loading: "Loading",
+    empty: "No data",
+    tintedHeader: "Tinted header",
+    showHeader: "Show header"
+  },
+  zh: {
+    name: "品名",
+    spec: "规格",
+    warehouse: "仓位",
+    price: "单价",
+    stock: "库存",
+    status: "状态",
+    listed: "在售",
+    delisted: "下架",
+    borders: "边框",
+    frame: "外框 + 横线",
+    grid: "网格（电子表格）",
+    horizontal: "纯横线",
+    striped: "斑马纹",
+    hover: "悬停高亮",
+    roomy: "宽松行距",
+    loading: "加载中",
+    empty: "空数据",
+    tintedHeader: "表头底色",
+    showHeader: "显示表头"
+  }
+};
 
 const helper = createColumnHelper<Product>();
 
-const columns = [
-  helper.accessor("sku", { header: "SKU", size: 120 }),
-  helper.accessor("name", { header: "品名", size: 150 }),
-  helper.accessor("spec", { header: "规格", size: 110 }),
-  helper.accessor("warehouse", { header: "仓位", size: 100 }),
-  helper.accessor("price", {
-    header: "单价",
-    size: 120,
-    cell: context => context.getValue().toFixed(2),
-    meta: { align: "end" }
-  }),
-  helper.accessor("stock", {
-    header: "库存",
-    size: 100,
-    meta: { align: "end" }
-  }),
-  helper.accessor("listed", {
-    header: "状态",
-    size: 100,
-    cell: context => (
-      <Badge color={context.getValue() ? "teal" : "gray"} size="sm" variant="light">
-        {context.getValue() ? "在售" : "下架"}
-      </Badge>
-    )
-  })
-];
-
-/* The three border shapes EP ships as table variants, expressed by the Mantine border props. */
-const BORDER_PRESETS = [
-  { value: "frame", label: "外框 + 横线" },
-  { value: "grid", label: "网格（电子表格）" },
-  { value: "horizontal", label: "纯横线" }
-];
-
 export function AppearanceDemo() {
-  const data = useMemo(() => makeProducts(40), []);
+  const t = useCopy(copy);
+  const { lang } = useLang();
+  const data = useMemo(() => makeProducts(lang, 40), [lang]);
   const [borders, setBorders] = useState("frame");
   const [striped, setStriped] = useState(false);
   const [hover, setHover] = useState(true);
@@ -54,56 +67,97 @@ export function AppearanceDemo() {
   const [tintedHeader, setTintedHeader] = useState(false);
   const [showHeader, setShowHeader] = useState(true);
 
+  const columns = useMemo(() => [
+    helper.accessor("sku", { header: "SKU", size: 120 }),
+    helper.accessor("name", { header: t.name, size: 180 }),
+    helper.accessor("spec", { header: t.spec, size: 110 }),
+    helper.accessor("warehouse", { header: t.warehouse, size: 100 }),
+    helper.accessor("price", {
+      header: t.price,
+      size: 120,
+      cell: context => context.getValue().toFixed(2),
+      meta: { align: "end" }
+    }),
+    helper.accessor("stock", {
+      header: t.stock,
+      size: 100,
+      meta: { align: "end" }
+    }),
+    helper.accessor("listed", {
+      header: t.status,
+      size: 100,
+      cell: context => (
+        <Badge color={context.getValue() ? "teal" : "gray"} size="sm" variant="light">
+          {context.getValue() ? t.listed : t.delisted}
+        </Badge>
+      )
+    })
+  ], [t]);
+
+  /* The three border shapes, expressed by the Mantine border props. */
+  const borderPresets = [
+    { value: "frame", label: t.frame },
+    { value: "grid", label: t.grid },
+    { value: "horizontal", label: t.horizontal }
+  ];
+
   return (
     <>
       <Group gap="lg">
-        <SegmentedControl data={BORDER_PRESETS} size="xs" value={borders} onChange={setBorders} />
+        <SegmentedControl
+          aria-label={t.borders}
+          data={borderPresets}
+          role="radiogroup"
+          size="xs"
+          value={borders}
+          onChange={setBorders}
+        />
 
         <Switch
           checked={striped}
-          label="斑马纹"
+          label={t.striped}
           size="xs"
           onChange={event => setStriped(event.currentTarget.checked)}
         />
 
         <Switch
           checked={hover}
-          label="悬停高亮"
+          label={t.hover}
           size="xs"
           onChange={event => setHover(event.currentTarget.checked)}
         />
 
         <Switch
           checked={roomy}
-          label="宽松行距"
+          label={t.roomy}
           size="xs"
           onChange={event => setRoomy(event.currentTarget.checked)}
         />
 
         <Switch
           checked={loading}
-          label="加载中"
+          label={t.loading}
           size="xs"
           onChange={event => setLoading(event.currentTarget.checked)}
         />
 
         <Switch
           checked={empty}
-          label="空数据"
+          label={t.empty}
           size="xs"
           onChange={event => setEmpty(event.currentTarget.checked)}
         />
 
         <Switch
           checked={tintedHeader}
-          label="表头底色"
+          label={t.tintedHeader}
           size="xs"
           onChange={event => setTintedHeader(event.currentTarget.checked)}
         />
 
         <Switch
           checked={showHeader}
-          label="显示表头"
+          label={t.showHeader}
           size="xs"
           onChange={event => setShowHeader(event.currentTarget.checked)}
         />
@@ -120,7 +174,6 @@ export function AppearanceDemo() {
         flex={1}
         getRowId={product => product.id}
         highlightOnHover={hover}
-        labels={zhCN}
         loading={loading}
         mih={0}
         striped={striped}

@@ -5,17 +5,57 @@ import { Badge, Code, Text } from "@mantine/core";
 import { useMemo } from "react";
 
 import { makeMenus } from "../data";
+import { useCopy, useLang } from "../i18n";
+
+const copy = {
+  en: {
+    name: "Menu",
+    kind: "Type",
+    path: "Route",
+    component: "Component",
+    permission: "Permission",
+    icon: "Icon",
+    order: "Order",
+    status: "Status",
+    visible: "Visible",
+    updatedAt: "Updated",
+    enabled: "Enabled",
+    disabled: "Disabled",
+    shown: "Shown",
+    hidden: "Hidden",
+    kinds: {
+      directory: "Folder",
+      menu: "Menu",
+      action: "Action"
+    }
+  },
+  zh: {
+    name: "菜单名称",
+    kind: "类型",
+    path: "路由路径",
+    component: "组件",
+    permission: "权限标识",
+    icon: "图标",
+    order: "排序",
+    status: "状态",
+    visible: "可见",
+    updatedAt: "更新时间",
+    enabled: "启用",
+    disabled: "停用",
+    shown: "显示",
+    hidden: "隐藏",
+    kinds: {
+      directory: "目录",
+      menu: "菜单",
+      action: "按钮"
+    }
+  }
+};
 
 const kindColor: Record<MenuItem["kind"], string> = {
   directory: "gray",
   menu: "blue",
   action: "orange"
-};
-
-const kindLabel: Record<MenuItem["kind"], string> = {
-  directory: "目录",
-  menu: "菜单",
-  action: "按钮"
 };
 
 /* Directories carry no component, actions no route — a dimmed dash keeps the grid scannable. */
@@ -33,83 +73,85 @@ function CodeOrDash({ value }: { value: string | undefined }) {
 
 const helper = createColumnHelper<MenuItem>();
 
-const columns = [
-  helper.accessor("name", {
-    header: "菜单名称",
-    size: 220,
-    meta: { filter: "text" }
-  }),
-  helper.accessor("kind", {
-    header: "类型",
-    size: 90,
-    cell: context => (
-      <Badge color={kindColor[context.getValue()]} size="sm" variant="light">
-        {kindLabel[context.getValue()]}
-      </Badge>
-    ),
-    meta: {
-      filter: {
-        variant: "multi-select",
-        options: Object.entries(kindLabel).map(([value, text]) => {
-          return { value, label: text };
-        })
-      }
-    }
-  }),
-  helper.accessor("path", {
-    header: "路由路径",
-    size: 180,
-    cell: context => <CodeOrDash value={context.getValue()} />
-  }),
-  helper.accessor("component", {
-    header: "组件",
-    size: 240,
-    cell: context => <CodeOrDash value={context.getValue()} />
-  }),
-  helper.accessor("permission", {
-    header: "权限标识",
-    size: 210,
-    cell: context => <CodeOrDash value={context.getValue()} />
-  }),
-  helper.accessor("icon", {
-    header: "图标",
-    size: 110,
-    cell: context => <CodeOrDash value={context.getValue()} />
-  }),
-  helper.accessor("order", {
-    header: "排序",
-    size: 80,
-    meta: { align: "end" }
-  }),
-  helper.accessor("status", {
-    header: "状态",
-    size: 90,
-    cell: context => (
-      <Badge color={context.getValue() === "enabled" ? "teal" : "red"} size="sm" variant="light">
-        {context.getValue() === "enabled" ? "启用" : "停用"}
-      </Badge>
-    )
-  }),
-  helper.accessor("visible", {
-    header: "可见",
-    size: 90,
-    cell: context => context.getValue()
-      ? "显示"
-      : (
-          <Text span c="dimmed" size="sm">
-            隐藏
-          </Text>
-        )
-  }),
-  helper.accessor("updatedAt", {
-    header: "更新时间",
-    size: 130,
-    sortDescFirst: true
-  })
-];
-
 export function MenuTreeDemo() {
-  const data = useMemo(() => makeMenus(), []);
+  const t = useCopy(copy);
+  const { lang } = useLang();
+  const data = useMemo(() => makeMenus(lang), [lang]);
+
+  const columns = useMemo(() => [
+    helper.accessor("name", {
+      header: t.name,
+      size: 240,
+      meta: { filter: "text" }
+    }),
+    helper.accessor("kind", {
+      header: t.kind,
+      size: 110,
+      cell: context => (
+        <Badge color={kindColor[context.getValue()]} size="sm" variant="light">
+          {t.kinds[context.getValue()]}
+        </Badge>
+      ),
+      meta: {
+        filter: {
+          variant: "multi-select",
+          options: Object.entries(t.kinds).map(([value, label]) => {
+            return { value, label };
+          })
+        }
+      }
+    }),
+    helper.accessor("path", {
+      header: t.path,
+      size: 180,
+      cell: context => <CodeOrDash value={context.getValue()} />
+    }),
+    helper.accessor("component", {
+      header: t.component,
+      size: 240,
+      cell: context => <CodeOrDash value={context.getValue()} />
+    }),
+    helper.accessor("permission", {
+      header: t.permission,
+      size: 210,
+      cell: context => <CodeOrDash value={context.getValue()} />
+    }),
+    helper.accessor("icon", {
+      header: t.icon,
+      size: 110,
+      cell: context => <CodeOrDash value={context.getValue()} />
+    }),
+    helper.accessor("order", {
+      header: t.order,
+      size: 90,
+      meta: { align: "end" }
+    }),
+    helper.accessor("status", {
+      header: t.status,
+      size: 100,
+      cell: context => (
+        <Badge color={context.getValue() === "enabled" ? "teal" : "red"} size="sm" variant="light">
+          {context.getValue() === "enabled" ? t.enabled : t.disabled}
+        </Badge>
+      )
+    }),
+    helper.accessor("visible", {
+      header: t.visible,
+      size: 90,
+      cell: context => context.getValue()
+        ? t.shown
+        : (
+            <Text span c="dimmed" size="sm">
+              {t.hidden}
+            </Text>
+          )
+    }),
+    helper.accessor("updatedAt", {
+      header: t.updatedAt,
+      size: 130,
+      sortDescFirst: true
+    })
+  ], [t]);
 
   return (
     <DataTable

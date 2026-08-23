@@ -11,7 +11,7 @@ Mantine deliberately ships no data grid; the community options either reimplemen
 | Package | Contents |
 | --- | --- |
 | [`@coldsmirk/ledger-mantine`](packages/mantine) | The `<DataTable>` component, `useDataTable` hook, compound components, `zhCN` locale, `toCsv`, and the layered stylesheet. |
-| `ledger-playground` (private) | One demo page per feature area; `pnpm --filter ledger-playground dev` serves it against library sources. |
+| `ledger-playground` (private) | One demo page per feature area, bilingual (EN / 简体中文) with a view-source drawer; `pnpm --filter ledger-playground dev` serves it against library sources. |
 
 ## Development
 

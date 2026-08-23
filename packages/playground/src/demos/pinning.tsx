@@ -3,13 +3,30 @@ import type { TableInstance } from "@coldsmirk/ledger-mantine";
 import type { Person } from "../data";
 
 import { createColumnHelper, DataTable, useDataTable } from "@coldsmirk/ledger-mantine";
-import { zhCN } from "@coldsmirk/ledger-mantine/locales";
 import { ActionIcon, Button, Drawer, Group, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMemo } from "react";
 
 import { makePeople } from "../data";
-import { personColumns, StatusBadge } from "./columns";
+import { useCopy, useLang } from "../i18n";
+import { StatusBadge, usePersonColumns } from "./columns";
+
+const copy = {
+  en: {
+    statusCopy: "Status (copy)",
+    actions: "Actions",
+    columns: "Columns",
+    barePanel: "The bare panel in a drawer",
+    hint: "The ⚙ in the last header opens the columns panel: drag to reorder, tick to show or hide, pin to either side, type a width (clear it to go back to auto), reset. Header cells themselves also drag to reorder and resize from their right edge (double-click to fit). The layout is written to localStorage and survives a reload."
+  },
+  zh: {
+    statusCopy: "状态（副本列）",
+    actions: "操作",
+    columns: "列设置",
+    barePanel: "抽屉里的裸面板",
+    hint: "表头右上角 ⚙ 打开列设置：拖拽改序、勾选显隐、三态钉列、填宽度（清空即回自适应）、重置。列头本身也能拖着重排、拖右缘改宽（双击复位）。布局写入 localStorage，刷新后保留。"
+  }
+};
 
 const helper = createColumnHelper<Person>();
 
@@ -32,42 +49,46 @@ function CogIcon() {
   );
 }
 
-const columns = [
-  ...personColumns,
-  helper.accessor("status", {
-    id: "status-copy",
-    header: "状态（副本列）",
-    size: 130,
-    cell: context => <StatusBadge status={context.getValue()} />
-  }),
-  helper.display({
-    id: "actions",
-    size: 92,
-    enableHiding: false,
-    // A display column can never sort, so its header renders as a plain box — the one place a
-    // trigger can live, since a sortable header IS a button and would end up nesting one. The
-    // cell needs room for the title AND the cog: the label scaffolding clips its content.
-    header: ({ table }) => (
-      <Group gap={2} justify="center" wrap="nowrap">
-        操作
-        <DataTable.ColumnsPanel labels={zhCN} table={table as TableInstance<Person>}>
-          <ActionIcon aria-label="列设置" color="gray" size="sm" variant="subtle">
-            <CogIcon />
-          </ActionIcon>
-        </DataTable.ColumnsPanel>
-      </Group>
-    ),
-    cell: () => (
-      <ActionIcon size="sm" variant="subtle" onClick={event => event.stopPropagation()}>
-        …
-      </ActionIcon>
-    )
-  })
-];
-
 export function PinningDemo() {
-  const data = useMemo(() => makePeople(80), []);
+  const t = useCopy(copy);
+  const { lang } = useLang();
+  const data = useMemo(() => makePeople(lang, 80), [lang]);
+  const personColumns = usePersonColumns();
   const [drawerOpened, drawer] = useDisclosure(false);
+
+  const columns = useMemo(() => [
+    ...personColumns,
+    helper.accessor("status", {
+      id: "status-copy",
+      header: t.statusCopy,
+      size: 150,
+      cell: context => <StatusBadge status={context.getValue()} />
+    }),
+    helper.display({
+      id: "actions",
+      size: 92,
+      enableHiding: false,
+      // A display column can never sort, so its header renders as a plain box — the one place a
+      // trigger can live, since a sortable header IS a button and would end up nesting one. The
+      // cell needs room for the title AND the cog: the label scaffolding clips its content.
+      header: ({ table }) => (
+        <Group gap={2} justify="center" wrap="nowrap">
+          {t.actions}
+
+          <DataTable.ColumnsPanel table={table as TableInstance<Person>}>
+            <ActionIcon aria-label={t.columns} color="gray" size="sm" variant="subtle">
+              <CogIcon />
+            </ActionIcon>
+          </DataTable.ColumnsPanel>
+        </Group>
+      ),
+      cell: () => (
+        <ActionIcon size="sm" variant="subtle" onClick={event => event.stopPropagation()}>
+          …
+        </ActionIcon>
+      )
+    })
+  ], [personColumns, t]);
 
   const table = useDataTable({
     data,
@@ -83,12 +104,11 @@ export function PinningDemo() {
     <>
       <Group justify="space-between" wrap="nowrap">
         <Text c="dimmed" size="xs">
-          表头右上角 ⚙ 打开列设置：拖拽改序、勾选显隐、三态钉列、填宽度（清空即回自适应）、重置。
-          列头本身也能拖着重排、拖右缘改宽（双击复位）。布局写入 localStorage，刷新后保留。
+          {t.hint}
         </Text>
 
         <Button size="xs" variant="default" onClick={drawer.open}>
-          抽屉里的裸面板
+          {t.barePanel}
         </Button>
       </Group>
 
@@ -97,7 +117,7 @@ export function PinningDemo() {
       {/* The very same component, no trigger: it assumes nothing about what hosts it. The panel
           brings its own heading, so the drawer does not add a second one. */}
       <Drawer opened={drawerOpened} padding={0} position="right" size="sm" onClose={drawer.close}>
-        <DataTable.ColumnsPanel labels={zhCN} table={table} />
+        <DataTable.ColumnsPanel table={table} />
       </Drawer>
     </>
   );

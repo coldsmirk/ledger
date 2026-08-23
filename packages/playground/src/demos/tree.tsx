@@ -4,6 +4,20 @@ import { createColumnHelper, DataTable } from "@coldsmirk/ledger-mantine";
 import { useMemo } from "react";
 
 import { makeRegions } from "../data";
+import { useCopy, useLang } from "../i18n";
+
+const copy = {
+  en: {
+    region: "Region (the header expands everything)",
+    revenue: "Revenue",
+    share: "Share of region"
+  },
+  zh: {
+    region: "区域（表头可展开全部）",
+    revenue: "营收",
+    share: "占本区域"
+  }
+};
 
 const helper = createColumnHelper<Region>();
 
@@ -18,27 +32,29 @@ function shareOfRoot(row: { id: string; original: Region }, roots: Region[]): nu
 }
 
 export function TreeDemo() {
-  const data = useMemo(() => makeRegions(), []);
+  const t = useCopy(copy);
+  const { lang } = useLang();
+  const data = useMemo(() => makeRegions(lang), [lang]);
 
   const columns = useMemo(() => [
     helper.accessor("name", {
-      header: "区域（表头可展开全部）",
+      header: t.region,
       minSize: 200
     }),
     helper.accessor("revenue", {
-      header: "营收",
+      header: t.revenue,
       size: 140,
       cell: context => context.getValue().toLocaleString(),
       meta: { align: "end" }
     }),
     helper.display({
       id: "share",
-      header: "占本区域",
+      header: t.share,
       size: 120,
       cell: context => `${(shareOfRoot(context.row, data) * 100).toFixed(1)}%`,
       meta: { align: "end" }
     })
-  ], [data]);
+  ], [t, data]);
 
   return (
     <DataTable

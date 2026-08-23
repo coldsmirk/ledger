@@ -1,13 +1,14 @@
 import type { ColumnFiltersState, PaginationState, SortingState } from "@coldsmirk/ledger-mantine";
 
 import type { Person } from "../data";
+import type { Lang } from "../i18n";
 
 import { createColumnHelper, DataTable, useDataTable } from "@coldsmirk/ledger-mantine";
-import { zhCN } from "@coldsmirk/ledger-mantine/locales";
 import { Badge, Code, Group, Stack, Text } from "@mantine/core";
 import { useEffect, useMemo, useState } from "react";
 
-import { makePeople } from "../data";
+import { makePeople, roleOptions } from "../data";
+import { useCopy, useLang } from "../i18n";
 import { StatusBadge } from "./columns";
 
 /**
@@ -16,6 +17,47 @@ import { StatusBadge } from "./columns";
  * not run — `data` is exactly one page as the API returned it, and `rowCount` is the total the
  * pager needs. Every state slice is controlled, which is what makes the request derivable.
  */
+const copy = {
+  en: {
+    name: "Name",
+    email: "Email",
+    role: "Role",
+    status: "Status",
+    balance: "Balance",
+    joinedAt: "Joined",
+    searchPlaceholder: "Search name or email",
+    pending: "Requesting",
+    result: (total: number, requests: number) => `${total} rows · ${requests} requests so far`,
+    footnote: (total: number) => `The whole data set holds ${total} people; the table never holds more than the current page, and the total comes from rowCount.`,
+    statuses: {
+      active: "Active",
+      invited: "Invited",
+      suspended: "Suspended"
+    }
+  },
+  zh: {
+    name: "姓名",
+    email: "邮箱",
+    role: "角色",
+    status: "状态",
+    balance: "余额",
+    joinedAt: "入职日期",
+    searchPlaceholder: "搜索姓名或邮箱",
+    pending: "请求中",
+    result: (total: number, requests: number) => `${total} 条 · 已发起 ${requests} 次`,
+    footnote: (total: number) => `整个数据集有 ${total} 条，表格任何时刻只持有当前一页；合计数来自 rowCount。`,
+    statuses: {
+      active: "活跃",
+      invited: "已邀请",
+      suspended: "已停用"
+    }
+  }
+};
+
+const COLLATION: Record<Lang, string> = {
+  en: "en",
+  zh: "zh-CN"
+};
 
 interface PeopleQuery {
   sorting: SortingState;
@@ -23,34 +65,13 @@ interface PeopleQuery {
   globalFilter: string;
   pageIndex: number;
   pageSize: number;
+  collation: string;
 }
 
 interface PeoplePage {
   rows: Person[];
   total: number;
 }
-
-const ROLE_OPTIONS = ["工程师", "设计师", "产品经理", "运营", "测试"];
-
-const STATUS_OPTIONS = [
-  {
-    value: "active",
-    label: "活跃"
-  },
-  {
-    value: "invited",
-    label: "已邀请"
-  },
-  {
-    value: "suspended",
-    label: "已停用"
-  }
-];
-
-/**
- * Stands in for the backend: the whole dataset lives here and never reaches the table.
- */
-const DATASET = makePeople(437);
 
 function matchesFilters(person: Person, filters: ColumnFiltersState): boolean {
   return filters.every(filter => {
@@ -64,7 +85,7 @@ function matchesFilters(person: Person, filters: ColumnFiltersState): boolean {
   });
 }
 
-function compare(a: Person, b: Person, id: string): number {
+function compare(a: Person, b: Person, id: string, collation: string): number {
   const left = a[id as keyof Person];
   const right = b[id as keyof Person];
 
@@ -72,16 +93,19 @@ function compare(a: Person, b: Person, id: string): number {
     return left - right;
   }
 
-  return String(left).localeCompare(String(right), "zh-CN");
+  return String(left).localeCompare(String(right), collation);
 }
 
-async function fetchPeople(query: PeopleQuery): Promise<PeoplePage> {
+/**
+ * Stands in for the backend: `dataset` is the store, and only one page of it is ever returned.
+ */
+async function fetchPeople(dataset: Person[], query: PeopleQuery): Promise<PeoplePage> {
   await new Promise(resolve => {
     setTimeout(resolve, 420);
   });
 
   const term = query.globalFilter.trim().toLowerCase();
-  const matched = DATASET.filter(person => {
+  const matched = dataset.filter(person => {
     const hitsTerm = term === ""
       || person.name.toLowerCase().includes(term)
       || person.email.toLowerCase().includes(term);
@@ -93,7 +117,7 @@ async function fetchPeople(query: PeopleQuery): Promise<PeoplePage> {
     ? matched
     : matched.toSorted((a, b) => {
         for (const rule of query.sorting) {
-          const result = compare(a, b, rule.id);
+          const result = compare(a, b, rule.id, query.collation);
 
           if (result !== 0) {
             return rule.desc ? -result : result;
@@ -113,56 +137,10 @@ async function fetchPeople(query: PeopleQuery): Promise<PeoplePage> {
 
 const helper = createColumnHelper<Person>();
 
-const columns = [
-  helper.accessor("name", {
-    header: "姓名",
-    minSize: 120,
-    meta: { filter: "text" }
-  }),
-  helper.accessor("email", {
-    header: "邮箱",
-    minSize: 200,
-    enableSorting: false,
-    meta: { truncate: true }
-  }),
-  helper.accessor("role", {
-    header: "角色",
-    size: 130,
-    // Client mode derives select options from the loaded rows; a server page holds one slice of
-    // them, so the options have to be declared.
-    meta: {
-      filter: {
-        variant: "select",
-        options: ROLE_OPTIONS
-      }
-    }
-  }),
-  helper.accessor("status", {
-    header: "状态",
-    size: 120,
-    enableSorting: false,
-    cell: context => <StatusBadge status={context.getValue()} />,
-    meta: {
-      filter: {
-        variant: "multi-select",
-        options: STATUS_OPTIONS
-      }
-    }
-  }),
-  helper.accessor("balance", {
-    header: "余额",
-    size: 120,
-    cell: context => context.getValue().toFixed(2),
-    meta: { align: "end" }
-  }),
-  helper.accessor("joinedAt", {
-    header: "入职日期",
-    size: 130,
-    sortDescFirst: true
-  })
-];
-
 export function ServerSideDemo() {
+  const t = useCopy(copy);
+  const { lang } = useLang();
+  const dataset = useMemo(() => makePeople(lang, 437), [lang]);
   const [sorting, setSorting] = useState<SortingState>([
     {
       id: "joinedAt",
@@ -182,17 +160,69 @@ export function ServerSideDemo() {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState(0);
 
+  const columns = useMemo(() => [
+    helper.accessor("name", {
+      header: t.name,
+      minSize: 120,
+      meta: { filter: "text" }
+    }),
+    helper.accessor("email", {
+      header: t.email,
+      minSize: 200,
+      enableSorting: false,
+      meta: { truncate: true }
+    }),
+    helper.accessor("role", {
+      header: t.role,
+      size: 150,
+      // Client mode derives select options from the loaded rows; a server page holds one slice
+      // of them, so the options have to be declared.
+      meta: {
+        filter: {
+          variant: "select",
+          options: roleOptions(lang)
+        }
+      }
+    }),
+    helper.accessor("status", {
+      header: t.status,
+      size: 120,
+      enableSorting: false,
+      cell: context => <StatusBadge status={context.getValue()} />,
+      meta: {
+        filter: {
+          variant: "multi-select",
+          options: Object.entries(t.statuses).map(([value, label]) => {
+            return { value, label };
+          })
+        }
+      }
+    }),
+    helper.accessor("balance", {
+      header: t.balance,
+      size: 120,
+      cell: context => context.getValue().toFixed(2),
+      meta: { align: "end" }
+    }),
+    helper.accessor("joinedAt", {
+      header: t.joinedAt,
+      size: 130,
+      sortDescFirst: true
+    })
+  ], [t, lang]);
+
   useEffect(() => {
     let cancelled = false;
 
     setLoading(true);
 
-    void fetchPeople({
+    void fetchPeople(dataset, {
       sorting,
       columnFilters,
       globalFilter,
       pageIndex: pagination.pageIndex,
-      pageSize: pagination.pageSize
+      pageSize: pagination.pageSize,
+      collation: COLLATION[lang]
     }).then(result => {
       // The guard is the point: filters race each other, and the last request must win.
       if (cancelled) {
@@ -207,7 +237,7 @@ export function ServerSideDemo() {
     return () => {
       cancelled = true;
     };
-  }, [sorting, columnFilters, globalFilter, pagination]);
+  }, [dataset, lang, sorting, columnFilters, globalFilter, pagination]);
 
   const table = useDataTable({
     data: page.rows,
@@ -254,10 +284,10 @@ export function ServerSideDemo() {
       }}
     >
       <Group gap="sm">
-        <DataTable.Search labels={zhCN} placeholder="搜索姓名或邮箱" table={table} w={240} />
+        <DataTable.Search placeholder={t.searchPlaceholder} table={table} w={240} />
 
         <Badge color={loading ? "yellow" : "teal"} variant="light">
-          {loading ? "请求中" : `${page.total} 条 · 已发起 ${requests} 次`}
+          {loading ? t.pending : t.result(page.total, requests)}
         </Badge>
       </Group>
 
@@ -269,18 +299,13 @@ export function ServerSideDemo() {
         striped
         tabularNums
         flex={1}
-        labels={zhCN}
         loading={loading}
         mih={0}
         table={table}
       />
 
       <Text c="dimmed" size="xs">
-        整个数据集有
-        {" "}
-        {DATASET.length}
-        {" "}
-        条，表格任何时刻只持有当前一页；合计数来自 rowCount。
+        {t.footnote(dataset.length)}
       </Text>
     </Stack>
   );

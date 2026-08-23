@@ -178,19 +178,29 @@ onEditCommit={async ({ row, column, value, previousValue }) => {
 
 ## Playground demo map
 
-Ordered simple → complex, each themed as a real business scene:
+Ordered simple → complex, each themed as a real business scene. Every page runs in English or
+Simplified Chinese — the switch in the header swaps the app's own copy, the generated sample
+data, and the `labels` the library renders with, so it doubles as a live [i18n](i18n.md) demo.
+**View source** opens the demo's own file plus the local modules it imports; the copy for both
+languages sits at the top of each file, which is also the pattern to copy — column defs must be
+rebuilt (`useMemo` on the copy object) or a locale switch leaves the old headers standing.
 
 | Demo (`packages/playground/src/demos/`) | Scene | Exercises |
 | --- | --- | --- |
-| `basic` | 员工名册 | the minimal table: raw column defs + data, sorting, hover |
-| `appearance` | 价目表 | the three border shapes (frame + rows / grid / horizontal-only), stripes, spacing, loading, empty state |
-| `orders` | 订单中心 | all five filter variants, pagination, footer totals, the active row, `onRowActivate`, `rowProps` / `meta.cellProps`, `zhCN` |
-| `selection` | 批量操作 | multi-select, shift ranges, selection bar, CSV export, per-row selectability |
-| `editing` | 库存盘点 | all four editors, validation, async commits |
-| `master-detail` | 订单明细 | detail panels (nested line-item table) |
-| `tree` | 区域营收 | sub-rows, indentation, expand-all |
-| `menu-tree` | 菜单管理 | a business tree: many columns, pinned tree column, horizontal scroll |
-| `pinning` | 宽表报表 | `ColumnsPanel` (header cog + bare panel in a drawer), pinning, resize, drag reorder, `persistState` |
-| `grouping` | 销售业绩 | grouping + aggregation, row pinning |
-| `virtualized` | 操作日志 | 50k rows, virtualization, infinite loading, adaptive height |
-| `hook-toolbar` | 自定义工具栏 | hook mode + compound components (`Search` / `ColumnsPanel` / `Pagination`) |
+| `basic` | Staff roster | the minimal table: raw column defs + data, sorting, hover, a responsive column pair |
+| `appearance` | Price list | the three border shapes (frame + rows / grid / horizontal-only), stripes, spacing, loading, empty state, the header tint recipe |
+| `states` | Every unhappy path | loading, empty, no-results, error + retry, load-more error, a custom empty state |
+| `orders` | Order desk | all five filter variants, pagination, footer totals, the active row, `onRowActivate`, `onRowContextMenu`, `rowProps` / `meta.cellProps` |
+| `selection` | Bulk actions | multi-select, shift ranges, selection bar, CSV export, per-row selectability, single-select via `selectionColumn` |
+| `editing` | Stock count | all four editors, validation, async commits, a per-row edit gate |
+| `row-editing` | Employee records | row mode: atomic commits, an actions column driving the controller through `meta.ledger` |
+| `master-detail` | Order line items | detail panels (nested line-item table) |
+| `tree` | Revenue by region | sub-rows, indentation, expand-all |
+| `menu-tree` | Menu administration | a business tree: many columns, pinned tree column, horizontal scroll |
+| `spanning` | Revenue report | `spanRows` / `spanColumns`, a fixed-size document rather than an elastic table |
+| `grouped-headers` | Quarterly store report | `helper.group` / `helper.columns`, a footer row, `headerCellProps` / `footerCellProps` |
+| `pinning` | Wide table | `ColumnsPanel` (header cog + bare panel in a drawer), pinning, resize, drag reorder, `persistState` |
+| `grouping` | Sales performance | grouping + aggregation, row pinning |
+| `virtualized` | Audit log | 50k rows, virtualization, infinite loading, `scrollToRow`, adaptive height |
+| `server-side` | Server-backed table | `sortingMode` / `filterMode` / `paginationMode` on `"server"`, `rowCount`, a race-guarded fetch |
+| `hook-toolbar` | Custom toolbar | hook mode + compound components (`Search` / `ColumnsPanel` / `Pagination`) |

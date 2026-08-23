@@ -1,37 +1,68 @@
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
+import "@mantine/code-highlight/styles.css";
 import "@coldsmirk/ledger-mantine/styles.css";
 import "dayjs/locale/zh-cn";
 import "./app.css";
 
-import { DataTable } from "@coldsmirk/ledger-mantine";
+import type { DataTableLabels } from "@coldsmirk/ledger-mantine";
+
+import type { Lang } from "./i18n";
+
+import { DataTable, defaultLabels } from "@coldsmirk/ledger-mantine";
 import { zhCN } from "@coldsmirk/ledger-mantine/locales";
 import { createTheme, MantineProvider } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
-import { StrictMode } from "react";
+import { StrictMode, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./app";
+import { LanguageProvider, useLang } from "./i18n";
 
-// App-wide DataTable defaults through the Mantine-native mechanism — no extra provider.
-const theme = createTheme({
-  components: {
-    DataTable: DataTable.extend({
-      defaultProps: { labels: zhCN, highlightOnHover: true }
-    })
-  }
-});
+const LABELS: Record<Lang, DataTableLabels> = {
+  en: defaultLabels,
+  zh: zhCN
+};
+
+const DAYJS_LOCALE: Record<Lang, string> = {
+  en: "en",
+  zh: "zh-cn"
+};
+
+function Themed() {
+  const { lang } = useLang();
+  const labels = LABELS[lang];
+
+  // App-wide defaults through the Mantine-native mechanism — no extra provider. The compound
+  // components render outside the table tree, so each carries its own theme key; the built-in
+  // pagination bar inherits the table's labels and needs no entry.
+  const theme = useMemo(() => createTheme({
+    components: {
+      DataTable: DataTable.extend({ defaultProps: { labels, highlightOnHover: true } }),
+      DataTableColumnsPanel: { defaultProps: { labels } },
+      DataTablePagination: { defaultProps: { labels } },
+      DataTableSearch: { defaultProps: { labels } },
+      DataTableSelectionBar: { defaultProps: { labels } }
+    }
+  }), [labels]);
+
+  return (
+    <MantineProvider theme={theme}>
+      <DatesProvider settings={{ locale: DAYJS_LOCALE[lang] }}>
+        <App />
+      </DatesProvider>
+    </MantineProvider>
+  );
+}
 
 const rootElement = document.querySelector("#root");
 
 if (rootElement) {
   createRoot(rootElement).render(
     <StrictMode>
-      <MantineProvider theme={theme}>
-        <DatesProvider settings={{ locale: "zh-cn" }}>
-          <App />
-        </DatesProvider>
-      </MantineProvider>
+      <LanguageProvider>
+        <Themed />
+      </LanguageProvider>
     </StrictMode>
   );
 }

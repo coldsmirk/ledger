@@ -5,6 +5,50 @@ import { Badge, Table, Text } from "@mantine/core";
 import { useMemo } from "react";
 
 import { makeOrders } from "../data";
+import { useCopy, useLang } from "../i18n";
+
+const copy = {
+  en: {
+    orderNo: "Order",
+    customer: "Customer",
+    status: "Status",
+    quantity: "Items",
+    amount: "Amount",
+    placedAt: "Placed",
+    product: "Product",
+    unitPrice: "Unit price",
+    lineQuantity: "Qty",
+    subtotal: "Subtotal",
+    total: (count: number, amount: string) => `${count} line items, ${amount} in total`,
+    statuses: {
+      pending: "Pending",
+      paid: "Paid",
+      shipped: "Shipped",
+      completed: "Completed",
+      cancelled: "Cancelled"
+    }
+  },
+  zh: {
+    orderNo: "订单号",
+    customer: "客户",
+    status: "状态",
+    quantity: "件数",
+    amount: "金额",
+    placedAt: "下单日期",
+    product: "商品",
+    unitPrice: "单价",
+    lineQuantity: "数量",
+    subtotal: "小计",
+    total: (count: number, amount: string) => `共 ${count} 项，合计 ${amount}`,
+    statuses: {
+      pending: "待支付",
+      paid: "已支付",
+      shipped: "已发货",
+      completed: "已完成",
+      cancelled: "已取消"
+    }
+  }
+};
 
 const statusColor: Record<Order["status"], string> = {
   pending: "yellow",
@@ -14,52 +58,20 @@ const statusColor: Record<Order["status"], string> = {
   cancelled: "gray"
 };
 
-const statusLabel: Record<Order["status"], string> = {
-  pending: "待支付",
-  paid: "已支付",
-  shipped: "已发货",
-  completed: "已完成",
-  cancelled: "已取消"
-};
-
 const helper = createColumnHelper<Order>();
 
-const columns = [
-  helper.accessor("orderNo", { header: "订单号", size: 160 }),
-  helper.accessor("customer", { header: "客户", size: 130 }),
-  helper.accessor("status", {
-    header: "状态",
-    size: 120,
-    cell: context => (
-      <Badge color={statusColor[context.getValue()]} size="sm" variant="light">
-        {statusLabel[context.getValue()]}
-      </Badge>
-    )
-  }),
-  helper.accessor("quantity", {
-    header: "件数",
-    size: 100,
-    meta: { align: "end" }
-  }),
-  helper.accessor("amount", {
-    header: "金额",
-    size: 140,
-    cell: context => context.getValue().toFixed(2),
-    meta: { align: "end" }
-  }),
-  helper.accessor("placedAt", { header: "下单日期", size: 140 })
-];
-
 function OrderItems({ order }: { order: Order }) {
+  const t = useCopy(copy);
+
   return (
     <>
       <Table horizontalSpacing="md" verticalSpacing={4} w="60%">
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>商品</Table.Th>
-            <Table.Th ta="end">单价</Table.Th>
-            <Table.Th ta="end">数量</Table.Th>
-            <Table.Th ta="end">小计</Table.Th>
+            <Table.Th>{t.product}</Table.Th>
+            <Table.Th ta="end">{t.unitPrice}</Table.Th>
+            <Table.Th ta="end">{t.lineQuantity}</Table.Th>
+            <Table.Th ta="end">{t.subtotal}</Table.Th>
           </Table.Tr>
         </Table.Thead>
 
@@ -76,14 +88,42 @@ function OrderItems({ order }: { order: Order }) {
       </Table>
 
       <Text fw={600} mt="xs" size="sm">
-        {`共 ${order.items.length} 项，合计 ${order.amount.toFixed(2)}`}
+        {t.total(order.items.length, order.amount.toFixed(2))}
       </Text>
     </>
   );
 }
 
 export function MasterDetailDemo() {
-  const data = useMemo(() => makeOrders(40, 53), []);
+  const t = useCopy(copy);
+  const { lang } = useLang();
+  const data = useMemo(() => makeOrders(lang, 40, 53), [lang]);
+
+  const columns = useMemo(() => [
+    helper.accessor("orderNo", { header: t.orderNo, size: 160 }),
+    helper.accessor("customer", { header: t.customer, size: 130 }),
+    helper.accessor("status", {
+      header: t.status,
+      size: 120,
+      cell: context => (
+        <Badge color={statusColor[context.getValue()]} size="sm" variant="light">
+          {t.statuses[context.getValue()]}
+        </Badge>
+      )
+    }),
+    helper.accessor("quantity", {
+      header: t.quantity,
+      size: 100,
+      meta: { align: "end" }
+    }),
+    helper.accessor("amount", {
+      header: t.amount,
+      size: 140,
+      cell: context => context.getValue().toFixed(2),
+      meta: { align: "end" }
+    }),
+    helper.accessor("placedAt", { header: t.placedAt, size: 140 })
+  ], [t]);
 
   return (
     <DataTable

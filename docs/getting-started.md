@@ -150,4 +150,4 @@ Every user-visible string flows through `labels` (English defaults, complete `zh
 - The state model, server modes, and escape hatches: [state.md](state.md)
 - Styling and theming: [styling.md](styling.md)
 - The complete prop/type reference: [api.md](api.md)
-- Runnable demos: `packages/playground` (`pnpm --filter ledger-playground dev`), one page per feature area
+- Runnable demos: `packages/playground` (`pnpm --filter ledger-playground dev`), one page per feature area, in English or Simplified Chinese, each showing its own source

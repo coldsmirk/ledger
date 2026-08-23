@@ -1,17 +1,25 @@
 import { DataTable, useDataTable } from "@coldsmirk/ledger-mantine";
-import { zhCN } from "@coldsmirk/ledger-mantine/locales";
 import { Button, Group, Stack } from "@mantine/core";
 import { useMemo } from "react";
 
 import { makePeople } from "../data";
-import { personColumns } from "./columns";
+import { useCopy, useLang } from "../i18n";
+import { usePersonColumns } from "./columns";
+
+const copy = {
+  en: { columns: "Columns" },
+  zh: { columns: "列设置" }
+};
 
 export function HookToolbarDemo() {
-  const data = useMemo(() => makePeople(120), []);
+  const t = useCopy(copy);
+  const { lang } = useLang();
+  const data = useMemo(() => makePeople(lang, 120), [lang]);
+  const columns = usePersonColumns();
 
   const table = useDataTable({
     data,
-    columns: personColumns,
+    columns,
     getRowId: person => person.id,
     enableGlobalFilter: true,
     enablePagination: true,
@@ -21,12 +29,14 @@ export function HookToolbarDemo() {
   return (
     <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
       <Group justify="space-between">
-        <DataTable.Search labels={zhCN} table={table} w={260} />
+        {/* No `labels` here: every compound component has its own theme key, and the app sets
+            them all in one place (src/main.tsx). */}
+        <DataTable.Search table={table} w={260} />
 
         {/* children IS the trigger — the panel never assumes what opens it. */}
-        <DataTable.ColumnsPanel labels={zhCN} table={table}>
+        <DataTable.ColumnsPanel table={table}>
           <Button size="xs" variant="default">
-            列设置
+            {t.columns}
           </Button>
         </DataTable.ColumnsPanel>
       </Group>
@@ -39,7 +49,7 @@ export function HookToolbarDemo() {
         withPaginationBar={false}
       />
 
-      <DataTable.Pagination labels={zhCN} table={table} />
+      <DataTable.Pagination table={table} />
     </Stack>
   );
 }

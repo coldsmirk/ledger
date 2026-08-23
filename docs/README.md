@@ -39,4 +39,4 @@ Start with [getting-started.md](getting-started.md); the guides are grounded in 
 | [architecture.md](architecture.md) | Contributor internals: module map, load-bearing pipelines and invariants, testing strategy, gates |
 | [DESIGN.md](DESIGN.md) | The founding design record: vision, the naming constitution, hard semantic rules, decision log, TanStack coverage matrix |
 
-Runnable examples live in `packages/playground` (`pnpm --filter ledger-playground dev`) — one demo page per feature area, resolving the library from TypeScript source.
+Runnable examples live in `packages/playground` (`pnpm --filter ledger-playground dev`) — one demo page per feature area, resolving the library from TypeScript source. Each page runs in English or Simplified Chinese and shows its own source; see the [demo map](recipes.md#playground-demo-map).
