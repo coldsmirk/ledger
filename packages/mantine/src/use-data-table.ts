@@ -671,7 +671,17 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   /* ---- client/server translation + auto-reset policy (docs/state.md) ---- */
   const manualSorting = sortingMode === "server";
   const manualFiltering = filterMode === "server";
-  const manualPagination = paginationMode === "server";
+  const serverPagination = paginationMode === "server";
+  /**
+   * v9 runs the paginated row model unless the factory is absent or `manualPagination` is set
+   * (`getRowModel` → `getPrePaginatedRowModel`). The factory is part of the canonical feature
+   * set and features are read once at mount, so the switch that stays reactive is this one:
+   * with pagination off every row has to reach the body, which is the same short-circuit the
+   * server mode takes. It is inert elsewhere — `paginateExpandedRows` defaults to `true`, so
+   * the expanded row model is unaffected, and the upstream page-reset default it also gates is
+   * meaningless while there are no pages.
+   */
+  const bypassPaginatedRowModel = serverPagination || !enablePagination;
 
   const shouldAutoResetPageIndex
     = tableOptions?.autoResetAll ?? tableOptions?.autoResetPageIndex ?? true;
@@ -693,7 +703,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       sorting
     };
 
-    if (!manualPagination || !shouldAutoResetPageIndex || !inputsChanged) {
+    if (!serverPagination || !shouldAutoResetPageIndex || !inputsChanged) {
       return;
     }
 
@@ -702,7 +712,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     columnFilters,
     globalFilter,
     sorting,
-    manualPagination,
+    serverPagination,
     setPagination,
     shouldAutoResetPageIndex
   ]);
@@ -777,9 +787,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     ...renderDetailPanel && { getRowCanExpand: () => true },
     manualSorting,
     manualFiltering,
-    manualPagination,
-    ...manualPagination && rowCount !== undefined && { rowCount },
-    ...manualPagination && {
+    manualPagination: bypassPaginatedRowModel,
+    ...serverPagination && rowCount !== undefined && { rowCount },
+    ...serverPagination && {
       // `autoResetAll` outranks `autoResetPageIndex` inside TanStack. Consume it here so the
       // deterministic server reset remains authoritative, while preserving its only other
       // upstream effects through the feature-specific options.
@@ -793,7 +803,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
   if (isDev && tableOptions) {
     for (const key of Object.keys(tableOptions)) {
-      const isConsumedPaginationPolicy = manualPagination
+      const isConsumedPaginationPolicy = serverPagination
         && (key === "autoResetAll" || key === "autoResetExpanded" || key === "autoResetSorting" || key === "autoResetPageIndex");
 
       if (key !== "meta" && !isConsumedPaginationPolicy && Object.hasOwn(managed, key)) {

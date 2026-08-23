@@ -149,6 +149,58 @@ describe("useDataTable", () => {
     expect(rows[0]?.getValue("state")).toBe("active");
   });
 
+  it("keeps every row in the model while pagination is off, past the default page size", () => {
+    // The regression: `state.pagination` is always supplied and `paginatedRowModel` is part of
+    // the canonical feature set, so without an explicit bypass v9 sliced every table to the
+    // 20-row default page — silently, with no pager to reveal the missing rows.
+    const crowd = Array.from({ length: 25 }, (_, index) => {
+      return {
+        id: String(index + 1),
+        name: `Person ${index + 1}`,
+        age: 20 + index
+      };
+    });
+
+    const { result } = renderHook(() => useDataTable({
+      data: crowd,
+      columns,
+      getRowId
+    }));
+
+    expect(result.current.getRowModel().rows).toHaveLength(25);
+  });
+
+  it("slices the model to one page once pagination is enabled, and back when it is turned off", () => {
+    const crowd = Array.from({ length: 25 }, (_, index) => {
+      return {
+        id: String(index + 1),
+        name: `Person ${index + 1}`,
+        age: 20 + index
+      };
+    });
+
+    const { result, rerender } = renderHook(
+      ({ paginated }: { paginated: boolean }) => useDataTable({
+        data: crowd,
+        columns,
+        getRowId,
+        enablePagination: paginated
+      }),
+      { initialProps: { paginated: true } }
+    );
+
+    expect(result.current.getRowModel().rows).toHaveLength(20);
+    expect(result.current.getPageCount()).toBe(2);
+
+    act(() => result.current.nextPage());
+    expect(result.current.getRowModel().rows).toHaveLength(5);
+
+    // The bypass rides an option rather than the mount-time feature set, so the switch stays
+    // reactive: flipping it back has to restore the whole model.
+    rerender({ paginated: false });
+    expect(result.current.getRowModel().rows).toHaveLength(25);
+  });
+
   it("translates server pagination mode and resets pageIndex when inputs change", () => {
     const { result } = renderHook(() => useDataTable({
       data: people,
