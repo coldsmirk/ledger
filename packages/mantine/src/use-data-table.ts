@@ -322,13 +322,32 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   /**
    * The in-flight row commit, so repeated `stopEditing({ commit: true })` calls wait on one
    * result instead of firing `onRowEditCommit` again — the single-flight guarantee cell mode
-   * already makes (docs/editing.md).
+   * already makes (docs/editing.md). It carries its owner: a request belonging to a session
+   * that has ended is not a request the next row may join, or its own write would never be sent.
    */
-  const rowPendingCommit = useRef<Promise<boolean> | null>(null);
+  const rowPendingCommit = useRef<{ session: number; rowId: string; promise: Promise<boolean> } | null>(null);
   const rowStartRequestRef = useRef(0);
   // The row commit needs the live instance; the hook's table is created further down.
   const tableRef = useRef<TableInstance<TData> | null>(null);
-  editingRowRef.current = editingRowId;
+
+  /**
+   * Ends the session: whatever is in flight stops owning the row, and stops speaking for it.
+   */
+  const endRowSession = () => {
+    rowSessionRef.current += 1;
+    rowPendingCommit.current = null;
+  };
+
+  // `editingRowId` is a controlled slice, so an application can move the edit to another row —
+  // or end it — without `startRowEditing` or `finishRowEditing` ever running. Those two claim
+  // this ref themselves, so a mismatch here is always someone else's change: it ends the
+  // session, and it also overrules a `startRowEditing` still waiting on a commit, whose whole
+  // purpose was to open a row the controller has since decided against.
+  if (editingRowRef.current !== editingRowId) {
+    endRowSession();
+    rowStartRequestRef.current += 1;
+    editingRowRef.current = editingRowId;
+  }
 
   /**
    * Drafts belong to exactly one row, and the store re-keys itself rather than trusting a
@@ -379,8 +398,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   };
 
   const finishRowEditing = useEventCallback(() => {
-    rowSessionRef.current += 1;
-    rowPendingCommit.current = null;
+    endRowSession();
+    editingRowRef.current = null;
     rowDrafts.current = {
       rowId: null,
       values: new Map(),
@@ -420,9 +439,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
     // Idempotent while pending: a second Enter, a blur behind it, or the application calling
     // `stopEditing` again all join the request already in flight rather than issuing another
-    // write. Cleared whenever the session ends, so the next row never inherits this promise.
-    if (rowPendingCommit.current) {
-      return rowPendingCommit.current;
+    // write. Only the owner may join — a request left over from a row the controller has moved
+    // on from would otherwise stand in for this row's write, which would then never be sent.
+    const inFlight = rowPendingCommit.current;
+
+    if (inFlight && inFlight.session === rowSessionRef.current && inFlight.rowId === rowId) {
+      return inFlight.promise;
     }
 
     // The table-level switch outranks every per-column case below, so it is tested once here
@@ -556,11 +578,14 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         () => {
           // Everything below touches the editors on screen, so a request whose session has
           // ended stops here: its row was cancelled or replaced, and the editors it would
-          // close or un-pend belong to whoever came next.
+          // close or un-pend belong to whoever came next. It reports failure, because the
+          // caller waiting on it wanted to leave *that* row and that row is already gone —
+          // navigating on its word would move an edit the controller has since redirected.
           if (!isCurrentRowSession(session, rowId)) {
-            return true;
+            return false;
           }
 
+          rowPendingCommit.current = null;
           broadcastRowPending(false);
           finishRowEditing();
 
@@ -579,7 +604,11 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         }
       );
 
-      rowPendingCommit.current = pending;
+      rowPendingCommit.current = {
+        session,
+        rowId,
+        promise: pending
+      };
 
       return pending;
     }
@@ -595,8 +624,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     const begin = () => {
-      rowSessionRef.current += 1;
-      rowPendingCommit.current = null;
+      endRowSession();
+      editingRowRef.current = rowId;
       rowDrafts.current = {
         rowId,
         values: new Map(),

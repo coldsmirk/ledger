@@ -253,6 +253,103 @@ describe("row editing mode", () => {
     expect((editorInputs()[0] as HTMLInputElement).value).toBe("Alice");
   });
 
+  it("does not hand a controlled switch the previous row's in-flight commit", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const committed: Array<Record<string, unknown>> = [];
+    const onRowEditCommit = vi.fn(({ values }: { values: Record<string, unknown> }) => {
+      committed.push(values);
+
+      return inFlight.promise;
+    });
+
+    const view = (rowId: string) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId={rowId}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view("1"));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(onRowEditCommit).toHaveBeenCalledTimes(1);
+
+    // The controller moves the edit while Carol's write is still in flight. Alice's own commit
+    // must be issued, not answered with the promise Carol left behind.
+    rerender(view("2"));
+    await waitFor(() => expect(document.querySelector("[data-row-id=\"2\"][data-editing-row]")).toBeTruthy());
+
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Second" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    expect(onRowEditCommit).toHaveBeenCalledTimes(2);
+    expect(committed[1]).toMatchObject({ name: "Second" });
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+  });
+
+  it("lets a controlled switch overrule a start still waiting on a commit", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const onRowEditCommit = vi.fn(() => inFlight.promise);
+    const onEditingRowIdChange = vi.fn();
+
+    const view = (rowId: string | null) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId={rowId}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={onEditingRowIdChange}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view("1"));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // Asking for Alice commits Carol first and waits on it; the controller then closes editing
+    // outright, which overrules the row that request was going to open.
+    act(() => handle.current?.startEditing("2"));
+    expect(onRowEditCommit).toHaveBeenCalledTimes(1);
+
+    onEditingRowIdChange.mockClear();
+    rerender(view(null));
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // Carol's commit succeeding must not resurrect the request for Alice.
+    expect(onEditingRowIdChange).not.toHaveBeenCalledWith("2");
+    expect(document.querySelector("[data-editing-row]")).toBeNull();
+    expect(editorInputs()).toHaveLength(0);
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();
