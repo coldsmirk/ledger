@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { AppearanceDemo } from "./demos/appearance";
 import { BasicDemo } from "./demos/basic";
 import { EditingDemo } from "./demos/editing";
+import { GroupedHeadersDemo } from "./demos/grouped-headers";
 import { GroupingDemo } from "./demos/grouping";
 import { HookToolbarDemo } from "./demos/hook-toolbar";
 import { MasterDetailDemo } from "./demos/master-detail";
@@ -14,6 +15,7 @@ import { OrdersDemo } from "./demos/orders";
 import { PinningDemo } from "./demos/pinning";
 import { RowEditingDemo } from "./demos/row-editing";
 import { SelectionDemo } from "./demos/selection";
+import { ServerSideDemo } from "./demos/server-side";
 import { SpanningDemo } from "./demos/spanning";
 import { StatesDemo } from "./demos/states";
 import { TreeDemo } from "./demos/tree";
@@ -111,6 +113,12 @@ const GROUPS: DemoGroup[] = [
         label: "合并单元格",
         description: "营收报表：相邻同值纵向合并 + 总计行横向合并",
         component: SpanningDemo
+      },
+      {
+        id: "grouped-headers",
+        label: "多级表头",
+        description: "门店季度报表：分组表头 + 合计行 + 表头/合计单元格 DOM 属性",
+        component: GroupedHeadersDemo
       }
     ]
   },
@@ -138,8 +146,14 @@ const GROUPS: DemoGroup[] = [
     ]
   },
   {
-    title: "深度定制",
+    title: "集成与定制",
     demos: [
+      {
+        id: "server-side",
+        label: "服务端数据",
+        description: "排序 / 筛选 / 分页全部交给后端，表格只持有当前一页",
+        component: ServerSideDemo
+      },
       {
         id: "hook-toolbar",
         label: "Hook 模式工具栏",
