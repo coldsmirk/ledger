@@ -14,7 +14,7 @@ import type { Cell, ColumnDef, Row, TableInstance } from "./types";
 import { ActionIcon, Button, Loader, Table as MantineTable, Skeleton } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { columnHeaderText, EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
@@ -695,11 +695,25 @@ export function TableBody({
   /* aria-rowindex numbers header rows first (docs/virtualization.md) — none when they are off. */
   const headerRowCount = withColumnHeaders ? table.getHeaderGroups().length : 0;
 
+  /**
+   * `getItemKey` sits in virtual-core's `getMeasurementOptions` memo **by reference**, and that
+   * memo feeds `getMeasurements`. A fresh closure per render therefore invalidates the whole
+   * measurement pass, which then walks every item from index 0 — an O(rows) sweep on each of
+   * the re-renders the virtualizer itself triggers while scrolling. It stays stable for as long
+   * as the display rows do, which is exactly when the measurements are still valid.
+   */
+  const getItemKey = useCallback(
+    (index: number) => centerDisplayRows[index]?.key ?? index,
+    [centerDisplayRows]
+  );
+  const estimateRowHeight = virtualization?.estimateRowHeight ?? DEFAULT_ESTIMATED_ROW_HEIGHT;
+  const estimateSize = useCallback(() => estimateRowHeight, [estimateRowHeight]);
+
   const virtualizer = useVirtualizer({
     count: centerDisplayRows.length,
     enabled: virtualization !== null,
-    estimateSize: () => virtualization?.estimateRowHeight ?? DEFAULT_ESTIMATED_ROW_HEIGHT,
-    getItemKey: index => centerDisplayRows[index]?.key ?? index,
+    estimateSize,
+    getItemKey,
     getScrollElement: () => viewportRef.current,
     overscan: virtualization?.overscan ?? DEFAULT_OVERSCAN
   });
