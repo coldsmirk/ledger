@@ -711,10 +711,15 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const filtersActive = tableState.columnFilters.length > 0 || tableState.globalFilter !== "";
   const paginationEnabled = table.options.meta?.ledger?.enablePagination === true;
   const skeletonRowCount = Math.min(Math.max(tableState.pagination.pageSize, 3), 12);
-  const dataLength = table.options.data.length;
 
   /* ---- infinite loading ---- */
-  const lastEndReachedLength = useRef(-1);
+  // Keyed on the data's identity, not its length: a server-side filter or sort can hand back a
+  // different page of the same size, and a length guard would then never re-arm. Consumers
+  // already keep `data` referentially stable per snapshot (docs/api.md), so a new array is
+  // exactly "new data".
+  const lastEndReachedData = useRef<unknown>(null);
+  const currentData = table.options.data;
+  const hasEndReachedHandler = Boolean(onEndReached);
 
   const maybeFireEndReached = useEventCallback(() => {
     const element = viewportRef.current;
@@ -724,14 +729,14 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       return;
     }
 
-    if (lastEndReachedLength.current === dataLength) {
+    if (lastEndReachedData.current === currentData) {
       return;
     }
 
     const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
 
     if (distance <= (endReachedOffset ?? 240)) {
-      lastEndReachedLength.current = dataLength;
+      lastEndReachedData.current = currentData;
       onEndReached();
     }
   });
@@ -742,11 +747,14 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     const frame = requestAnimationFrame(() => maybeFireEndReached());
 
     return () => cancelAnimationFrame(frame);
-  }, [dataLength, viewport, maybeFireEndReached]);
+    // Each of these can turn a viewport that could not ask for more into one that can: new data,
+    // a viewport that just appeared, a load that finished, or a handler mounted after the fact.
+    // Probing only on data length left short content stranded with no way to reach the bottom.
+  }, [currentData, viewport, loading, loadingMore, hasEndReachedHandler, maybeFireEndReached]);
 
-  // Retry re-arms the once-per-data-length guard — the failed attempt consumed it.
+  // Retry re-arms the once-per-data guard — the failed attempt consumed it.
   const retryLoadMore = useEventCallback(() => {
-    lastEndReachedLength.current = -1;
+    lastEndReachedData.current = null;
     onEndReached?.();
   });
 
