@@ -297,9 +297,17 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   /* ---- row editing controller (editMode: "row", docs/editing.md#row-mode) ---- */
   // Drafts live here, not in editors: a virtualized editing row that scrolls out unmounts its
   // editors, and the pending values must survive until the atomic commit.
-  const rowDrafts = useRef<{ rowId: string | null; values: Map<string, unknown> }>({
+  const rowDrafts = useRef<{
+    rowId: string | null;
+    values: Map<string, unknown>;
+    /**
+     * Every editable column's value as the row's edit began — see `draftsFor`.
+     */
+    baseline: Map<string, unknown>;
+  }>({
     rowId: null,
-    values: new Map()
+    values: new Map(),
+    baseline: new Map()
   });
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
   const rowFocusColumn = useRef<string | null>(null);
@@ -316,12 +324,43 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * the edit from row A to row B without `startRowEditing` ever running. Keyed by column alone,
    * B's editors would then read A's pending values — the columns share their ids.
    */
+  const snapshotEditableValues = (rowId: string | null): Map<string, unknown> => {
+    const baseline = new Map<string, unknown>();
+    const tableInstance = tableRef.current;
+
+    if (rowId === null || !tableInstance) {
+      return baseline;
+    }
+
+    let row: Row<TData> | undefined;
+
+    try {
+      row = tableInstance.getRow(rowId, true);
+    } catch {
+      return baseline;
+    }
+
+    const erasedRow = row as Row<any>;
+
+    for (const cell of erasedRow.getAllCells()) {
+      if (canEditCell(cell, erasedRow)) {
+        baseline.set(cell.column.id, cell.getValue());
+      }
+    }
+
+    return baseline;
+  };
+
   const draftsFor = (rowId: string | null): Map<string, unknown> => {
     const store = rowDrafts.current;
 
     if (store.rowId !== rowId) {
       store.rowId = rowId;
       store.values = new Map();
+      // Snapshot now, while every editable column still exists. A responsive breakpoint removes
+      // a column from the definitions before TanStack ever sees it, so by commit time its cell
+      // is gone and there is nothing left to read a previous value from.
+      store.baseline = snapshotEditableValues(rowId);
     }
 
     return store.values;
@@ -330,7 +369,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const finishRowEditing = useEventCallback(() => {
     rowDrafts.current = {
       rowId: null,
-      values: new Map()
+      values: new Map(),
+      baseline: new Map()
     };
     rowFocusColumn.current = null;
     setEditingRowId(null);
@@ -392,6 +432,21 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       const columnId = cell.column.id;
       const previous = cell.getValue();
       const value = drafts.has(columnId) ? drafts.get(columnId) : previous;
+      values[columnId] = value;
+      previousValues[columnId] = previous;
+      changed ||= !Object.is(value, previous);
+    }
+
+    // A column can leave the definitions mid-edit — a responsive breakpoint crossing removes it
+    // before TanStack sees it, so it has no cell here at all. The value the user typed into it
+    // is still theirs: it commits against the baseline captured when the edit began. Its
+    // `validate` cannot run (the definition is gone), which is why the loop below skips it.
+    for (const [columnId, value] of drafts) {
+      if (Object.hasOwn(values, columnId)) {
+        continue;
+      }
+
+      const previous = rowDrafts.current.baseline.get(columnId);
       values[columnId] = value;
       previousValues[columnId] = previous;
       changed ||= !Object.is(value, previous);
@@ -476,7 +531,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     const begin = () => {
       rowDrafts.current = {
         rowId,
-        values: new Map()
+        values: new Map(),
+        baseline: snapshotEditableValues(rowId)
       };
       rowFocusColumn.current = startOptions?.focusColumnId ?? null;
       setEditingRowId(rowId);
