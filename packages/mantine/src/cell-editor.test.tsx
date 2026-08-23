@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { ColumnDef } from "./types";
 
 import { MantineProvider } from "@mantine/core";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -167,6 +167,47 @@ describe("inline editing", () => {
 
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(onEditCommit).not.toHaveBeenCalled();
+  });
+
+  it("cancels an ineligible editor once the request that refused the cancel rejects", async () => {
+    const inFlight = Promise.withResolvers<void>();
+    const onEditCommit = vi.fn(() => inFlight.promise);
+    const view = (editingEnabled: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={nameColumn()}
+            data={people}
+            enableEditing={editingEnabled}
+            getRowId={getRowId}
+            onEditCommit={onEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+
+    // The switch closes while the write is in flight. Cancelling is refused for now — that
+    // value passed the gate before it shut — so the editor is still standing.
+    rerender(view(false));
+    expect(screen.getByRole("textbox")).not.toBeNull();
+
+    await act(async () => {
+      inFlight.reject(new Error("nope"));
+      await inFlight.promise.catch(() => undefined);
+    });
+
+    // A rejection normally returns the cell to editing. Under a closed switch there is nothing
+    // to return to: eligibility is re-asked and the editor leaves instead.
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByText("nope")).toBeNull();
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
   });
 
   it("a validation message blocks the commit and stays in editing", () => {

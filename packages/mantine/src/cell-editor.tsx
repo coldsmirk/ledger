@@ -247,7 +247,10 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     if (!editable) {
       cancel();
     }
-  }, [editable, cancel]);
+    // `pending` is a dependency, not noise: `cancel()` refuses while a commit is in flight, so
+    // an editor that lost eligibility mid-request would otherwise come back on rejection —
+    // typable, under a switch that is off — and stay until the next commit attempt.
+  }, [editable, pending, cancel]);
 
   /**
    * Unmount-commit is deferred one tick so a remount of the same cell — React StrictMode's
