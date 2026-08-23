@@ -20,6 +20,18 @@ export interface DataTableLabels {
   expandAll: string;
   collapseAll: string;
 
+  /* Active row (enableActiveRow) */
+  /**
+   * Names the body viewport once it becomes a keyboard focus stop — the only place the arrow-key
+   * row model is announced, so say what the keys do.
+   */
+  rowNavigation: string;
+  /**
+   * Announced politely whenever the current row changes: focus stays on the viewport, so without
+   * this the move is visual only.
+   */
+  currentRow: (row: string, index: number, count: number) => string;
+
   /* Columns panel */
   columnsPanel: string;
   resetColumns: string;
@@ -92,6 +104,9 @@ export const defaultLabels: DataTableLabels = {
   selectRow: "Select row",
   selectedCount: count => `${count} selected`,
   clearSelection: "Clear selection",
+
+  rowNavigation: "Table rows — use the arrow keys to move between rows",
+  currentRow: (row, index, count) => `${row}, row ${index} of ${count}`,
 
   expandRow: "Expand row",
   collapseRow: "Collapse row",

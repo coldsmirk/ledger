@@ -43,7 +43,7 @@ Column titles come from the def's `header` when it is a string; a JSX header fal
 ## Keyboard
 
 - **Sorting, filtering, the columns panel, pagination, and the selection controls** are ordinary focusable controls in DOM order.
-- **`enableActiveRow`** makes the body viewport a focus stop with a visible ring: `↑` / `↓` move the current row, `Home` / `End` jump to the edges, `Enter` fires `onRowActivate`, and `F2` starts editing ([rows.md](rows.md#active-row)).
+- **`enableActiveRow`** makes the body viewport a focus stop with a visible ring: `↑` / `↓` move the current row, `Home` / `End` jump to the edges, `Enter` fires `onRowActivate`, and `F2` starts editing ([rows.md](rows.md#active-row)). The stop is named by `labels.rowNavigation` — the only place that keyboard model is announced. Focus stays on the viewport as the current row moves, so the move is also spoken through a polite live region (`labels.currentRow`, carrying the leading cell's text and the row's position). Deliberately *not* `aria-activedescendant`: that attribute is defined for composite widgets, and this is a `table` (see Boundaries).
 - **Inline editing** runs its own map — `Enter` / `Escape` / `Tab` commit, cancel, and move ([editing.md](editing.md#keyboard)).
 - **Wire navigation to `onRowActivate`, never `onRowClick`.** The latter is a pointer event by definition; a row whose only affordance is `onRowClick` cannot be reached by keyboard at all.
 
@@ -60,6 +60,7 @@ Column titles come from the def's `header` when it is a string; a JSX header fal
 Stated plainly, because a library that overclaims here is worse than one that does not:
 
 - **ledger is a `table`, not a `grid`.** There is no cell-level roving focus and no cell selection — those belong to a spreadsheet-shaped component, and the keyboard model above is the deliberate alternative ([DESIGN.md](DESIGN.md)).
+- **Column width has one keyboard route, and it is not the drag handle.** The resizer is `aria-hidden`: it takes no focus and answers no key, and announcing an inoperable control is worse than announcing nothing. The keyboard equivalent is the width field on each row of [`DataTable.ColumnsPanel`](columns.md#the-columns-panel), which writes the same `columnSizing` entry. That panel is a compound component the application renders — **enable `enableColumnResizing` without it and column width is pointer-only**.
 - **Truncation tooltips are native `title`** and so reach pointer users only. For one that survives keyboard and touch, render it yourself in `cell` or attach it through `meta.cellProps` ([DOM props](styling.md#dom-props)).
 - **Single-select radios group only across mounted rows.** Under `virtualized` the platform's arrow-key navigation covers the rendered window, the same boundary autosize documents.
 - **Your cells are yours.** Custom `cell` renderers, `emptyState`, detail panels, and anything reached through the DOM prop hooks are outside ledger's contract — the icon buttons in your actions column need their own labels.

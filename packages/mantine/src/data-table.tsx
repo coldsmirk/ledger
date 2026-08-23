@@ -44,10 +44,12 @@ import {
   Table as MantineTable,
   ScrollArea,
   useProps,
-  useStyles
+  useStyles,
+  VisuallyHidden
 } from "@mantine/core";
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 
+import { isInternalColumn } from "./build-columns";
 import { canEditCell, isCheckboxEdit } from "./cell-editor";
 import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
@@ -945,6 +947,51 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
 
   /* ---- active row keyboard (docs/rows.md): the body viewport is the focus stop ---- */
   const activeRowEnabled = table.options.meta?.ledger?.activeRow.enabled === true;
+  const activeRowId = table.options.meta?.ledger?.activeRow.id ?? null;
+  const activeRowAnnouncer = useRef<HTMLSpanElement>(null);
+
+  // Runs once per change of the current row rather than once per render: the row lookup is a
+  // scan, and this component re-renders on every scroll step of a virtualized table.
+  const announceActiveRow = useEventCallback(() => {
+    const target = activeRowAnnouncer.current;
+
+    if (!target) {
+      return;
+    }
+
+    if (activeRowId === null) {
+      target.textContent = "";
+
+      return;
+    }
+
+    const pinningActive = table.options.enableRowPinning === true;
+    const orderedRows = pinningActive
+      ? [...table.getTopRows(), ...table.getCenterRows(), ...table.getBottomRows()]
+      : table.getRowModel().rows;
+    const index = orderedRows.findIndex(row => row.id === activeRowId);
+
+    if (index === -1) {
+      target.textContent = "";
+
+      return;
+    }
+
+    // The leading data cell is what identifies a row to a reader; the injected columns hold
+    // controls, not identity.
+    const leadingCell = (orderedRows[index] as Row<any>)
+      .getVisibleCells()
+      .find(cell => !isInternalColumn(cell.column.id));
+    const value = leadingCell === undefined ? "" : String(leadingCell.getValue() ?? "");
+
+    target.textContent = labels.currentRow(value === "" ? activeRowId : value, index + 1, orderedRows.length);
+  });
+
+  useEffect(() => {
+    if (activeRowEnabled) {
+      announceActiveRow();
+    }
+  }, [activeRowId, activeRowEnabled, announceActiveRow]);
 
   const handleActiveRowKeyDown = useEventCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
     const activeRow = table.options.meta?.ledger?.activeRow;
@@ -1132,6 +1179,13 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         {...getStyles("root", { style: columnVars })}
         {...others}
       >
+        {activeRowEnabled
+          // Focus never leaves the viewport when the arrow keys move the current row, so the
+          // move is visual only unless it is spoken. Written imperatively: a live region wants a
+          // text change, not a React re-render of the table. It sits outside `role="table"` —
+          // a table may only own rows.
+          && <VisuallyHidden ref={activeRowAnnouncer} aria-live="polite" role="status" />}
+
         <div
           aria-describedby={ariaDescribedBy}
           aria-label={ariaLabel}
@@ -1167,7 +1221,14 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
             viewportProps={mergeElementProps(viewportProps, {
               style: { overscrollBehavior: "none" as const },
               // With the active row on, the body viewport is the keyboard focus stop.
-              ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
+              // A focus stop with no role and no name announces nothing; the label is the only
+              // place the arrow-key row model is discoverable. No role: this div sits between
+              // `role="table"` and the native table, and a table may only own rows.
+              ...activeRowEnabled && {
+                "aria-label": labels.rowNavigation,
+                tabIndex: 0,
+                onKeyDown: handleActiveRowKeyDown
+              }
             })}
             onScrollPositionChange={handleScrollPositionChange}
           >

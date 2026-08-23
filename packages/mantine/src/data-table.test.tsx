@@ -8,6 +8,7 @@ import { createRef, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable, resolveVirtualDisplayIndex } from "./data-table";
+import { defaultLabels } from "./labels";
 
 interface Person {
   id: string;
@@ -223,6 +224,39 @@ describe("DataTable", () => {
     // Enter is not a click: the pointer-only handler must never see a synthesized MouseEvent.
     expect(onRowClick).not.toHaveBeenCalled();
     expect((onRowActivate.mock.calls[0]?.[1] as { type: string }).type).toBe("keydown");
+  });
+
+  it("names the row-navigation focus stop and speaks each move of the current row", () => {
+    const { container } = render(
+      <DataTable enableActiveRow columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
+    expect(viewport.getAttribute("aria-label")).toBe(defaultLabels.rowNavigation);
+
+    // Focus never leaves the viewport, so the live region is the only thing that reports the move.
+    const announcer = container.querySelector(":scope [aria-live=\"polite\"]") as HTMLElement;
+    expect(announcer).toBeTruthy();
+    expect(announcer.textContent).toBe("");
+
+    fireEvent.click(container.querySelector(":scope [data-row-id=\"2\"] td") as Element);
+    expect(announcer.textContent).toBe(defaultLabels.currentRow("Alice", 2, people.length));
+
+    fireEvent.keyDown(viewport, { key: "ArrowDown" });
+    expect(announcer.textContent).toBe(defaultLabels.currentRow("Bob", 3, people.length));
+  });
+
+  it("hides the resize handle from assistive tech — the columns panel is its keyboard route", () => {
+    const { container } = render(
+      <DataTable enableColumnResizing columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    const resizer = container.querySelector(":scope [data-ledger-resizer]");
+    expect(resizer).toBeTruthy();
+    expect(resizer?.getAttribute("aria-hidden")).toBe("true");
+    expect(resizer?.hasAttribute("tabindex")).toBe(false);
   });
 
   it("fires onRowClick with the row, but not from the selection checkbox", () => {

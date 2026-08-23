@@ -161,6 +161,12 @@ function HeaderCell<TData extends RowData>({
 
                 {canResize && (
                   <div
+                    // A pointer-only affordance, hidden from assistive tech on purpose: it takes
+                    // no focus and answers no key, and the keyboard route to the same
+                    // `columnSizing` entry is the columns panel's width field
+                    // (docs/accessibility.md). Announcing an inoperable control would be worse
+                    // than announcing nothing; the `title` stays for the mouse.
+                    aria-hidden
                     data-ledger-no-drag
                     data-ledger-resizer
                     data-resizing={resizing || undefined}

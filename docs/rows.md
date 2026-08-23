@@ -37,6 +37,7 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 - **Mouse**: clicking a row makes it current (before the row handlers fire); the injected checkbox and expander keep their stop-propagation covenant and do not move it.
 - **Keyboard**: the body viewport becomes a focus stop (visible focus ring). `↑`/`↓` move the current row (scrolling it into view, virtualized included), `Home`/`End` jump to the edges, `Enter` fires `onRowActivate` for the current row, and `F2` starts editing it ([editing.md](editing.md#keyboard-and-lifecycle)).
 - State rides the ledger-owned `activeRowId` trio (`activeRowId` / `defaultActiveRowId` / `onActiveRowIdChange`) — controlled works like every other slice, so a master–detail page can drive the highlight from the outside.
+- Focus stays on the viewport as the current row moves, so each change is announced through a polite live region (`labels.currentRow`); the focus stop itself is named by `labels.rowNavigation` ([accessibility.md](accessibility.md)).
 - The current row renders `data-active` and `aria-current`, and takes the heavier of Mantine's two light steps (`--mantine-primary-color-light-hover`) while selection keeps the calmer one — exactly one row is ever current, so the cursor stays findable inside a block of selected rows without an accent bar.
 
 ## Master–detail panels

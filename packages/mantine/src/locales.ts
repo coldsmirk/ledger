@@ -18,6 +18,9 @@ export const zhCN: DataTableLabels = {
   selectedCount: count => `已选 ${count} 项`,
   clearSelection: "清除选择",
 
+  rowNavigation: "表格行 —— 使用方向键在行间移动",
+  currentRow: (row, index, count) => `${row}，第 ${index} 行，共 ${count} 行`,
+
   expandRow: "展开行",
   collapseRow: "收起行",
   expandAll: "展开全部",
