@@ -407,10 +407,15 @@ export interface LedgerRowEditingController {
    * The draft store — outlives editor unmounts, so a virtualized editing row that scrolls out
    * and back keeps its pending values.
    */
+  /**
+   * Pending values for the row being edited, addressed by row: an editor names the row it
+   * belongs to rather than relying on the controller's idea of which row is current, so two
+   * rows' editors mounted at once during a switch cannot read each other's drafts.
+   */
   drafts: {
-    has: (columnId: string) => boolean;
-    get: (columnId: string) => unknown;
-    set: (columnId: string, value: unknown) => void;
+    has: (rowId: string, columnId: string) => boolean;
+    get: (rowId: string, columnId: string) => unknown;
+    set: (rowId: string, columnId: string, value: unknown) => void;
   };
   register: (columnId: string, editor: LedgerRowEditor) => () => void;
 }

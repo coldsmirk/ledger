@@ -4,7 +4,7 @@ import type { ColumnDef, DataTableHandle } from "./types";
 
 import { MantineProvider } from "@mantine/core";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createRef, StrictMode } from "react";
+import { createRef, startTransition, StrictMode, Suspense, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
@@ -348,6 +348,82 @@ describe("row editing mode", () => {
     expect(onEditingRowIdChange).not.toHaveBeenCalledWith("2");
     expect(document.querySelector("[data-editing-row]")).toBeNull();
     expect(editorInputs()).toHaveLength(0);
+  });
+
+  it("keeps the row on screen when a transition to another row never commits", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const blocker = Promise.withResolvers<void>();
+    const onRowEditCommit = vi.fn(() => inFlight.promise);
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        // Suspends the transition's render, so React throws that tree away and keeps the one
+        // already on screen — the row the user is still editing.
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [rowId, setRowId] = useState<string | null>("1");
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId={rowId}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={setRowId}
+            onRowEditCommit={onRowEditCommit}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setRowId("2");
+              setBlocked(true);
+            })}
+          >
+            switch
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(onRowEditCommit).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "switch" }));
+
+    // Nothing reached the screen: Carol is still the row being edited.
+    expect(document.querySelector("[data-row-id=\"1\"][data-editing-row]")).toBeTruthy();
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // The commit still belongs to the row on screen, so it closes it. Judged stale — which is
+    // what a session ended by a render that never happened would do — the editors would stay
+    // mounted, disabled and pending, with the write already through.
+    expect(editorInputs()).toHaveLength(0);
+    expect(document.querySelector("[data-pending]")).toBeNull();
+
+    blocker.resolve();
   });
 
   it("commits a draft whose column was hidden mid-edit", async () => {

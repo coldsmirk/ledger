@@ -395,9 +395,10 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const rowApi = editing?.row;
   const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
   const columnId = cell.column.id;
+  const rowId = cell.row.id;
 
   const [draft, setDraftState] = useState<unknown>(
-    () => rowApi?.drafts.has(columnId) ? rowApi.drafts.get(columnId) : cell.getValue()
+    () => rowApi?.drafts.has(rowId, columnId) ? rowApi.drafts.get(rowId, columnId) : cell.getValue()
   );
   const [editError, setEditError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -409,7 +410,7 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const setValue = useEventCallback((value: unknown) => {
     setDraftState(value);
     setEditError(null);
-    rowApi?.drafts.set(columnId, value);
+    rowApi?.drafts.set(rowId, columnId, value);
   });
 
   useEffect(() => {

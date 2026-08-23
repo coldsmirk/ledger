@@ -34,7 +34,7 @@ import type {
  * TanStack table instance.
  */
 import { functionalUpdate, useTable } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { buildColumns, EXPANDER_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, editErrorMessage, normalizeEdit } from "./cell-editor";
@@ -338,17 +338,6 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     rowPendingCommit.current = null;
   };
 
-  // `editingRowId` is a controlled slice, so an application can move the edit to another row —
-  // or end it — without `startRowEditing` or `finishRowEditing` ever running. Those two claim
-  // this ref themselves, so a mismatch here is always someone else's change: it ends the
-  // session, and it also overrules a `startRowEditing` still waiting on a commit, whose whole
-  // purpose was to open a row the controller has since decided against.
-  if (editingRowRef.current !== editingRowId) {
-    endRowSession();
-    rowStartRequestRef.current += 1;
-    editingRowRef.current = editingRowId;
-  }
-
   /**
    * Drafts belong to exactly one row, and the store re-keys itself rather than trusting a
    * lifecycle hook to do it: `editingRowId` is a controlled slice, so an application can move
@@ -382,31 +371,71 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     return baseline;
   };
 
-  const draftsFor = (rowId: string | null): Map<string, unknown> => {
-    const store = rowDrafts.current;
-
-    if (store.rowId !== rowId) {
-      store.rowId = rowId;
-      store.values = new Map();
-      // Snapshot now, while every editable column still exists. A responsive breakpoint removes
-      // a column from the definitions before TanStack ever sees it, so by commit time its cell
-      // is gone and there is nothing left to read a previous value from.
-      store.baseline = snapshotEditableValues(rowId);
-    }
-
-    return store.values;
+  /**
+   * Opens the draft store on a row. The baseline is snapshotted now, while every editable
+   * column still exists: a responsive breakpoint removes a column from the definitions before
+   * TanStack ever sees it, so by commit time its cell is gone and there is nothing left to read
+   * a previous value from.
+   */
+  const openRowDrafts = (rowId: string | null) => {
+    rowDrafts.current = {
+      rowId,
+      values: new Map(),
+      baseline: rowId === null ? new Map() : snapshotEditableValues(rowId)
+    };
   };
+
+  /**
+   * The drafts held for `rowId`. A read, never a write: editors read their draft while
+   * rendering, and a render can be thrown away (a transition that suspends), so re-keying the
+   * store from here would let an abandoned render erase the values on screen. The store is
+   * keyed by session boundaries alone — `openRowDrafts`, below and in the effect that reconciles
+   * a controlled change. A caller asking about another row gets nothing, which is the truth.
+   */
+  const draftsFor = (rowId: string | null): Map<string, unknown> => rowDrafts.current.rowId === rowId ? rowDrafts.current.values : new Map();
 
   const finishRowEditing = useEventCallback(() => {
     endRowSession();
     editingRowRef.current = null;
-    rowDrafts.current = {
-      rowId: null,
-      values: new Map(),
-      baseline: new Map()
-    };
+    openRowDrafts(null);
     rowFocusColumn.current = null;
     setEditingRowId(null);
+  });
+
+  /**
+   * Reconciles the session with what actually reached the screen. `editingRowId` is a controlled
+   * slice, so an application can move the edit to another row — or end it — without
+   * `startRowEditing` or `finishRowEditing` running; those two claim the ref themselves, so a
+   * mismatch here is always someone else's change.
+   *
+   * It is a layout effect and not a render-phase check because ending a session is a real side
+   * effect — it invalidates an in-flight commit's ownership — and React may render a tree it
+   * never commits (a transition that suspends). Refs are shared between the current tree and
+   * the work-in-progress one, so a render for a row the user never saw would otherwise strand
+   * the row still on screen: its commit disowned, its editors pending forever. Layout, not
+   * passive: the drafts store has to be keyed before anything can be typed into it.
+   *
+   * No dependency array on purpose. The comparison is against what was committed, and a
+   * controlled application that declines to move `editingRowId` produces a render where nothing
+   * in the dependency list changed but the ref and the prop still disagree.
+   */
+  useLayoutEffect(() => {
+    const moved = editingRowRef.current !== editingRowId;
+
+    if (moved) {
+      endRowSession();
+      // A `startRowEditing` still waiting on a commit was going to open a row the controller
+      // has since decided against.
+      rowStartRequestRef.current += 1;
+      editingRowRef.current = editingRowId;
+    }
+
+    // Also on the first pass, where the ref already agrees with the prop but the store has
+    // never been keyed: a controlled row that is open from the very first render still needs
+    // its baseline, and the table instance only exists once the hook body has run.
+    if (moved || rowDrafts.current.rowId !== editingRowId) {
+      openRowDrafts(editingRowId);
+    }
   });
 
   /**
@@ -626,11 +655,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     const begin = () => {
       endRowSession();
       editingRowRef.current = rowId;
-      rowDrafts.current = {
-        rowId,
-        values: new Map(),
-        baseline: snapshotEditableValues(rowId)
-      };
+      openRowDrafts(rowId);
       rowFocusColumn.current = startOptions?.focusColumnId ?? null;
       setEditingRowId(rowId);
     };
@@ -681,11 +706,18 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     };
   }, []);
 
+  /**
+   * Editors name the row they belong to rather than reading it from a shared mutable ref: two
+   * rows' editors can be on screen at once while React reconciles a switch, and each must see
+   * its own drafts or none.
+   */
   const rowDraftsApi = useRef({
-    has: (columnId: string) => draftsFor(editingRowRef.current).has(columnId),
-    get: (columnId: string) => draftsFor(editingRowRef.current).get(columnId),
-    set: (columnId: string, value: unknown) => {
-      draftsFor(editingRowRef.current).set(columnId, value);
+    has: (rowId: string, columnId: string) => rowDrafts.current.rowId === rowId && rowDrafts.current.values.has(columnId),
+    get: (rowId: string, columnId: string) => rowDrafts.current.rowId === rowId ? rowDrafts.current.values.get(columnId) : undefined,
+    set: (rowId: string, columnId: string, value: unknown) => {
+      if (rowDrafts.current.rowId === rowId) {
+        rowDrafts.current.values.set(columnId, value);
+      }
     }
   }).current;
 
