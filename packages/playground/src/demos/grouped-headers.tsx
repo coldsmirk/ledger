@@ -9,7 +9,9 @@ import { Text } from "@mantine/core";
  * vocabulary; the width engine simply sizes the leaves and the banners follow.
  *
  * Column borders are on for the same reason as the merged-cell report: a banner is only legible
- * if you can see which leaves it covers. And like that report this is a fixed-size document, so
+ * if you can see which leaves it covers — and they come with the frame, because a grid whose
+ * verticals run off into open space reads as an unfinished border, not as a deliberate one. And
+ * like that report this is a fixed-size document, so
  * `maw` / `h="auto"` size it to its content — stretched over a wide page the totals row would
  * float half a screen below the last store it totals.
  */
@@ -220,6 +222,7 @@ export function GroupedHeadersDemo() {
       highlightOnHover
       tabularNums
       withColumnBorders
+      withTableBorder
       columns={columns}
       data={STORES}
       getRowId={store => store.id}
