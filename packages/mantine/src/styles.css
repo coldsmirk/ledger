@@ -479,28 +479,37 @@
     --empty-state-indicator-color: var(--mantine-color-red-light-color);
   }
 
-  /* Error over stale rows: a body-tinted scrim keeps the rows legible but clearly inert. */
+  /* Error over stale rows: a body-tinted scrim. Weighted for the message, not the rows — the
+     panel's own text sits on top of them, so the scrim has to win that contrast outright; the
+     rows survive as a ghost that says "still here, not current". */
   .ledger-empty[data-over-rows] {
     z-index: 2;
-    background-color: color-mix(in srgb, var(--mantine-color-body) 78%, transparent);
+    background-color: color-mix(in srgb, var(--mantine-color-body) 92%, transparent);
   }
 
   .ledger-loader-row td {
     padding-block: var(--mantine-spacing-sm);
     color: var(--mantine-color-dimmed);
-    text-align: center;
     border-bottom: 0;
   }
 
-  .ledger-loader-row td > span {
-    margin-inline-start: 8px;
+  /* The cell holds a centred pair — spinner + text, or message + retry — so it is laid out as
+     one flex line rather than as inline boxes. Inline layout aligns them on the BASELINE, which
+     leaves a text run and a button a pixel or two apart and drifts further whenever either
+     changes height (adding the retry icon moved it again). The cell itself cannot be the flex
+     container: that would strip the `<td>` of its table-cell box and with it the colSpan that
+     makes this row span the table. */
+  .ledger-loader-row-content {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
     font-size: var(--mantine-font-size-sm);
   }
 
-  /* The load-more error row swaps the loader for a message + retry; no loader precedes the
-     text, so the loader gap moves to its trailing side. */
-  .ledger-loader-row[data-error] td > span {
-    margin-inline: 0 4px;
+  /* The retry button carries its own horizontal padding, so the pair needs less between them. */
+  .ledger-loader-row[data-error] .ledger-loader-row-content {
+    gap: 4px;
   }
 
   .ledger-pagination-bar {
