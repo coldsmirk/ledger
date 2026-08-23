@@ -130,7 +130,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `tabularNums` | `boolean` | `false` | |
 | `tableMinWidth` | `number \| string` | — | Content-width floor ([sizing.md](sizing.md)) |
 | `virtualized` | `boolean \| { estimateRowHeight?: number; overscan?: number }` | `false` | Object defaults: 44 / 8 ([virtualization.md](virtualization.md)) |
-| `onEndReached` | `() => void` | — | Deduped per data length |
+| `onEndReached` | `() => void` | — | Deduped per `data` identity — a new array re-arms it ([virtualization.md](virtualization.md)) |
 | `endReachedOffset` | `number` | `240` | px before the bottom |
 | `loadingMore` | `boolean` | `false` | Trailing loader row |
 | `loadMoreError` | `boolean \| ReactNode` | — | Replaces the loader row with a message + retry ([rows.md](rows.md#loading-empty-and-error-states)) |

@@ -43,7 +43,7 @@ Row virtualization keeps the DOM small at any data size while remaining a **real
 />
 ```
 
-- `onEndReached` fires once the remaining scroll distance drops inside `endReachedOffset` (default 240px), **deduplicated per data length** — it will not fire again until `data` has grown (or shrunk), so a slow response cannot double-fetch. Guard the call with your own `hasNext`.
+- `onEndReached` fires once the remaining scroll distance drops inside `endReachedOffset` (default 240px), **deduplicated per `data` identity** — it will not fire again until `data` is a different array, so a slow response cannot double-fetch. Identity rather than length on purpose: a server-side filter or sort can hand back a different page of the same size, and a length guard would never re-arm for it. The probe also re-runs when a load finishes (`loading` / `loadingMore` falling back to `false`) or when an `onEndReached` handler mounts after the table, so content too short to scroll can still ask for more. Guard the call with your own `hasNext`.
 - If the content is shorter than the viewport (or on first mount), the probe runs one frame after layout settles and skips unlaid-out viewports — so an initial short page still triggers exactly one load, and never a phantom one.
 - While `loading` or `loadingMore` is set, the trigger holds.
 - `loadingMore` renders a trailing loader row (`labels.loadingMore`).
