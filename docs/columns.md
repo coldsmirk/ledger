@@ -31,7 +31,21 @@ Keep the array's identity stable (module scope or `useMemo`) — a fresh identit
 
 ### Header groups and footers
 
-Group columns (`helper.group({ header, columns })`) render as grouped header rows with correct `colSpan` and placeholder handling. Column footers render as a totals row **only when at least one leaf column declares a `footer`** — in an **always-visible region below the scroller** (like the header, it mirrors horizontal scroll), so totals never scroll out of view; pinned columns keep their sticky offsets there. Note that header drag-reordering is unavailable while header groups exist (see below).
+Group columns render as grouped header rows with correct `colSpan` and placeholder handling. Wrap the children in **`helper.columns([...])`** — v9's variadic-tuple wrapper preserves each child's own `TValue`, which `group`'s `unknown`-valued signature would otherwise reject:
+
+```tsx
+helper.group({
+  id: "q1",
+  header: "Q1",
+  meta: { align: "center" },
+  columns: helper.columns([
+    helper.accessor("q1Revenue", { header: "Revenue" }),
+    helper.accessor("q1Cost", { header: "Cost" })
+  ])
+})
+```
+
+Column footers render as a totals row **only when at least one leaf column declares a `footer`** — in an **always-visible region below the scroller** (like the header, it mirrors horizontal scroll), so totals never scroll out of view; pinned columns keep their sticky offsets there. Note that header drag-reordering is unavailable while header groups exist (see below).
 
 ## The `meta` extension
 
