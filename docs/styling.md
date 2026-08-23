@@ -124,7 +124,7 @@ The `vars` resolver accepts the three variables a prop also writes — `--ledger
 <DataTable vars={() => ({ root: { "--ledger-striped-color": "var(--mantine-color-blue-0)" } })} … />
 ```
 
-Row-background precedence (last wins within the layer): stripe → hover → selected.
+Row-background precedence (last wins within the layer): stripe → hover → selected → active.
 
 ### Tinting the header
 

@@ -290,18 +290,12 @@
     --ledger-row-bg: var(--mantine-primary-color-light);
   }
 
-  /* The active (current) row shares the selection wash; the inset start bar is what marks it
-     apart — including inside a block of selected rows. */
+  /* The active (current) row is the keyboard cursor: exactly one row ever carries it, so it
+     takes the heavier of Mantine's two light steps and selection keeps the calmer one. That is
+     what separates the two states — including inside a block of selected rows, where the cursor
+     still has to be findable — and it needs no accent bar to say it. */
   .ledger-row[data-active] {
-    --ledger-row-bg: var(--mantine-primary-color-light);
-  }
-
-  .ledger-row[data-active] > :first-child {
-    box-shadow: inset 3px 0 0 var(--mantine-primary-color-filled);
-  }
-
-  [dir="rtl"] .ledger-row[data-active] > :first-child {
-    box-shadow: inset -3px 0 0 var(--mantine-primary-color-filled);
+    --ledger-row-bg: var(--mantine-primary-color-light-hover);
   }
 
   .ledger-row[data-clickable] {
