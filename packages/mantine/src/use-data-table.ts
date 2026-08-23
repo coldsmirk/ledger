@@ -312,7 +312,19 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
   const rowFocusColumn = useRef<string | null>(null);
   const editingRowRef = useRef(editingRowId);
-  const rowCommitRequestRef = useRef(0);
+  /**
+   * One editing session, one token. An async commit captures it and may only act on what it
+   * finds afterwards if the token still matches: cancelling the row, finishing it, or opening
+   * another one all end the session, and a settled request from the previous one must not close
+   * the editor that replaced it (nor report its error onto that editor's first field).
+   */
+  const rowSessionRef = useRef(0);
+  /**
+   * The in-flight row commit, so repeated `stopEditing({ commit: true })` calls wait on one
+   * result instead of firing `onRowEditCommit` again — the single-flight guarantee cell mode
+   * already makes (docs/editing.md).
+   */
+  const rowPendingCommit = useRef<Promise<boolean> | null>(null);
   const rowStartRequestRef = useRef(0);
   // The row commit needs the live instance; the hook's table is created further down.
   const tableRef = useRef<TableInstance<TData> | null>(null);
@@ -367,6 +379,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   };
 
   const finishRowEditing = useEventCallback(() => {
+    rowSessionRef.current += 1;
+    rowPendingCommit.current = null;
     rowDrafts.current = {
       rowId: null,
       values: new Map(),
@@ -375,6 +389,13 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     rowFocusColumn.current = null;
     setEditingRowId(null);
   });
+
+  /**
+   * Whether the session a request was issued under is still the live one. The row id is part of
+   * the test because `editingRowId` is controllable: an application can move the edit from one
+   * row to another without `startRowEditing` or `finishRowEditing` ever running.
+   */
+  const isCurrentRowSession = (session: number, rowId: string) => rowSessionRef.current === session && editingRowRef.current === rowId;
 
   const broadcastRowPending = (pending: boolean) => {
     for (const editor of rowEditors.current.values()) {
@@ -395,6 +416,13 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
     if (rowId === null || !tableInstance) {
       return true;
+    }
+
+    // Idempotent while pending: a second Enter, a blur behind it, or the application calling
+    // `stopEditing` again all join the request already in flight rather than issuing another
+    // write. Cleared whenever the session ends, so the next row never inherits this promise.
+    if (rowPendingCommit.current) {
+      return rowPendingCommit.current;
     }
 
     // The table-level switch outranks every per-column case below, so it is tested once here
@@ -456,8 +484,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       }
 
       if (presentColumnIds.has(columnId)) {
-        // The column is still here, it simply stopped being editable mid-edit — `enableEditing`
-        // switched off, `meta.edit` removed, or `edit.enabled(row)` now false for this row.
+        // The column is still here, it simply stopped being editable mid-edit — `meta.edit`
+        // removed, or `edit.enabled(row)` now false for this row. (`enableEditing` cannot reach
+        // this loop: the table-level switch is answered at the entry to `commitRow`.)
         // Committing that draft would push a value through a gate the application just closed,
         // and unvalidated besides (the validation pass below only walks editable cells). The
         // pending value is dropped, not promoted.
@@ -520,26 +549,39 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     if (result && typeof result.then === "function") {
-      const request = ++rowCommitRequestRef.current;
+      const session = rowSessionRef.current;
       broadcastRowPending(true);
 
-      return Promise.resolve(result).then(
+      const pending = Promise.resolve(result).then(
         () => {
-          broadcastRowPending(false);
-
-          if (rowCommitRequestRef.current === request) {
-            finishRowEditing();
+          // Everything below touches the editors on screen, so a request whose session has
+          // ended stops here: its row was cancelled or replaced, and the editors it would
+          // close or un-pend belong to whoever came next.
+          if (!isCurrentRowSession(session, rowId)) {
+            return true;
           }
+
+          broadcastRowPending(false);
+          finishRowEditing();
 
           return true;
         },
         (error: unknown) => {
+          if (!isCurrentRowSession(session, rowId)) {
+            return false;
+          }
+
+          rowPendingCommit.current = null;
           broadcastRowPending(false);
           reportRowCommitError(error);
 
           return false;
         }
       );
+
+      rowPendingCommit.current = pending;
+
+      return pending;
     }
 
     finishRowEditing();
@@ -553,6 +595,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     const begin = () => {
+      rowSessionRef.current += 1;
+      rowPendingCommit.current = null;
       rowDrafts.current = {
         rowId,
         values: new Map(),

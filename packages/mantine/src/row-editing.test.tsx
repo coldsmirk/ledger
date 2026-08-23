@@ -429,6 +429,86 @@ describe("row editing mode", () => {
     expect(onRowEditCommit).not.toHaveBeenCalled();
   });
 
+  it("joins a second commit to the request already in flight", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const onRowEditCommit = vi.fn(() => inFlight.promise);
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={onRowEditCommit}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // Two Enters, a blur landing behind one, or an application calling stop twice: one write.
+    act(() => {
+      handle.current?.stopEditing({ commit: true });
+      handle.current?.stopEditing({ commit: true });
+    });
+
+    expect(onRowEditCommit).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(0));
+    expect(onRowEditCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a cancelled row's commit settle without closing the row opened after it", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const onRowEditCommit = vi.fn(() => inFlight.promise);
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={onRowEditCommit}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(onRowEditCommit).toHaveBeenCalledTimes(1);
+
+    // Carol's write is still in flight when the user abandons it and opens Alice instead.
+    act(() => handle.current?.stopEditing({ commit: false }));
+    act(() => handle.current?.startEditing("2"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Second" } });
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // The settled request belongs to a session that ended: it must not close Alice's editors,
+    // and her draft must survive.
+    expect(editorInputs()).toHaveLength(2);
+    expect((editorInputs()[0] as HTMLInputElement).value).toBe("Second");
+    expect(onRowEditCommit).toHaveBeenCalledTimes(1);
+  });
+
   it("starts and stops row editing through the imperative handle", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();
