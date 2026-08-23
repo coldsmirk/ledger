@@ -514,6 +514,35 @@ describe("DataTable", () => {
     expect(footerCell?.getAttribute("role")).toBe("cell");
   });
 
+  it("skips the footer levels a grouped header mirrors but nothing fills", () => {
+    // getFooterGroups() mirrors every header level. With totals only on the leaves the group
+    // level came out as an empty row that still drew row and column borders under the totals.
+    const grouped: Array<ColumnDef<Person, any>> = [
+      {
+        id: "who",
+        header: "Who",
+        columns: [
+          {
+            accessorKey: "name",
+            header: "Name",
+            footer: "Total"
+          },
+          { accessorKey: "age", header: "Age" }
+        ]
+      }
+    ];
+
+    const { container } = render(
+      <DataTable withColumnBorders columns={grouped} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    // Two header levels, but only the one footer level that carries a `footer`.
+    expect(container.querySelectorAll(":scope .ledger-header .ledger-header-row")).toHaveLength(2);
+    expect(container.querySelectorAll(":scope .ledger-footer .ledger-footer-row")).toHaveLength(1);
+    expect(container.querySelector(":scope .ledger-footer .ledger-footer-cell")?.textContent).toBe("Total");
+  });
+
   it("does not render a footer region when every footer-bearing column is hidden", () => {
     const withFooter: Array<ColumnDef<Person, any>> = [
       {

@@ -59,7 +59,7 @@ import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from ".
 import { DataTableSearch } from "./search";
 import { DataTableSelectionBar } from "./selection-bar";
 import { buildDisplayRows, TableBody } from "./table-body";
-import { TableFooter, tableHasFooter } from "./table-footer";
+import { TableFooter, tableHasFooter, visibleFooterGroups } from "./table-footer";
 import { TableHeader } from "./table-header";
 import { useColumnWidths } from "./use-column-widths";
 import { useDataTable } from "./use-data-table";
@@ -785,7 +785,8 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     = loading && logicalDisplayRowCount === 0
       ? skeletonRowCount
       : logicalDisplayRowCount + (loadMoreError || loadingMore ? 1 : 0);
-  const footerRowCount = hasFooter ? table.getFooterGroups().length : 0;
+  // The rendered rows, not every mirrored header level — `aria-rowcount` must match the DOM.
+  const footerRowCount = visibleFooterGroups(table).length;
   const ariaRowCount = headerRowCount + bodyAriaRowCount + footerRowCount;
   const footerAriaRowIndexStart = headerRowCount + bodyAriaRowCount + 1;
 
