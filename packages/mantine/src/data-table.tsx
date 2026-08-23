@@ -955,10 +955,14 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const activeRowId = table.options.meta?.ledger?.activeRow.id ?? null;
   const activeRowAnnouncer = useRef<HTMLSpanElement>(null);
   const rowNavigationHintId = `${instanceId}-row-navigation`;
-  // The consumer's description still wins the first read; the key hint follows it.
-  const describedBy = activeRowEnabled
-    ? [ariaDescribedBy, rowNavigationHintId].filter(Boolean).join(" ")
-    : ariaDescribedBy;
+  // The keyboard model describes the element that actually takes focus — a description is read
+  // out for the focused node, and the ARIA table never is one. `aria-describedby` is a global
+  // property that any element may carry: `generic` prohibits an accessible *name*, not a
+  // description, and referencing an id adds no role and owns nothing. The consumer's own
+  // description stays on the table; theirs on the viewport keeps the first read there.
+  const viewportDescribedBy = activeRowEnabled
+    ? [viewportProps?.["aria-describedby"], rowNavigationHintId].filter(Boolean).join(" ")
+    : viewportProps?.["aria-describedby"];
 
   // Runs once per change of the current row rather than once per render: the row lookup is a
   // scan, and this component re-renders on every scroll step of a virtualized table.
@@ -1009,12 +1013,17 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     if (activeRowEnabled) {
       announceActiveRow();
     }
+    // `visibleLeafColumns` belongs here for the same reason: the announcement names the row by
+    // its leading visible cell, so hiding, reordering or pinning a column can rename the row
+    // without moving it. That memo is keyed on the display-order signature and the column
+    // token, which is exactly the set of changes that can pick a different leading cell.
   }, [
     activeRowId,
     activeRowEnabled,
     announcementRows,
     announcementTopRows,
     announcementBottomRows,
+    visibleLeafColumns,
     labels,
     announceActiveRow
   ]);
@@ -1212,14 +1221,15 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
                 a text change, not a React re-render of the table. Both of these sit outside
                 `role="table"` — a table may only own rows. */}
             <VisuallyHidden ref={activeRowAnnouncer} aria-live="polite" role="status" />
-            {/* The keyboard model, hung on the one element here that may carry a description.
-                The focus stop itself is a roleless div, and `generic` prohibits a name. */}
+            {/* The text the focus stop points at. It sits out here rather than inside the
+                table because `aria-describedby` resolves by id from anywhere, while a stray
+                element inside `role="table"` would not. */}
             <VisuallyHidden id={rowNavigationHintId}>{labels.rowNavigation}</VisuallyHidden>
           </>
         )}
 
         <div
-          aria-describedby={describedBy}
+          aria-describedby={ariaDescribedBy}
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           aria-rowcount={virtualEnabled ? ariaRowCount : undefined}
@@ -1252,12 +1262,13 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
             }}
             viewportProps={mergeElementProps(viewportProps, {
               style: { overscrollBehavior: "none" as const },
-              // With the active row on, the body viewport is the keyboard focus stop.
-              // Deliberately unnamed: this div is `generic`, a role that prohibits an accessible
-              // name, and it cannot take one either (a role would break `table`'s owned rows).
-              // The keyboard model is described on the ARIA table instead — see
-              // `rowNavigationHintId`. It stays the focus stop so the browser's own scrolling
-              // keys keep reaching the scroller.
+              // With the active row on, the body viewport is the keyboard focus stop, and it
+              // carries the description of the keyboard model (`rowNavigationHintId`, composed
+              // after any the consumer passed). Deliberately unnamed: this div is `generic`, a
+              // role that prohibits an accessible name, and it cannot take a role either —
+              // that would break `table`'s owned rows. It stays the focus stop so the browser's
+              // own scrolling keys keep reaching the scroller.
+              "aria-describedby": viewportDescribedBy,
               ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
             })}
             onScrollPositionChange={handleScrollPositionChange}

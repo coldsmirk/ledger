@@ -226,21 +226,24 @@ describe("DataTable", () => {
     expect((onRowActivate.mock.calls[0]?.[1] as { type: string }).type).toBe("keydown");
   });
 
-  it("names the row-navigation focus stop and speaks each move of the current row", () => {
+  it("describes the row-navigation focus stop and speaks each move of the current row", () => {
     const { container } = render(
       <DataTable enableActiveRow columns={columns} data={people} getRowId={getRowId} />,
       { wrapper }
     );
 
-    // The focus stop is a roleless div: `generic` prohibits an accessible name, so the keyboard
-    // model hangs off the ARIA table's description instead.
+    // The focus stop is a roleless div: `generic` prohibits an accessible name but not a
+    // description, and the description has to be on the focused element to ever be read.
     const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
     expect(viewport.hasAttribute("aria-label")).toBe(false);
 
-    const main = container.querySelector(":scope .ledger-main") as HTMLElement;
-    const hintId = main.getAttribute("aria-describedby") as string;
+    const hintId = viewport.getAttribute("aria-describedby") as string;
     expect(hintId).toBeTruthy();
     expect(container.querySelector(`#${CSS.escape(hintId)}`)?.textContent).toBe(defaultLabels.rowNavigation);
+
+    // The consumer owns the table's own description; the hint never lands there.
+    const main = container.querySelector(":scope .ledger-main") as HTMLElement;
+    expect(main.hasAttribute("aria-describedby")).toBe(false);
 
     // Focus never leaves the viewport, so the live region is the only thing that reports the move.
     const announcer = container.querySelector(":scope [aria-live=\"polite\"]") as HTMLElement;
@@ -268,6 +271,30 @@ describe("DataTable", () => {
     // Same row, new position: an id-only dependency would leave the stale line standing.
     fireEvent.click(screen.getByRole("button", { name: "Name" }));
     expect(announcer.textContent).toBe(defaultLabels.currentRow("Alice", 1, 3));
+  });
+
+  it("re-speaks the current row when the leading column is hidden", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const { container } = render(
+      <DataTable
+        enableActiveRow
+        columns={columns}
+        data={people}
+        getRowId={getRowId}
+        handleRef={handle}
+      />,
+      { wrapper }
+    );
+
+    const announcer = container.querySelector(":scope [aria-live=\"polite\"]") as HTMLElement;
+
+    fireEvent.click(container.querySelector(":scope [data-row-id=\"2\"] td") as Element);
+    expect(announcer.textContent).toBe(defaultLabels.currentRow("Alice", 2, 3));
+
+    // The row never moves — but the cell that names it does, so the announcement is stale
+    // unless the visible column set is a dependency in its own right.
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(false));
+    expect(announcer.textContent).toBe(defaultLabels.currentRow("25", 2, 3));
   });
 
   it("hides the resize handle from assistive tech — the columns panel is its keyboard route", () => {

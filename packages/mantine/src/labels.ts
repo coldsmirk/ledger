@@ -22,9 +22,9 @@ export interface DataTableLabels {
 
   /* Active row (enableActiveRow) */
   /**
-   * Describes the ARIA table while `enableActiveRow` is on — the only place the arrow-key row
-   * model is announced, so say what the keys do. It cannot sit on the focus stop itself: that is
-   * a roleless `<div>`, and `generic` prohibits an accessible name.
+   * Describes the body viewport — the keyboard focus stop — while `enableActiveRow` is on. It
+   * is the only place the arrow-key row model is announced, so say what the keys do. A
+   * description, never a name: that div is roleless, and `generic` prohibits a name.
    */
   rowNavigation: string;
   /**
