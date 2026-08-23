@@ -232,8 +232,15 @@ describe("DataTable", () => {
       { wrapper }
     );
 
+    // The focus stop is a roleless div: `generic` prohibits an accessible name, so the keyboard
+    // model hangs off the ARIA table's description instead.
     const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
-    expect(viewport.getAttribute("aria-label")).toBe(defaultLabels.rowNavigation);
+    expect(viewport.hasAttribute("aria-label")).toBe(false);
+
+    const main = container.querySelector(":scope .ledger-main") as HTMLElement;
+    const hintId = main.getAttribute("aria-describedby") as string;
+    expect(hintId).toBeTruthy();
+    expect(container.querySelector(`#${CSS.escape(hintId)}`)?.textContent).toBe(defaultLabels.rowNavigation);
 
     // Focus never leaves the viewport, so the live region is the only thing that reports the move.
     const announcer = container.querySelector(":scope [aria-live=\"polite\"]") as HTMLElement;
@@ -245,6 +252,22 @@ describe("DataTable", () => {
 
     fireEvent.keyDown(viewport, { key: "ArrowDown" });
     expect(announcer.textContent).toBe(defaultLabels.currentRow("Bob", 3, people.length));
+  });
+
+  it("re-speaks the current row when sorting moves it", () => {
+    const { container } = render(
+      <DataTable enableActiveRow columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    const announcer = container.querySelector(":scope [aria-live=\"polite\"]") as HTMLElement;
+
+    fireEvent.click(container.querySelector(":scope [data-row-id=\"2\"] td") as Element);
+    expect(announcer.textContent).toBe(defaultLabels.currentRow("Alice", 2, 3));
+
+    // Same row, new position: an id-only dependency would leave the stale line standing.
+    fireEvent.click(screen.getByRole("button", { name: "Name" }));
+    expect(announcer.textContent).toBe(defaultLabels.currentRow("Alice", 1, 3));
   });
 
   it("hides the resize handle from assistive tech — the columns panel is its keyboard route", () => {

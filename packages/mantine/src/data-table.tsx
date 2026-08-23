@@ -137,6 +137,11 @@ const classes: Record<DataTableStylesNames, string> = {
   paginationBar: "ledger-pagination-bar"
 };
 
+/**
+ * Stable identity for an unoccupied pinned zone — a fresh `[]` would re-run the announcement.
+ */
+const NO_ARIA_ROWS: never[] = [];
+
 // Mantine styles the EmptyState title as a headline (bright, 600) for full-page empties with
 // description and actions; a bare table caption reads better dimmed.
 const EMPTY_STATE_STYLES = {
@@ -949,6 +954,11 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const activeRowEnabled = table.options.meta?.ledger?.activeRow.enabled === true;
   const activeRowId = table.options.meta?.ledger?.activeRow.id ?? null;
   const activeRowAnnouncer = useRef<HTMLSpanElement>(null);
+  const rowNavigationHintId = `${instanceId}-row-navigation`;
+  // The consumer's description still wins the first read; the key hint follows it.
+  const describedBy = activeRowEnabled
+    ? [ariaDescribedBy, rowNavigationHintId].filter(Boolean).join(" ")
+    : ariaDescribedBy;
 
   // Runs once per change of the current row rather than once per render: the row lookup is a
   // scan, and this component re-renders on every scroll step of a virtualized table.
@@ -987,11 +997,27 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     target.textContent = labels.currentRow(value === "" ? activeRowId : value, index + 1, orderedRows.length);
   });
 
+  // The row model identities are dependencies in their own right: sorting, filtering or paging
+  // changes the current row's position, the total, and even whether it is still on the page —
+  // an id-only dependency would leave the last announcement standing after the row left. Each
+  // of these arrays is TanStack-memoized, so a virtual scroll step does not touch them.
+  const announcementRows = table.getRowModel().rows;
+  const announcementTopRows = rowPinningActive ? table.getTopRows() : NO_ARIA_ROWS;
+  const announcementBottomRows = rowPinningActive ? table.getBottomRows() : NO_ARIA_ROWS;
+
   useEffect(() => {
     if (activeRowEnabled) {
       announceActiveRow();
     }
-  }, [activeRowId, activeRowEnabled, announceActiveRow]);
+  }, [
+    activeRowId,
+    activeRowEnabled,
+    announcementRows,
+    announcementTopRows,
+    announcementBottomRows,
+    labels,
+    announceActiveRow
+  ]);
 
   const handleActiveRowKeyDown = useEventCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
     const activeRow = table.options.meta?.ledger?.activeRow;
@@ -1179,15 +1205,21 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         {...getStyles("root", { style: columnVars })}
         {...others}
       >
-        {activeRowEnabled
-          // Focus never leaves the viewport when the arrow keys move the current row, so the
-          // move is visual only unless it is spoken. Written imperatively: a live region wants a
-          // text change, not a React re-render of the table. It sits outside `role="table"` —
-          // a table may only own rows.
-          && <VisuallyHidden ref={activeRowAnnouncer} aria-live="polite" role="status" />}
+        {activeRowEnabled && (
+          <>
+            {/* Focus never leaves the viewport when the arrow keys move the current row, so the
+                move is visual only unless it is spoken. Written imperatively: a live region wants
+                a text change, not a React re-render of the table. Both of these sit outside
+                `role="table"` — a table may only own rows. */}
+            <VisuallyHidden ref={activeRowAnnouncer} aria-live="polite" role="status" />
+            {/* The keyboard model, hung on the one element here that may carry a description.
+                The focus stop itself is a roleless div, and `generic` prohibits a name. */}
+            <VisuallyHidden id={rowNavigationHintId}>{labels.rowNavigation}</VisuallyHidden>
+          </>
+        )}
 
         <div
-          aria-describedby={ariaDescribedBy}
+          aria-describedby={describedBy}
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           aria-rowcount={virtualEnabled ? ariaRowCount : undefined}
@@ -1221,14 +1253,12 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
             viewportProps={mergeElementProps(viewportProps, {
               style: { overscrollBehavior: "none" as const },
               // With the active row on, the body viewport is the keyboard focus stop.
-              // A focus stop with no role and no name announces nothing; the label is the only
-              // place the arrow-key row model is discoverable. No role: this div sits between
-              // `role="table"` and the native table, and a table may only own rows.
-              ...activeRowEnabled && {
-                "aria-label": labels.rowNavigation,
-                tabIndex: 0,
-                onKeyDown: handleActiveRowKeyDown
-              }
+              // Deliberately unnamed: this div is `generic`, a role that prohibits an accessible
+              // name, and it cannot take one either (a role would break `table`'s owned rows).
+              // The keyboard model is described on the ARIA table instead — see
+              // `rowNavigationHintId`. It stays the focus stop so the browser's own scrolling
+              // keys keep reaching the scroller.
+              ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
             })}
             onScrollPositionChange={handleScrollPositionChange}
           >
