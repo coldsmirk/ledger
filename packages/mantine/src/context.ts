@@ -6,6 +6,7 @@ import type { DataTableFactory } from "./data-table";
 import type { DataTableElementProps } from "./element-props";
 import type { DataTableLabels } from "./labels";
 import type { HeaderGroup, Row } from "./types";
+import type { LedgerExpansionController, LedgerSelectionController } from "./use-row-commands";
 
 /**
  * Internal context for everything rendered inside the <DataTable> tree. The data generic is
@@ -47,6 +48,12 @@ export interface DataTableContextValue {
    */
   activeRowEnabled: boolean;
   setActiveRow?: (rowId: string) => void;
+  /**
+   * The row-state toggles the injected columns drive. Stable for the life of the instance, so a
+   * cell reaches one without the route deciding anything (`use-row-commands.ts`).
+   */
+  selection?: LedgerSelectionController;
+  expansion?: LedgerExpansionController;
   /**
    * Notification of every `columnFilters` set attempt, no-ops included — what a debounced filter
    * control listens to so an external reset reaches its own local value. Stable per instance.

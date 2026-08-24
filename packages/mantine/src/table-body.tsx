@@ -116,9 +116,10 @@ export function countDisplayRows<TData extends RowData>(rows: Array<Row<TData>>,
  * Grouped cell: expander, the grouped value, and the group size.
  */
 function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
-  const { labels } = useDataTableContext();
+  const { labels, expansion } = useDataTableContext();
   const { row } = cell;
   const expandedGroup = row.getIsExpanded();
+  const canExpandGroup = row.getCanExpand();
 
   return (
     <span data-group-cell>
@@ -130,7 +131,7 @@ function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
         variant="subtle"
         onClick={event => {
           event.stopPropagation();
-          row.toggleExpanded();
+          expansion?.toggle(row.id, expandedGroup, canExpandGroup);
         }}
       >
         <IconChevronRight size={12} />

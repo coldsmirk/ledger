@@ -20,6 +20,7 @@ import type {
   DataTableEditingCell,
   LedgerMeta,
   LedgerRowEditor,
+  LedgerSortingController,
   Row,
   TableInstance,
   UseDataTableOptions
@@ -41,10 +42,12 @@ import { isDev, warnOnce } from "./env";
 import { ledgerFilterFns } from "./filter-fns";
 import { buildLedgerFeatures } from "./ledger-features";
 import { readPersistedState, usePersistWriter } from "./persist";
+import { nextSorting } from "./toggle-fns";
 import { useCellEditing } from "./use-cell-editing";
 import { useCheckboxEditing } from "./use-checkbox-editing";
 import { useCommittedTable } from "./use-committed-table";
 import { useResponsiveColumns } from "./use-responsive-columns";
+import { useRowCommands } from "./use-row-commands";
 import { useSlice } from "./use-slice";
 import { useEventCallback } from "./utils";
 
@@ -1149,6 +1152,16 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
   }
 
+  const [selectionCommands, expansionCommands, captureRows] = useRowCommands<TData>(setRowSelection, setExpanded);
+  const sortingCommands = useMemo<LedgerSortingController>(
+    () => {
+      return {
+        toggle: (spec, multi) => setSorting(previous => nextSorting(previous, spec, multi))
+      };
+    },
+    [setSorting]
+  );
+
   const subscribeColumnFilters = useCallback((listener: (value: ColumnFiltersState) => void) => {
     const listeners = filterSetListeners.current.columnFilters;
     listeners.add(listener);
@@ -1187,6 +1200,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     () => {
       return {
         columns: processedColumns,
+        sorting: sortingCommands,
+        selection: selectionCommands,
+        expansion: expansionCommands,
         editing: {
           mode: editMode,
           cell: editingCell,
@@ -1238,6 +1254,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       };
     },
     [
+      sortingCommands,
+      selectionCommands,
+      expansionCommands,
       processedColumns,
       editingCell,
       cellSession,
@@ -1481,6 +1500,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       enableEditing,
       hasCommitHandler: Boolean(editMode === "row" ? onRowEditCommit : onEditCommit)
     });
+    captureRows(table);
   });
 
   usePersistWriter(persistState, {

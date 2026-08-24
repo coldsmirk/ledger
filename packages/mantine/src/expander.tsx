@@ -12,7 +12,7 @@ import { useDataTableContext } from "./context";
 import { IconChevronRight } from "./icons";
 
 export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
-  const { labels } = useDataTableContext();
+  const { labels, expansion } = useDataTableContext();
 
   // Expand-all only makes sense over a tree; a master–detail table opens panels one at a time.
   if (!table.options.getSubRows) {
@@ -20,6 +20,7 @@ export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: Ta
   }
 
   const allExpanded = table.getIsAllRowsExpanded();
+  const canSomeExpand = table.getCanSomeRowsExpand();
 
   return (
     <ActionIcon
@@ -29,7 +30,7 @@ export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: Ta
       variant="subtle"
       onClick={event => {
         event.stopPropagation();
-        table.toggleAllRowsExpanded(!allExpanded);
+        expansion?.toggleAll(!allExpanded, canSomeExpand);
       }}
     >
       <IconChevronRight />
@@ -38,9 +39,10 @@ export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: Ta
 }
 
 export function ExpanderCell<TData extends RowData>({ row }: { row: Row<TData> }) {
-  const { labels } = useDataTableContext();
+  const { labels, expansion } = useDataTableContext();
+  const canExpand = row.getCanExpand();
 
-  if (!row.getCanExpand()) {
+  if (!canExpand) {
     return null;
   }
 
@@ -55,7 +57,7 @@ export function ExpanderCell<TData extends RowData>({ row }: { row: Row<TData> }
       variant="subtle"
       onClick={event => {
         event.stopPropagation();
-        row.toggleExpanded();
+        expansion?.toggle(row.id, expanded, canExpand);
       }}
     >
       <IconChevronRight />

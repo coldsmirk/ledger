@@ -5,10 +5,12 @@ import type { Row, TableInstance } from "./types";
 
 /**
  * The injected selection column's header and body cells. Both stop propagation so selection
- * never triggers `onRowClick` (docs/rows.md). Shift-range selection is TanStack v9's own
- * `getToggleSelectedHandler()` behavior (`enableRowRangeSelection`, on by default): an ordinary
- * click sets the anchor, a Shift-click applies the display-order range, `getCanSelect()` rows
- * excluded — the click event is handed to the handler so it can read the modifier.
+ * never triggers `onRowClick` (docs/rows.md). Shift-range selection keeps TanStack v9's
+ * semantics (`enableRowRangeSelection`, on by default): an ordinary click sets the anchor, a
+ * Shift-click applies the display-order range, non-selectable rows excluded. What it never keeps
+ * is v9's route to them — `getToggleSelectedHandler()` resolves the gate, the anchor and the
+ * display order from the shared core when the click arrives, which is whatever render pass ran
+ * last. The controller answers from the commit instead (`use-row-commands.ts`).
  */
 import { Checkbox, Radio } from "@mantine/core";
 
@@ -20,7 +22,7 @@ function noop() {
 }
 
 export function SelectionHeaderCell<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
-  const { labels } = useDataTableContext();
+  const { labels, selection } = useDataTableContext();
 
   if (table.options.enableMultiRowSelection === false) {
     return null;
@@ -32,14 +34,6 @@ export function SelectionHeaderCell<TData extends RowData>({ table }: { table: T
   // indeterminate glyph must therefore be gated on the matching all-selected check.
   const someSelected = scope === "page" ? table.getIsSomePageRowsSelected() : table.getIsSomeRowsSelected();
 
-  const toggleAll = () => {
-    if (scope === "page") {
-      table.toggleAllPageRowsSelected(!allSelected);
-    } else {
-      table.toggleAllRowsSelected(!allSelected);
-    }
-  };
-
   return (
     <Checkbox
       aria-label={labels.selectAllRows}
@@ -49,19 +43,29 @@ export function SelectionHeaderCell<TData extends RowData>({ table }: { table: T
       onChange={noop}
       onClick={(event: MouseEvent<HTMLInputElement>) => {
         event.stopPropagation();
-        toggleAll();
+        // What the box shows is what clicking it departs from — resolved by this render, never
+        // asked of the table again when the click lands.
+        selection?.toggleAll(scope, !allSelected);
       }}
     />
   );
 }
 
 export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> }) {
-  const { labels, instanceId } = useDataTableContext();
+  const {
+    labels,
+    instanceId,
+    selection
+  } = useDataTableContext();
   const selected = row.getIsSelected();
 
   const select = (event: MouseEvent<HTMLInputElement>) => {
     event.stopPropagation();
-    row.getToggleSelectedHandler()(event);
+    selection?.toggle(
+      row as Row<any>,
+      event.currentTarget.checked,
+      event.shiftKey || event.nativeEvent.shiftKey
+    );
   };
 
   // Single-select is a radio group, not a lone checkbox: one choice at a time is what a radio

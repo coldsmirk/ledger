@@ -698,6 +698,8 @@ function DataTableCore<TData extends RowData>({
   const activeRowId = ledger?.activeRow.id ?? null;
   const setActiveRow = ledger?.activeRow.set;
   const subscribeColumnFilters = ledger?.filtering.subscribeColumnFilters;
+  const selectionCommands = ledger?.selection;
+  const expansionCommands = ledger?.expansion;
 
   const instanceId = useId();
 
@@ -706,6 +708,8 @@ function DataTableCore<TData extends RowData>({
       return {
         activeRowEnabled,
         setActiveRow,
+        selection: selectionCommands,
+        expansion: expansionCommands,
         subscribeColumnFilters,
         instanceId,
         getStyles: stylesRevision,
@@ -725,6 +729,8 @@ function DataTableCore<TData extends RowData>({
     [
       activeRowEnabled,
       setActiveRow,
+      selectionCommands,
+      expansionCommands,
       subscribeColumnFilters,
       instanceId,
       stylesRevision,

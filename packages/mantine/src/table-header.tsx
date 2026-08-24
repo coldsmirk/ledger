@@ -1,6 +1,7 @@
 import type { ColumnSizingState, RowData } from "@tanstack/react-table";
 import type { MouseEvent } from "react";
 
+import type { SortToggleSpec } from "./toggle-fns";
 import type { Header, TableInstance } from "./types";
 import type { ResizerSpec } from "./use-column-resize";
 
@@ -101,6 +102,23 @@ function HeaderCell<TData extends RowData>({
 
   const canSort = column.getCanSort();
   const sorted = column.getIsSorted();
+  /**
+   * The whole of what a sort click applies, resolved here. v9's own handler asks the column
+   * again when the click lands — for the gate, for the direction the cycle turns to next — and
+   * both of those reads go to the shared core (`toggle-fns.ts`).
+   */
+  const sortSpec: SortToggleSpec = {
+    canMultiSort: column.getCanMultiSort(),
+    columnId: column.id,
+    maxMultiSortColCount: table.options.maxMultiSortColCount ?? Number.MAX_SAFE_INTEGER,
+    nextOrderMulti: column.getNextSortingOrder(true),
+    nextOrderSingle: column.getNextSortingOrder(false)
+  };
+  // v9's own default, restated: the feature's `getDefaultTableOptions` is merged into the core's
+  // options, not into the wrapper's, so reading only `table.options` here would silently make
+  // every click a single-sort. A consumer override through `tableOptions` still wins.
+  const isMultiSortEvent = table.options.isMultiSortEvent ?? ((event: unknown) => (event as MouseEvent).shiftKey);
+  const sorting = table.options.meta?.ledger?.sorting;
   const sortCount = table.atoms.sorting.get().length;
   const sortIndex = column.getSortIndex();
   // Ledger's own gate: the TanStack `columnResizingFeature` (and its `getCanResize`) is
@@ -136,7 +154,11 @@ function HeaderCell<TData extends RowData>({
       return;
     }
 
-    column.getToggleSortingHandler()?.(event);
+    if (!canSort) {
+      return;
+    }
+
+    sorting?.toggle(sortSpec, sortSpec.canMultiSort && (isMultiSortEvent?.(event) ?? false));
   };
 
   const label = header.isPlaceholder
