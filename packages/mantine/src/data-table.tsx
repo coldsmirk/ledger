@@ -663,21 +663,23 @@ function DataTableCore<TData extends RowData>({
   /* The documented single TData erasure (context.ts) — the render layer below is `any`-bound. */
   const erasedTable = table as TableInstance<any>;
 
-  // v9's useTable returns a fresh `{...core, options, state}` wrapper on every state tick.
-  // Holding that identity in the context value would rebuild the context each tick and
-  // re-render every consumer straight through the row memos. The context therefore exposes
-  // the CURRENT wrapper through a ref-backed getter: identity-stable, reads always fresh.
-  const tableBoxRef = useRef(erasedTable);
-  tableBoxRef.current = erasedTable;
+  // Read from THIS render's wrapper, whose `options` is its own object — never from the shared
+  // core, and never mirrored into a ref during render. Each of these is stable for as long as
+  // the instance lives, so naming them individually is what lets the context value hold while
+  // the wrapper identity changes on every state tick (context.ts).
+  const ledger = table.options.meta?.ledger;
+  const activeRowEnabled = ledger?.activeRow.enabled === true;
+  const setActiveRow = ledger?.activeRow.set;
+  const subscribeColumnFilters = ledger?.filtering.subscribeColumnFilters;
 
   const instanceId = useId();
 
   const contextValue = useMemo<DataTableContextValue>(
     () => {
       return {
-        get table() {
-          return tableBoxRef.current;
-        },
+        activeRowEnabled,
+        setActiveRow,
+        subscribeColumnFilters,
         instanceId,
         getStyles: stylesRevision,
         labels,
@@ -694,6 +696,9 @@ function DataTableCore<TData extends RowData>({
       };
     },
     [
+      activeRowEnabled,
+      setActiveRow,
+      subscribeColumnFilters,
       instanceId,
       stylesRevision,
       labels,
@@ -987,7 +992,6 @@ function DataTableCore<TData extends RowData>({
   );
 
   /* ---- active row keyboard (docs/rows.md): the body viewport is the focus stop ---- */
-  const activeRowEnabled = table.options.meta?.ledger?.activeRow.enabled === true;
   const activeRowId = table.options.meta?.ledger?.activeRow.id ?? null;
   const activeRowAnnouncer = useRef<HTMLSpanElement>(null);
   const rowNavigationHintId = `${instanceId}-row-navigation`;

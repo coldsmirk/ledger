@@ -181,14 +181,16 @@ function TextFilter<TData extends RowData>({
   name,
   placeholder
 }: { column: Column<TData, unknown>; name: string; placeholder: string }) {
-  const { table, labels } = useDataTableContext();
+  // Straight from the context, never through a table instance: this control redraws from its
+  // own state, in renders the table root has no part in, and the instance it would reach for
+  // then is whatever pass wrote it last (context.ts).
+  const { labels, subscribeColumnFilters } = useDataTableContext();
   const filterValue = (column.getFilterValue() as string | undefined) ?? "";
   const [value, setValue] = useState(filterValue);
   const apply = useDebouncedCallback(
     (next: string) => column.setFilterValue(next === "" ? undefined : next),
     { delay: 200, flushOnUnmount: true }
   );
-  const subscribeColumnFilters = table.options.meta?.ledger?.filtering.subscribeColumnFilters;
 
   useEffect(() => subscribeColumnFilters?.(filters => {
     const next = filters.find(filter => filter.id === column.id)?.value;

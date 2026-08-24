@@ -388,15 +388,15 @@ function DataRowImpl({
   ariaRowIndex
 }: DataRowProps) {
   const {
-    table,
     getStyles,
     onRowClick,
     onRowActivate,
     onRowDoubleClick,
     onRowContextMenu,
-    rowProps
+    rowProps,
+    activeRowEnabled,
+    setActiveRow
   } = useDataTableContext();
-  const activeRow = table.options.meta?.ledger?.activeRow;
 
   const cells = row.getVisibleCells();
   const firstDataCellIndex = cells.findIndex(cell => !isInternalColumn(cell.column.id));
@@ -413,10 +413,10 @@ function DataRowImpl({
 
   // A click makes the row current before the consumer's own handlers see it. A click is also an
   // activation, so both fire here — `onRowClick` first, as the more specific of the two.
-  const handleClick = onRowClick || onRowActivate || activeRow?.enabled
+  const handleClick = onRowClick || onRowActivate || activeRowEnabled
     ? (event: MouseEvent) => {
-        if (activeRow?.enabled) {
-          activeRow.set(row.id);
+        if (activeRowEnabled) {
+          setActiveRow?.(row.id);
         }
 
         onRowClick?.(row, event);
@@ -473,6 +473,12 @@ const DataRow = memo(DataRowImpl) as typeof DataRowImpl;
 
 interface DetailRowProps {
   row: Row<any>;
+  /**
+   * The panel renderer of the render that put this row on screen. A prop rather than a context
+   * field because an application writes it inline: taking its identity into the context value
+   * would rebuild the context on every render and leave nothing below memoized (context.ts).
+   */
+  renderDetailPanel?: (row: Row<any>) => ReactNode;
   colSpan: number;
   pinnedPosition?: "top" | "bottom";
   pinnedOffset?: number;
@@ -483,6 +489,7 @@ interface DetailRowProps {
 
 function DetailRow({
   row,
+  renderDetailPanel,
   colSpan,
   pinnedPosition,
   pinnedOffset,
@@ -490,8 +497,7 @@ function DetailRow({
   measureRef,
   ariaRowIndex
 }: DetailRowProps) {
-  const { table, getStyles } = useDataTableContext();
-  const renderDetailPanel = table.options.meta?.ledger?.renderDetailPanel;
+  const { getStyles } = useDataTableContext();
   const pinnedStyle
     = pinnedPosition === "top"
       ? { top: `${pinnedOffset ?? 0}px` }
@@ -786,6 +792,7 @@ export function TableBody({
           measureRef={options.measureRef}
           pinnedOffset={options.pinnedOffset}
           pinnedPosition={options.pinnedPosition}
+          renderDetailPanel={ledger?.renderDetailPanel}
           row={displayRow.row}
           virtualIndex={options.virtualIndex}
         />
