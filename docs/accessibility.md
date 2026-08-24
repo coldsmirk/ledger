@@ -49,7 +49,7 @@ Column titles come from the def's `header` when it is a string; a JSX header fal
 
 ## States are announced
 
-- `loading` sets `aria-busy` on the root; with rows present it also dims them behind an overlay.
+- `loading` sets `aria-busy` on the ARIA table (`.ledger-main`); with rows present it also dims them behind an overlay. The root keeps `data-loading` for styling.
 - The **error** panel is a `role="alert"` — it interrupts, because a failed load invalidates what is on screen.
 - The **empty / no-results** panel is a `role="status"` — polite, so filtering a table to nothing announces itself without interrupting the typing that caused it.
 - The **load-more error** row puts its `role="alert"` on the message inside the cell, never on the cell: `role="alert"` would displace `role="cell"` and leave the row with no cell at all.

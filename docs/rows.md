@@ -94,4 +94,4 @@ The default empty rendering distinguishes two situations: zero rows with a colum
 />
 ```
 
-The root exposes `data-loading` and `aria-busy` while loading, `data-empty` on the empty states, and `data-error` while the error panel shows; the panel itself carries `data-variant="no-data" | "no-results" | "error"`. All states center inside the elastic scroller, so they respect the adaptive sizing contract ([sizing.md](sizing.md)).
+The root exposes `data-loading` while loading (`aria-busy` sits on the ARIA table), `data-empty` on the empty states, and `data-error` while the error panel shows; the panel itself carries `data-variant="no-data" | "no-results" | "error"`. All states center inside the elastic scroller, so they respect the adaptive sizing contract ([sizing.md](sizing.md)).

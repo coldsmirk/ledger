@@ -461,10 +461,6 @@ interface RoutedProps<TData extends RowData> {
 }
 
 /**
- * Resolve a row against the exact list owned by the virtualizer. Pinned rows are mounted outside
- * that list, so they deliberately have no scroll index.
- */
-/**
  * The rows and the naming column of one committed render, in the shape the handlers that answer
  * for the screen need them (docs/architecture.md).
  */
@@ -494,6 +490,10 @@ export interface DisplaySnapshot<TData extends RowData> {
   withDetailPanels: boolean;
 }
 
+/**
+ * Resolve a row against the exact list owned by the virtualizer. Pinned rows are mounted outside
+ * that list, so they deliberately have no scroll index.
+ */
 export function resolveVirtualDisplayIndex<TData extends RowData>(
   snapshot: DisplaySnapshot<TData>,
   rowId: string
@@ -1289,7 +1289,6 @@ function DataTableCore<TData extends RowData>({
     <DataTableProvider value={contextValue}>
       <Box
         ref={rootRef}
-        aria-busy={loading || undefined}
         data-empty={isEmpty || undefined}
         data-error={errorActive || undefined}
         data-highlight-on-hover={highlightOnHover || undefined}
@@ -1319,6 +1318,9 @@ function DataTableCore<TData extends RowData>({
         )}
 
         <div
+          // On the element that is the table: `aria-busy` is defined for the widget whose
+          // content is being updated, and the root carries no role for it to qualify.
+          aria-busy={loading || undefined}
           aria-describedby={ariaDescribedBy}
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}

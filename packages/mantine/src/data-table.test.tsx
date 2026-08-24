@@ -1021,4 +1021,15 @@ describe("DataTable", () => {
     expect(resolveVirtualDisplayIndex(snapshot, "2")).toBe(0);
     expect(resolveVirtualDisplayIndex(snapshot, "1")).toBeNull();
   });
+
+  it("marks the table busy while loading, not the roleless root", () => {
+    const { container } = render(
+      <DataTable loading columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    // aria-busy qualifies the widget whose content is updating; the root carries no role.
+    expect(screen.getByRole("table").getAttribute("aria-busy")).toBe("true");
+    expect(container.querySelector(".ledger-root")?.getAttribute("aria-busy")).toBeNull();
+  });
 });
