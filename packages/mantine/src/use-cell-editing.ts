@@ -43,7 +43,7 @@ export interface CellEditingSession {
    * it. Answered here rather than by the editor, which would have to walk the shared core.
    */
   moveTo: (backwards: boolean) => void;
-  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null | undefined;
+  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null;
   write: (rowId: string, columnId: string, value: unknown) => void;
   pending: (rowId: string, columnId: string) => boolean;
   error: (rowId: string, columnId: string) => string | null;
@@ -808,11 +808,18 @@ export function useCellEditing<TData extends RowData>({
    * The row's first editable cell — where F2 enters (docs/editing.md#keyboard-and-lifecycle).
    * `skipCheckbox` is the mode: cell mode has no editor to open on one, row mode does.
    */
-  const firstEditable = useEventCallback((rowId: string, skipCheckbox: boolean) => {
+  const firstEditable = useEventCallback((rowId: string, skipCheckbox: boolean): string | null => {
+    // On screen first: `canEdit` will answer for a row that is filtered out or on another page —
+    // a session may legitimately name one — but F2 acts on the row the user is looking at, and
+    // opening an editor nobody can see is not that.
+    if (!committed.onScreen(rowId)) {
+      return null;
+    }
+
     const order = committed.visibleColumnIds();
 
     return order.find(columnId => committed.canEdit(rowId, columnId) && (!skipCheckbox || !committed.isCheckbox(columnId))) ?? null;
-  });
+  }) as (rowId: string, skipCheckbox: boolean) => string | null;
 
   return useMemo(
     () => {

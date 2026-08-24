@@ -1058,7 +1058,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       const rowMode = editing.mode === "row";
       const target = editing.firstEditable(activeRow.id, !rowMode);
 
-      if (target === null || target === undefined) {
+      if (target === null) {
         return;
       }
 

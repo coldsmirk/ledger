@@ -66,6 +66,12 @@ export interface CommittedTable {
   visibleColumnIds: () => string[];
   canEdit: (rowId: string, columnId: string) => boolean;
   /**
+   * The row is one the committed render actually put on screen — after filtering, pagination and
+   * pinning. `row` deliberately reaches further back (a session may name a row that is filtered
+   * out, or has not arrived), so anything that means "the row the user is looking at" asks this.
+   */
+  onScreen: (rowId: string) => boolean;
+  /**
    * The committed definition's variant is `checkbox` — which the keyboard entry points need,
    * because what a checkbox column *is* depends on the mode (docs/editing.md).
    */
@@ -84,6 +90,7 @@ export interface CommittedTable {
 }
 
 interface Snapshot {
+  displayRowIds: Set<string>;
   visibleColumnIds: string[];
   rows: Record<string, Row<any>>;
   coreRows: Record<string, Row<any>>;
@@ -94,6 +101,7 @@ interface Snapshot {
 }
 
 const EMPTY: Snapshot = {
+  displayRowIds: new Set(),
   visibleColumnIds: [],
   columnIds: [],
   columns: new Map(),
@@ -121,7 +129,14 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
       columnIds.push(column.id);
     }
 
+    // What the body drew, in the same terms the keyboard navigation uses: pinned rows are on
+    // screen alongside the page's own, and the row model alone would miss them.
+    const displayRows = table.options.enableRowPinning === true
+      ? [...table.getTopRows(), ...table.getCenterRows(), ...table.getBottomRows()]
+      : table.getRowModel().rows;
+
     snapshot.current = {
+      displayRowIds: new Set(displayRows.map(row => row.id)),
       visibleColumnIds: [
         ...table.getStartVisibleLeafColumns(),
         ...table.getCenterVisibleLeafColumns(),
@@ -143,6 +158,7 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
   const column = useCallback((columnId: string) => snapshot.current.columns.get(columnId) ?? null, []);
   const has = useCallback((columnId: string) => snapshot.current.columns.has(columnId), []);
   const columnIds = useCallback(() => snapshot.current.columnIds, []);
+  const onScreen = useCallback((rowId: string) => snapshot.current.displayRowIds.has(rowId), []);
   const visibleColumnIds = useCallback(() => snapshot.current.visibleColumnIds, []);
   const edit = useCallback((columnId: string) => snapshot.current.columns.get(columnId)?.columnDef.meta?.edit, []);
   const isCheckbox = useCallback((columnId: string) => {
@@ -184,13 +200,14 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
         edit,
         has,
         isCheckbox,
+        onScreen,
         row,
         tableGate,
         value,
         visibleColumnIds
       };
     },
-    [canEdit, column, columnIds, edit, has, isCheckbox, row, tableGate, value, visibleColumnIds]
+    [canEdit, column, columnIds, edit, has, isCheckbox, onScreen, row, tableGate, value, visibleColumnIds]
   );
 
   return [committed, capture] as const;

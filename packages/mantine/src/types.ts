@@ -518,7 +518,7 @@ export interface LedgerEditingController {
    * (docs/architecture.md). `skipCheckbox` is the mode: cell mode has no editor to open on a
    * checkbox, row mode does.
    */
-  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null | undefined;
+  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null;
   /**
    * The checkbox variant's transient edits. Not a session: toggling *is* the commit, so there is
    * nothing to open or close — but the write still out, the failure it came back with and the

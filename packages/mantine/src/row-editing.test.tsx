@@ -244,6 +244,34 @@ describe("keyboard entry into editing", () => {
     await waitFor(() => expect(onEditingCellChange).toHaveBeenLastCalledWith({ columnId: "name", rowId: "1" }));
   });
 
+  it("does not open an editor on a current row that paginated off the screen", () => {
+    Element.prototype.scrollIntoView ??= () => undefined;
+    const onEditingCellChange = vi.fn();
+
+    render(
+      <DataTable
+        enableActiveRow
+        enablePagination
+        columns={columns}
+        data={people}
+        defaultActiveRowId="2"
+        getRowId={person => person.id}
+        pagination={{ pageIndex: 0, pageSize: 1 }}
+        onEditCommit={vi.fn()}
+        onEditingCellChange={onEditingCellChange}
+        onPaginationChange={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    // The current row is a slice, and it can name a row this page does not show. F2 opens the
+    // row the user is looking at — an editor nobody can see is not that.
+    expect(screen.queryByText("Alice")).toBeNull();
+    fireEvent.keyDown(viewport(), { key: "F2" });
+
+    expect(onEditingCellChange).not.toHaveBeenCalled();
+  });
+
   it("opens a row whose only editable column is a checkbox on F2", async () => {
     Element.prototype.scrollIntoView ??= () => undefined;
     // What a checkbox column *is* depends on the mode: in cell mode it commits on toggle and has

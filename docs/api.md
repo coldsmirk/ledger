@@ -319,7 +319,7 @@ interface LedgerEditingController {
     write: (rowId: string, columnId: string, value: unknown) => void;
   };
   moveTo: (backwards: boolean) => void;                    // Tab / Shift+Tab: commit, then move
-  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null | undefined;  // where F2 enters
+  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null;  // where F2 enters
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
   checkbox: LedgerCheckboxEditingController;               // the checkbox variant's transient edits
   row: LedgerRowEditingController;                         // inert while mode is "cell"
