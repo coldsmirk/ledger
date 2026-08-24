@@ -14,7 +14,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `table-header.tsx` / `table-body.tsx` / `table-footer.tsx` | Renderers: header (sort/actions/resize/reorder), body (display rows, virtualization, pinned rows, group cells, skeletons), footer |
 | `use-cell-editing.ts` | The cell editing session: draft, write record, pending, error, commit, gate, editor registry, deferred unmount-commit |
 | `use-checkbox-editing.ts` | The checkbox variant's transient edits: per-target write record, in-flight request, error, editor registry |
-| `edit-meta.ts` | The editing gate as pure functions: `meta.edit` normalization, `canEditCell`, error messages |
+| `edit-meta.ts` | The editing gate as the predicates every path shares: `meta.edit` normalization, `canEditCell` (re-asked, never cached — it calls the application's `edit.enabled`), error messages |
 | `cell-editor.tsx` | The editor hosts — views of their session, plus the keyboard map |
 | `filter-popover.tsx` | The header's filter dropdown surface |
 | `columns-panel.tsx` | `DataTable.ColumnsPanel`: zoned column list, dnd-kit sortable rows, visibility / pinning / width / grouping controls, reset |

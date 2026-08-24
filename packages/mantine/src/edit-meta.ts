@@ -1,7 +1,11 @@
 /**
- * What the editing gate is, in pure functions: how a column's `meta.edit` is read, whether a cell
- * may be edited right now, and how a thrown value becomes a message. The session controllers and
- * the editors both need these, and a controller must not depend on a view module to get them.
+ * What the editing gate is, as the predicates every path shares: how a column's `meta.edit` is
+ * read, whether a cell may be edited *right now*, and how a thrown value becomes a message. Not
+ * referentially pure, and the difference matters — `canEditCell` calls the application's own
+ * `edit.enabled(row)`, which may answer differently with no render in between, which is why the
+ * render layer, the commits and the checkbox toggle each ask again rather than cache an answer
+ * (docs/architecture.md). The session controllers and the editors both need these, and a
+ * controller must not depend on a view module to get them.
  */
 import type { ReactNode } from "react";
 
