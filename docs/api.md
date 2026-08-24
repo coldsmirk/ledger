@@ -302,4 +302,39 @@ Per-column control rides `meta.export`: `false` excludes the column entirely; `{
 
 ## `meta.ledger`
 
-`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the stable processed `columns` (the render layer's memo token — v9 re-resolves `table.options` per state tick), the editing controller (`cell` / `start` / `stop` / `clear` / `registerEditor`), filter-set subscriptions (`subscribeColumnFilters` / `subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), `enableColumnOrdering`, `enableColumnResizing`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
+`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the stable processed `columns` (the render layer's memo token — v9 re-resolves `table.options` per state tick), the `editing` controller (below), filter-set subscriptions (`subscribeColumnFilters` / `subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `onRowEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), `activeRow` (`enabled` / `id` / `set`), `enableColumnOrdering`, `enableColumnResizing`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
+
+`meta.ledger.editing` carries both modes at once; `mode` says which one is live.
+
+```ts
+interface LedgerEditingController {
+  mode: DataTableEditMode;                                 // "cell" | "row"
+  cell: DataTableEditingCell | null;                       // cell mode: the cell being edited
+  start: (cell: DataTableEditingCell) => void;
+  stop: (options?: { commit?: boolean }) => void;          // delegates to the mounted editor
+  clear: () => void;                                       // the editor calls it once it settles
+  registerEditor: (editor: ActiveCellEditor | null) => void;
+  row: LedgerRowEditingController;                         // inert while mode is "cell"
+}
+
+interface LedgerRowEditingController {
+  id: string | null;                                       // the row being edited
+  start: (rowId: string, options?: { focusColumnId?: string }) => void;
+  stop: (options?: { commit?: boolean }) => void;           // commits or cancels the row atomically
+  shouldFocus: (columnId: string) => boolean;
+  drafts: {
+    has: (rowId: string, columnId: string) => boolean;
+    get: (rowId: string, columnId: string) => unknown;
+    set: (rowId: string, columnId: string, value: unknown) => void;
+  };
+  register: (columnId: string, editor: LedgerRowEditor) => () => void;
+}
+
+interface LedgerRowEditor {
+  focus: () => void;
+  setError: (error: string | null) => void;
+  setPending: (pending: boolean) => void;
+}
+```
+
+The row-mode draft store is addressed by row and not by column alone: two rows' editors can be mounted at once while React reconciles a switch, and each must read its own pending values or none. `id` is the row that actually rendered — `start` and `stop` request a change of the controlled `editingRowId` slice, and an application may answer with a different row or with none ([editing.md](editing.md#row-mode)).

@@ -404,13 +404,11 @@ export interface LedgerRowEditingController {
    */
   shouldFocus: (columnId: string) => boolean;
   /**
-   * The draft store — outlives editor unmounts, so a virtualized editing row that scrolls out
-   * and back keeps its pending values.
-   */
-  /**
-   * Pending values for the row being edited, addressed by row: an editor names the row it
-   * belongs to rather than relying on the controller's idea of which row is current, so two
-   * rows' editors mounted at once during a switch cannot read each other's drafts.
+   * Pending values for the row being edited. The store outlives editor unmounts, so a
+   * virtualized editing row that scrolls out and back keeps what was typed into it, and it is
+   * addressed by row: an editor names the row it belongs to rather than trusting the
+   * controller's idea of which row is current, so two rows' editors mounted at once during a
+   * switch cannot read each other's drafts.
    */
   drafts: {
     has: (rowId: string, columnId: string) => boolean;
