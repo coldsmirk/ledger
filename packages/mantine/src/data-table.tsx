@@ -582,10 +582,6 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const visibleLeafColumns = useMemo(() => displayColumns, [displayOrderSignature, ledgerColumns]);
   const columnWidths = useColumnWidths(table, visibleLeafColumns, viewport, tableMinWidth);
 
-  /* Live drags read the rendered width through this ref — stable identity, no context churn. */
-  const columnWidthsRef = useRef<Record<string, number>>({});
-  columnWidthsRef.current = columnWidths.byId;
-
   /* ---- virtualization config ---- */
   const virtualization: VirtualizationConfig | null = virtualized
     ? {
@@ -649,7 +645,6 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         filterMode,
         virtualized: virtualEnabled,
         withColumnHeaders: columnHeadersVisible,
-        columnWidths: columnWidthsRef,
         onRowClick: contextRowClick,
         onRowActivate: contextRowActivate,
         onRowDoubleClick: contextRowDoubleClick,
@@ -1247,7 +1242,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
             <div ref={headerViewportRef} {...getStyles("header")}>
               <MantineTable {...sharedTableProps} {...tableStyleProps()}>
                 <colgroup>{colElements}</colgroup>
-                <TableHeader table={erasedTable} />
+                <TableHeader columnWidths={columnWidths.byId} table={erasedTable} />
               </MantineTable>
             </div>
           )}

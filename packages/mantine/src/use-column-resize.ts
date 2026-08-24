@@ -1,5 +1,5 @@
 import type { RowData } from "@tanstack/react-table";
-import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 
 import type { TableInstance } from "./types";
 
@@ -32,7 +32,7 @@ interface ResizeSession {
 
 export function useColumnResize<TData extends RowData>(
   table: TableInstance<TData>,
-  columnWidths: RefObject<Record<string, number>>
+  columnWidths: Record<string, number>
 ): ColumnResize {
   const [resizingId, setResizingId] = useState<string | null>(null);
   const session = useRef<ResizeSession | null>(null);
@@ -114,7 +114,7 @@ export function useColumnResize<TData extends RowData>(
         session.current = {
           columnId,
           startX: event.clientX,
-          startWidth: columnWidths.current?.[columnId] ?? column.getSize(),
+          startWidth: columnWidths[columnId] ?? column.getSize(),
           // Event-time snapshot: atoms are the blessed non-render read surface in v9.
           previousEntry: table.atoms.columnSizing.get()[columnId],
           rtl: getComputedStyle(event.currentTarget).direction === "rtl",

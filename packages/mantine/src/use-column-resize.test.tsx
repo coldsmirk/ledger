@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import type { ColumnDef } from "./types";
 
 import { MantineProvider } from "@mantine/core";
-import { fireEvent, render } from "@testing-library/react";
-import { StrictMode } from "react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { startTransition, StrictMode, Suspense, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
@@ -82,6 +82,70 @@ describe("useColumnResize", () => {
     // The session ended — further movement changes nothing.
     fireEvent.pointerMove(document, { clientX: 500 });
     expect(onColumnSizingChange).not.toHaveBeenCalled();
+  });
+
+  it("drags from the width on screen, not one a discarded render named", () => {
+    const onColumnSizingChange = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [sizing, setSizing] = useState<Record<string, number>>({ name: 120 });
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            enableColumnResizing
+            columns={columns}
+            columnSizing={sizing}
+            data={people}
+            getRowId={person => person.id}
+            onColumnSizingChange={next => {
+              onColumnSizingChange(next);
+              setSizing(next);
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setSizing({ name: 400 });
+              setBlocked(true);
+            })}
+          >
+            widen
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    // The transition renders the column at 400 and is then thrown away, because a sibling
+    // suspends. The column on screen is still 120 wide.
+    fireEvent.click(screen.getByRole("button", { name: "widen" }));
+
+    const resizer = document.querySelector(":scope .ledger-header .ledger-resizer") as Element;
+    fireEvent.pointerDown(resizer, { button: 0, clientX: 300 });
+    fireEvent.pointerMove(document, { clientX: 310 });
+
+    // A drag is 1:1 from the edge the user grabbed, and the edge they grabbed is the one on
+    // screen. Departing from 400 would jump the column the moment it is touched.
+    expect(onColumnSizingChange).toHaveBeenLastCalledWith({ name: 130 });
+
+    fireEvent.pointerUp(document);
   });
 
   it("restores the pre-drag width on Escape", () => {

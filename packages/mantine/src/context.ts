@@ -1,5 +1,5 @@
 import type { GetStylesApi, TableTrProps } from "@mantine/core";
-import type { KeyboardEvent, MouseEvent, RefObject } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 
 import type { DataTableFactory } from "./data-table";
 import type { DataTableElementProps } from "./element-props";
@@ -32,11 +32,6 @@ export interface DataTableContextValue {
    * The header region renders — so header rows count toward every `aria-rowindex`.
    */
   withColumnHeaders: boolean;
-  /**
-   * Engine-resolved column widths (docs/sizing.md), read at event time by resize drags.
-   * A ref on purpose: width changes must never re-render every context consumer.
-   */
-  columnWidths: RefObject<Record<string, number>>;
   onRowClick?: (row: Row<any>, event: MouseEvent) => void;
   onRowActivate?: (row: Row<any>, event: MouseEvent | KeyboardEvent) => void;
   onRowDoubleClick?: (row: Row<any>, event: MouseEvent) => void;

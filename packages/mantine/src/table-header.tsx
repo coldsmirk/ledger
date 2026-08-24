@@ -24,11 +24,21 @@ import { syncTruncationTitle } from "./truncate";
 import { useColumnReorder } from "./use-column-reorder";
 import { useColumnResize } from "./use-column-resize";
 
-export function TableHeader<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
+/**
+ * `columnWidths` arrives as a prop, not through the context: a drag departs from the edge the
+ * user grabbed, which is the one this render put on screen. A ref shared with a work-in-progress
+ * tree would hand the pointer a width from a render nobody saw (docs/architecture.md).
+ */
+export function TableHeader<TData extends RowData>({
+  table,
+  columnWidths
+}: {
+  table: TableInstance<TData>;
+  columnWidths: Record<string, number>;
+}) {
   const {
     getStyles,
     virtualized,
-    columnWidths,
     headerRowProps
   } = useDataTableContext();
   const reorder = useColumnReorder(table);
