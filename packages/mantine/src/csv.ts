@@ -85,7 +85,10 @@ export function toCsv<TData extends RowData>(table: TableInstance<TData>, option
 function rowsForScope<TData extends RowData>(table: TableInstance<TData>, scope: NonNullable<ToCsvOptions["scope"]>) {
   switch (scope) {
     case "selected": {
-      return table.getSelectedRowModel().rows;
+      // `rows` is the selected *tree*: a row only appears there if it is selected itself, so a
+      // selected child of an unselected parent is nowhere in it. `flatRows` is every selected
+      // row, each once, in the order they are drawn.
+      return table.getSelectedRowModel().flatRows;
     }
 
     case "all": {

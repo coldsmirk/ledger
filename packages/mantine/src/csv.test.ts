@@ -164,4 +164,47 @@ describe("toCsv", () => {
       ["'=Customer,Total", "\"'@cmd, run\",1"].join("\r\n")
     );
   });
+
+  it("exports a selected child whose parent is not selected", () => {
+    interface Node {
+      id: string;
+      customer: string;
+      total: number;
+      children?: Node[];
+    }
+
+    const nested: Node[] = [
+      {
+        children: [
+          {
+            customer: "Child",
+            id: "1a",
+            total: 1
+          }
+        ],
+        customer: "Parent",
+        id: "1",
+        total: 10
+      }
+    ];
+
+    const { result } = renderHook(() => useDataTable({
+      data: nested,
+      columns: columns as Array<ColumnDef<Node, any>>,
+      getRowId: node => node.id,
+      getSubRows: node => node.children,
+      enableRowSelection: true
+    }));
+
+    // The selected row model's `rows` is a tree — a child whose parent is unselected is not in it.
+    act(() => result.current.setRowSelection({ "1a": true }));
+
+    expect(toCsv(result.current, { scope: "selected", withHeaders: false })).toBe("Child,1");
+
+    // Parent and child together are two lines, each once, in the order they are drawn.
+    act(() => result.current.setRowSelection({ 1: true, "1a": true }));
+
+    expect(toCsv(result.current, { scope: "selected", withHeaders: false }))
+      .toBe(["Parent,10", "Child,1"].join("\r\n"));
+  });
 });
