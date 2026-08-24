@@ -35,10 +35,14 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   // Layout, not passive: the registry is what "on screen right now" means to the session, and a
   // commit that unmounts this editor is followed by microtasks — a settling write among them —
   // long before a passive cleanup would run.
+  const register = editing?.register;
+
+  // Bound to the controller and the cell, not to this component's lifetime: in hook mode the
+  // table can be swapped for another instance while React keeps this editor, and a registration
+  // left with the controller that is gone means the one now in charge cannot reach it.
   useLayoutEffect(
-    () => editing?.register(rowId, columnId, { redraw: redrawFromSession }),
-    // eslint-disable-next-line @eslint-react/exhaustive-deps -- registration is a mount/unmount pairing; handlers are stable
-    []
+    () => register?.(rowId, columnId, { redraw: redrawFromSession }),
+    [register, rowId, columnId, redrawFromSession]
   );
 
   if (!normalized || !editing) {
@@ -172,21 +176,21 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
    */
   const redrawFromSession = useEventCallback(() => redraw());
 
+  const focusEditor = useEventCallback(() => {
+    containerRef.current
+      ?.querySelector<HTMLElement>(":scope input, :scope select, :scope textarea, :scope button")
+      ?.focus();
+  });
+  const register = rowApi?.register;
+
   // Layout, not passive: the registry is what "on screen right now" means to the session, and a
   // commit that unmounts this editor is followed by microtasks — a settling write among them —
   // long before a passive cleanup would have run. A registration that outlives its DOM would put
-  // a failure on a column nobody can see.
-  useLayoutEffect(() => {
-    const unregister = rowApi?.register(columnId, {
-      focus: () => containerRef.current
-        ?.querySelector<HTMLElement>(":scope input, :scope select, :scope textarea, :scope button")
-        ?.focus(),
-      redraw: redrawFromSession
-    });
-
-    return unregister;
-    // eslint-disable-next-line @eslint-react/exhaustive-deps -- registration is a mount/unmount pairing; handlers are stable
-  }, []);
+  // a failure on a column nobody can see. Bound to the controller and the column, not to this
+  // component's lifetime: in hook mode the table can be swapped for another instance while React
+  // keeps this editor, and a registration left with the controller that is gone means the one
+  // now in charge cannot reach it.
+  useLayoutEffect(() => register?.(columnId, { focus: focusEditor, redraw: redrawFromSession }), [register, columnId, focusEditor, redrawFromSession]);
 
   if (!normalized || !editing) {
     return null;

@@ -8,6 +8,7 @@ import { createRef, startTransition, StrictMode, Suspense, useState } from "reac
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
+import { useDataTable } from "./use-data-table";
 
 interface Person {
   id: string;
@@ -148,6 +149,30 @@ function pendingRowView(rows: Person[]) {
         />
       </MantineProvider>
     </StrictMode>
+  );
+}
+
+function SwappableTable() {
+  const [second, setSecond] = useState(false);
+  const options = {
+    columns: customNameColumn,
+    data: people,
+    editingCell: { columnId: "name", rowId: "1" },
+    getRowId,
+    onEditCommit: vi.fn(),
+    onEditingCellChange: vi.fn()
+  };
+  const first = useDataTable<Person>(options);
+  const other = useDataTable<Person>(options);
+
+  return (
+    <>
+      <button type="button" onClick={() => setSecond(true)}>
+        swap
+      </button>
+
+      <DataTable table={second ? other : first} />
+    </>
   );
 }
 
@@ -1014,6 +1039,23 @@ describe("inline editing", () => {
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
 
     expect(committed[1]).toEqual({ previousValue: "Carol", value: "Second" });
+  });
+
+  it("re-registers its editors when the table it belongs to is replaced", () => {
+    render(<SwappableTable />, { wrapper });
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Drafted");
+
+    // The table is replaced under an editor React keeps: same cell, same element, same instance.
+    // Its registration belonged to the controller that is gone.
+    fireEvent.click(screen.getByRole("button", { name: "swap" }));
+
+    // Typing reaches the new controller's store, and the new controller has to be able to tell
+    // this editor to draw what it now holds.
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Second");
   });
 
   it("a validation message blocks the commit and stays in editing", () => {
