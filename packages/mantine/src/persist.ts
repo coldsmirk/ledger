@@ -8,6 +8,8 @@ import type { DataTablePersistableSlice, DataTablePersistState } from "./types";
  */
 import { useEffect, useRef } from "react";
 
+import { warnOnce } from "./env";
+
 const STORAGE_PREFIX = "ledger:";
 const WRITE_DEBOUNCE_MS = 250;
 
@@ -80,6 +82,30 @@ function isColumnPinningState(value: unknown): boolean {
 }
 
 /**
+ * Start wins an overlap, and each side holds a column once. A pinned id repeated within a side —
+ * or claimed by both — would put the same column in the display order twice, which is a duplicate
+ * `<col>`, a duplicate cell, and a duplicate React key. The reader is a trust boundary
+ * (docs/state.md), so the shape is repaired rather than believed.
+ */
+function normalizeColumnPinning(value: unknown): unknown {
+  if (!isRecord(value) || !isStringArray(value.start) || !isStringArray(value.end)) {
+    return value;
+  }
+
+  const start = new Set(value.start);
+
+  return { end: [...new Set(value.end).difference(start)], start: [...start] };
+}
+
+/**
+ * The slices whose *valid* shape still needs repairing. Deliberately not every slice: a guard says
+ * whether the value can be used at all, and only pinning carries an invariant beyond its shape.
+ */
+const sliceNormalizers: Partial<Record<DataTablePersistableSlice, (value: unknown) => unknown>> = {
+  columnPinning: normalizeColumnPinning
+};
+
+/**
  * Per-slice shape guards — storage may hold data written by an older app version.
  */
 const sliceGuards: Record<DataTablePersistableSlice, (value: unknown) => boolean> = {
@@ -131,7 +157,7 @@ export function readPersistedState(persist: DataTablePersistState | undefined): 
       const value = parsed[slice];
 
       if (value !== undefined && sliceGuards[slice](value)) {
-        result[slice] = value;
+        result[slice] = sliceNormalizers[slice]?.(value) ?? value;
       }
     }
 
@@ -141,21 +167,39 @@ export function readPersistedState(persist: DataTablePersistState | undefined): 
   }
 }
 
+function serializeSlices(
+  slices: readonly DataTablePersistableSlice[],
+  state: Record<DataTablePersistableSlice, unknown>
+): string | null {
+  try {
+    return JSON.stringify(Object.fromEntries(slices.map(slice => [slice, state[slice]])));
+  } catch {
+    warnOnce(
+      "persist-unserializable",
+      "persistState skipped a write — a persisted slice holds a value JSON cannot represent (a BigInt, a circular reference, or a throwing toJSON)."
+    );
+
+    return null;
+  }
+}
+
 export function usePersistWriter(
   persist: DataTablePersistState | undefined,
   state: Record<DataTablePersistableSlice, unknown>
 ): void {
   const slices = persist?.slices ?? DEFAULT_SLICES;
-  const serialized = persist
-    ? JSON.stringify(Object.fromEntries(slices.map(slice => [slice, state[slice]])))
-    : "";
+  // Serialized in the render that produced the state, but never *throwing* in it: a filter value
+  // may be a BigInt, may refer to itself, or may own a `toJSON` that throws, and any of those
+  // would take the whole table down on a keystroke. `null` means "this state cannot be written",
+  // which cancels the pending write rather than leaving the previous payload to stand in for it.
+  const serialized = persist ? serializeSlices(slices, state) : "";
   const key = persist?.key;
   const storage = persist?.storage;
   const pendingWriteRef = useRef<(() => void) | null>(null);
   const unmountFlushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!persist || !key) {
+    if (!persist || !key || serialized === null) {
       pendingWriteRef.current = null;
 
       return;

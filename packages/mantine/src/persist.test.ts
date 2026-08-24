@@ -229,4 +229,61 @@ describe("usePersistWriter", () => {
     vi.advanceTimersByTime(249);
     expect(storage.setItem).toHaveBeenCalledTimes(1);
   });
+
+  it("skips a write the state cannot be serialized into, and writes nothing stale in its place", () => {
+    const storage = storageStub();
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    const { rerender } = renderHook(
+      ({ value }: { value: unknown }) => usePersistWriter({
+        key: "demo",
+        slices: ["columnFilters"],
+        storage
+      }, { ...persistableState(240), columnFilters: [{ id: "name", value }] }),
+      { initialProps: { value: "Carol" as unknown } }
+    );
+
+    vi.advanceTimersByTime(250);
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+
+    // A filter value JSON cannot represent must not take the render down...
+    rerender({ value: circular });
+    vi.advanceTimersByTime(250);
+
+    // ...and must not leave the previous payload standing in for the current state either.
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+
+    rerender({ value: 10n });
+    vi.advanceTimersByTime(250);
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+
+    // A serializable value afterwards writes normally.
+    rerender({ value: "Alice" });
+    vi.advanceTimersByTime(250);
+    expect(storage.setItem).toHaveBeenCalledTimes(2);
+    expect(storage.setItem).toHaveBeenLastCalledWith(
+      "ledger:demo",
+      JSON.stringify({ columnFilters: [{ id: "name", value: "Alice" }] })
+    );
+  });
+});
+
+describe("persisted column pinning", () => {
+  it("comes back unique and disjoint", () => {
+    const storage = storageStub({
+      "ledger:demo": JSON.stringify({
+        columnPinning: { start: ["name", "name", "age"], end: ["age", "city", "city"] }
+      })
+    });
+
+    const restored = readPersistedState({
+      key: "demo",
+      slices: ["columnPinning"],
+      storage
+    });
+
+    // The same column twice — on one side or on both — would be drawn twice.
+    expect(restored.columnPinning).toEqual({ end: ["city"], start: ["name", "age"] });
+  });
 });
