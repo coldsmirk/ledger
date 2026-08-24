@@ -673,9 +673,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
   /**
    * The column currently showing the row's failure: the one it names, or for a row-level failure
-   * the first editable column with an editor on screen, in display order. Resolved on every read
-   * rather than fixed when the failure is reported, so a message follows the screen when the
-   * column under it is hidden or scrolls away.
+   * the first editable column with an editor on screen, in the row's own cell order. Resolved on
+   * every read rather than fixed when the failure is reported, so a message follows the screen
+   * when the column under it is hidden or scrolls away.
    */
   const rowErrorColumnId = (rowId: string): string | null => {
     const { error } = rowPresentation.current;
@@ -702,14 +702,13 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
   };
 
-  const redrawRowEditors = () => {
+  // Stable, and reads nothing but refs — so `registerRowEditor` can close over it directly rather
+  // than through a mirror written during render, which is the very thing this round forbade.
+  const redrawRowEditors = useCallback(() => {
     for (const editor of rowEditors.current.values()) {
       editor.redraw();
     }
-  };
-
-  const redrawRowEditorsRef = useRef(redrawRowEditors);
-  redrawRowEditorsRef.current = redrawRowEditors;
+  }, []);
 
   const setRowPending = (pending: boolean) => {
     rowPresentation.current.pending = pending;
@@ -999,7 +998,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     rowEditors.current.set(columnId, editor);
     // Which editor shows a row-level failure depends on who is on screen, so the rest have to
     // look again whenever that changes.
-    redrawRowEditorsRef.current();
+    redrawRowEditors();
 
     return () => {
       if (rowEditors.current.get(columnId) !== editor) {
@@ -1007,9 +1006,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       }
 
       rowEditors.current.delete(columnId);
-      redrawRowEditorsRef.current();
+      redrawRowEditors();
     };
-  }, []);
+  }, [redrawRowEditors]);
 
   /**
    * The store is what a row editor shows, rather than a value it copies at mount: what the row
