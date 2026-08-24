@@ -236,7 +236,19 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const activeEditorRef = useRef<ActiveCellEditor | null>(null);
   const editingCellRef = useRef(editingCell);
   const editingRequestRef = useRef(0);
-  editingCellRef.current = editingCell;
+
+  /**
+   * Mirrors the cell that actually reached the screen. The render phase would do, until it does
+   * not: refs are shared between the current tree and a work-in-progress one, so a transition
+   * React renders and then throws away — a sibling suspends — would leave this pointing at a cell
+   * nobody is editing. `startEditing` reads it to decide what to commit before it moves, and
+   * would then commit the wrong editor, or mistake the abandoned target for where it already is
+   * and skip the commit entirely. The row session's boundary is taken in an effect for the same
+   * reason; no dependency array, because the comparison is against what was committed last time.
+   */
+  useLayoutEffect(() => {
+    editingCellRef.current = editingCell;
+  });
 
   const stopEditing = useEventCallback((stopOptions?: { commit?: boolean }) => {
     editingRequestRef.current += 1;

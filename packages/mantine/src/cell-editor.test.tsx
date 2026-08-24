@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
-import type { ColumnDef } from "./types";
+import type { ColumnDef, DataTableEditingCell, DataTableHandle } from "./types";
 
 import { MantineProvider } from "@mantine/core";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { StrictMode } from "react";
+import { createRef, startTransition, StrictMode, Suspense, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
@@ -403,6 +403,77 @@ describe("inline editing", () => {
     });
 
     expect(committed).toEqual(["First", "Second"]);
+  });
+
+  it("keeps the cell on screen when a transition to another one never commits", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const blocker = Promise.withResolvers<void>();
+    let unblocked = false;
+    const onEditCommit = vi.fn();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked && !unblocked) {
+        // Suspends the transition's render, so React throws that tree away and keeps the one
+        // already on screen — the cell the user is still editing.
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [cell, setCell] = useState<DataTableEditingCell | null>({ columnId: "name", rowId: "1" });
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={nameColumn()}
+            data={people}
+            editingCell={cell}
+            getRowId={getRowId}
+            handleRef={handle}
+            onEditCommit={onEditCommit}
+            onEditingCellChange={setCell}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setCell({ columnId: "name", rowId: "2" });
+              setBlocked(true);
+            })}
+          >
+            switch
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    fireEvent.click(screen.getByRole("button", { name: "switch" }));
+
+    // Nothing reached the screen: Carol's cell is still the one being edited.
+    expect(screen.getByRole("textbox")).toBeTruthy();
+
+    // Asking for the row the abandoned render named must still commit the editor on screen —
+    // a session that believed it was already there would drop what was typed.
+    act(() => handle.current?.startEditing("2", "name"));
+
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+    expect(onEditCommit.mock.calls[0]?.[0]).toMatchObject({ previousValue: "Carol", value: "Drafted" });
+
+    await act(async () => {
+      unblocked = true;
+      blocker.resolve();
+      await blocker.promise;
+    });
   });
 
   it("a validation message blocks the commit and stays in editing", () => {
