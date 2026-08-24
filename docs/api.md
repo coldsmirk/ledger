@@ -323,6 +323,8 @@ interface LedgerRowEditingController {
   stop: (options?: { commit?: boolean }) => void;           // commits or cancels the row atomically
   shouldFocus: (columnId: string) => boolean;
   drafts: {
+    pending: (rowId: string) => boolean;                                   // a write for the row is still out
+    error: (rowId: string, columnId: string) => string | null;
     read: (rowId: string, columnId: string, source: unknown) => unknown;   // pending, else written, else source
     write: (rowId: string, columnId: string, value: unknown) => void;
   };
@@ -331,10 +333,8 @@ interface LedgerRowEditingController {
 
 interface LedgerRowEditor {
   focus: () => void;
-  setError: (error: string | null) => void;
-  setPending: (pending: boolean) => void;
-  reset: () => void;                                       // the row's edit was thrown away; draw again
+  redraw: () => void;                                      // something the editor shows changed in the session
 }
 ```
 
-The row-mode store is addressed by row and not by column alone: two rows' editors can be mounted at once while React reconciles a switch, and each must read its own pending values or none. `read` is what an editor renders — it holds no copy of the value, because what the row holds moves under it. `id` is the row that actually rendered — `start` and `stop` request a change of the controlled `editingRowId` slice, and an application may answer with a different row or with none ([editing.md](editing.md#row-mode)).
+The row-mode store is addressed by row and not by column alone: two rows' editors can be mounted at once while React reconciles a switch, and each must read its own pending values or none. `read`, `pending` and `error` are what an editor renders — it holds no copy of any of them, because an editor is unmounted by a hidden column or a virtual scroll at any moment while the session is not (see [architecture.md](architecture.md#load-bearing-internals)). `id` is the row that actually rendered — `start` and `stop` request a change of the controlled `editingRowId` slice, and an application may answer with a different row or with none ([editing.md](editing.md#row-mode)).

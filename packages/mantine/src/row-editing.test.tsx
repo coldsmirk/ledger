@@ -1274,6 +1274,90 @@ describe("row editing mode", () => {
     expect(change.previousValues).toEqual({ age: 30, name: "Caroline" });
   });
 
+  it("shows a commit still in flight to an editor that remounted under it", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={() => inFlight.promise}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(document.querySelectorAll("[data-pending]")).toHaveLength(2));
+
+    // A real unmount and remount — the columns panel here, virtual scrolling in a real table.
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(false));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(true));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+
+    // The write is still out. An editor that knows nothing about it would take input and let the
+    // user commit a second time.
+    expect((editorInputs()[0] as HTMLInputElement).disabled).toBe(true);
+    expect(document.querySelectorAll("[data-pending]")).toHaveLength(2);
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+  });
+
+  it("keeps a row failure for the editors that were not there to receive it", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={() => inFlight.promise}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    // Every editor of the row goes away while the write is out.
+    act(() => {
+      handle.current?.table.getColumn("name")?.toggleVisibility(false);
+      handle.current?.table.getColumn("age")?.toggleVisibility(false);
+    });
+    await waitFor(() => expect(editorInputs()).toHaveLength(0));
+
+    await act(async () => {
+      inFlight.reject(new Error("Server said no"));
+      await inFlight.promise.catch(() => undefined);
+    });
+
+    // The row is still being edited, so the reason it failed is still the row's to show.
+    expect(document.querySelector("[data-editing-row]")).toBeTruthy();
+
+    act(() => {
+      handle.current?.table.getColumn("name")?.toggleVisibility(true);
+      handle.current?.table.getColumn("age")?.toggleVisibility(true);
+    });
+
+    expect(await screen.findByText("Server said no")).toBeTruthy();
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

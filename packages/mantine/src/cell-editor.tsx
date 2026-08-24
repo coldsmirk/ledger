@@ -463,52 +463,32 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
   // the only thing left to ask for.
   const [, redraw] = useReducer((token: number) => token + 1, 0);
   const draft = rowApi ? rowApi.drafts.read(rowId, columnId, cell.getValue()) : cell.getValue();
-  const [editError, setEditError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const editError = rowApi?.drafts.error(rowId, columnId) ?? null;
+  const pending = rowApi?.drafts.pending(rowId) ?? false;
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mountedRef = useRef(true);
   // Ref-read, not consumed — StrictMode's remount and virtualizer round-trips keep the focus.
   const autoFocus = rowApi?.shouldFocus(columnId) ?? false;
 
   const setValue = useEventCallback((value: unknown) => {
     rowApi?.drafts.write(rowId, columnId, value);
-    setEditError(null);
     redraw();
   });
 
   /**
-   * The controller calls this when the row's pending edit is thrown away. There is nothing to put
-   * back — the store already answers differently — only a render to ask for.
+   * Everything this editor shows lives in the session, so a change there is answered by drawing
+   * again — there is nothing here to put back.
    */
-  const resetDraft = useEventCallback(() => {
-    setEditError(null);
-    redraw();
-  });
+  const redrawFromSession = useEventCallback(() => redraw());
 
   useEffect(() => {
-    mountedRef.current = true;
-
     const unregister = rowApi?.register(columnId, {
       focus: () => containerRef.current
         ?.querySelector<HTMLElement>(":scope input, :scope select, :scope textarea, :scope button")
         ?.focus(),
-      setError: error => {
-        if (mountedRef.current) {
-          setEditError(error);
-        }
-      },
-      setPending: value => {
-        if (mountedRef.current) {
-          setPending(value);
-        }
-      },
-      reset: resetDraft
+      redraw: redrawFromSession
     });
 
-    return () => {
-      mountedRef.current = false;
-      unregister?.();
-    };
+    return unregister;
     // eslint-disable-next-line @eslint-react/exhaustive-deps -- registration is a mount/unmount pairing; handlers are stable
   }, []);
 

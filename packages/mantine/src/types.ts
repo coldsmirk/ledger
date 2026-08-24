@@ -381,15 +381,16 @@ export interface ActiveCellEditor {
  * What a mounted row-mode editor hands the controller: enough to focus it, surface a
  * validation/commit error on it, and flag an in-flight async commit.
  */
+/**
+ * What a mounted row-mode editor hands the controller. Only what is genuinely per-instance: the
+ * editor holds no state of its own, so everything else it shows it reads back from the session.
+ */
 export interface LedgerRowEditor {
   focus: () => void;
-  setError: (error: string | null) => void;
-  setPending: (pending: boolean) => void;
   /**
-   * The row's pending edit has been thrown away; draw again from the store. Nothing is passed,
-   * because the editor reads what it shows rather than holding a copy of it.
+   * Something the editor shows has changed in the session — draw again.
    */
-  reset: () => void;
+  redraw: () => void;
 }
 
 export interface LedgerRowEditingController {
@@ -416,6 +417,15 @@ export interface LedgerRowEditingController {
    * values.
    */
   drafts: {
+    /**
+     * Whether a write for this row is still out. Editors disable themselves on it.
+     */
+    pending: (rowId: string) => boolean;
+    /**
+     * The message this column is carrying, if any: a `validate` rejection on that column, or a
+     * row-level failure, which lands on the row's first editable column.
+     */
+    error: (rowId: string, columnId: string) => string | null;
     /**
      * What the editor should show: the pending value if there is one, else what this session has
      * already written, else `source` — the cell's own value.

@@ -329,6 +329,17 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     committed: new Map()
   });
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
+  /**
+   * What the row's editors show that is not a value: a write still out, and the reason the last
+   * one failed. Session state, not editor state — an editor is unmounted by a hidden column or a
+   * virtual scroll at any moment, and one that came back knowing neither would take input during
+   * a write and let the user send a second one, while a rejection arriving with no editor mounted
+   * would have had nowhere to go at all.
+   */
+  const rowPresentation = useRef<{ pending: boolean; error: { columnId: string; message: string } | null }>({
+    error: null,
+    pending: false
+  });
   const rowFocusColumn = useRef<string | null>(null);
   const editingRowRef = useRef(editingRowId);
   /**
@@ -403,6 +414,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       baseline: rowId === null ? new Map() : snapshotEditableValues(rowId),
       committed: new Map()
     };
+    rowPresentation.current = { error: null, pending: false };
   };
 
   /**
@@ -491,9 +503,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     rowDrafts.current.values.clear();
+    rowPresentation.current.error = null;
 
     for (const editor of rowEditors.current.values()) {
-      editor.reset();
+      editor.redraw();
     }
   };
 
@@ -651,17 +664,53 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    */
   const isCurrentRowSession = (session: number, rowId: string) => rowSessionRef.current === session && editingRowRef.current === rowId;
 
-  const broadcastRowPending = (pending: boolean) => {
-    for (const editor of rowEditors.current.values()) {
-      editor.setPending(pending);
+  /**
+   * The row's first editable column in display order, or null if it has none.
+   */
+  const firstEditableColumnId = (rowId: string): string | null => {
+    const tableInstance = tableRef.current;
+
+    if (!tableInstance) {
+      return null;
+    }
+
+    try {
+      const erasedRow = tableInstance.getRow(rowId, true) as Row<any>;
+
+      return erasedRow.getAllCells().find(cell => canEditCell(cell, erasedRow))?.column.id ?? null;
+    } catch {
+      return null;
     }
   };
 
-  const reportRowCommitError = (error: unknown) => {
-    // A row-level rejection has no single owning cell; the first mounted editor carries it.
-    const first = rowEditors.current.values().next().value;
-    first?.setError(editErrorMessage(error));
-    first?.focus();
+  const redrawRowEditors = () => {
+    for (const editor of rowEditors.current.values()) {
+      editor.redraw();
+    }
+  };
+
+  const setRowPending = (pending: boolean) => {
+    rowPresentation.current.pending = pending;
+    redrawRowEditors();
+  };
+
+  /**
+   * Puts a failure on a column. A row-level rejection has no owning cell, so it goes to the row's
+   * first editable column — a column and not "the first mounted editor", because the editors are
+   * the one part of this a scroll can take away.
+   */
+  const reportRowError = (columnId: string, message: string) => {
+    rowPresentation.current.error = { columnId, message };
+    redrawRowEditors();
+    rowEditors.current.get(columnId)?.focus();
+  };
+
+  const reportRowCommitError = (rowId: string, error: unknown) => {
+    const columnId = firstEditableColumnId(rowId);
+
+    if (columnId !== null) {
+      reportRowError(columnId, editErrorMessage(error));
+    }
   };
 
   const commitRow = useEventCallback((): boolean | Promise<boolean> => {
@@ -706,9 +755,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return true;
     }
 
-    for (const editor of rowEditors.current.values()) {
-      editor.setError(null);
-    }
+    rowPresentation.current.error = null;
+    redrawRowEditors();
 
     // v9's `in out` generics make Cell/Row invariant in TData; the editing helpers speak the
     // erased shape (the same single-erasure convention the render layer documents).
@@ -787,9 +835,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       }
 
       if (message !== null) {
-        const editor = rowEditors.current.get(columnId);
-        editor?.setError(message);
-        editor?.focus();
+        reportRowError(columnId, message);
+
         return false;
       }
     }
@@ -808,13 +855,13 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         previousValues
       });
     } catch (error) {
-      reportRowCommitError(error);
+      reportRowCommitError(rowId, error);
       return false;
     }
 
     if (result && typeof result.then === "function") {
       const session = rowSessionRef.current;
-      broadcastRowPending(true);
+      setRowPending(true);
 
       const pending = Promise.resolve(result).then(
         () => {
@@ -830,7 +877,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           rowPendingCommit.current = null;
           recordRowCommit(rowId, values, sources);
           consumeCommittedRowDrafts(rowId, values);
-          broadcastRowPending(false);
+          setRowPending(false);
 
           // The gate may have shut while this write was out; the test was held off until the
           // write it let through had landed. If it did shut, the row has just been cancelled —
@@ -856,8 +903,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           }
 
           rowPendingCommit.current = null;
-          broadcastRowPending(false);
-          reportRowCommitError(error);
+          setRowPending(false);
+          reportRowCommitError(rowId, error);
           reconcileRowEligibility();
 
           return false;
@@ -947,6 +994,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * two rows' editors can be on screen at once while React reconciles a switch.
    */
   const rowDraftsApi = useRef({
+    pending: (rowId: string) => rowDrafts.current.rowId === rowId && rowPresentation.current.pending,
+    error: (rowId: string, columnId: string) => {
+      const { error } = rowPresentation.current;
+
+      return rowDrafts.current.rowId === rowId && error?.columnId === columnId ? error.message : null;
+    },
     read: (rowId: string, columnId: string, source: unknown) => {
       if (rowDrafts.current.rowId !== rowId) {
         return source;
@@ -957,9 +1010,13 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         : previousRowValue(columnId, source);
     },
     write: (rowId: string, columnId: string, value: unknown) => {
-      if (rowDrafts.current.rowId === rowId) {
-        rowDrafts.current.values.set(columnId, value);
+      if (rowDrafts.current.rowId !== rowId) {
+        return;
       }
+
+      rowDrafts.current.values.set(columnId, value);
+      // Typing is the answer to whatever the last attempt complained about.
+      rowPresentation.current.error = null;
     }
   }).current;
 
