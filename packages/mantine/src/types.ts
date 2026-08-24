@@ -502,9 +502,31 @@ export interface LedgerEditingController {
    */
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
   /**
+   * The checkbox variant's transient edits. Not a session: toggling *is* the commit, so there is
+   * nothing to open or close — but the write still out, the failure it came back with and the
+   * value the application now holds all outlive the control that sent them, and any number of
+   * cells can have one at once (docs/editing.md).
+   */
+  checkbox: LedgerCheckboxEditingController;
+  /**
    * Row-mode surface; inert while `mode` is `"cell"`.
    */
   row: LedgerRowEditingController;
+}
+
+export interface LedgerCheckboxEditingController {
+  /**
+   * What the checkbox shows: the value this cell has written while the data has not moved past
+   * it, else the data's own.
+   */
+  checked: (rowId: string, columnId: string, source: unknown) => boolean;
+  pending: (rowId: string, columnId: string) => boolean;
+  error: (rowId: string, columnId: string) => string | null;
+  /**
+   * Toggles and commits in one act, against what the application last knew the cell to hold.
+   */
+  toggle: (cell: Cell<any, unknown>) => void;
+  register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
 }
 
 export interface LedgerMeta<TData extends RowData> {

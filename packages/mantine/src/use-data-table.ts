@@ -42,6 +42,7 @@ import { ledgerFilterFns } from "./filter-fns";
 import { buildLedgerFeatures } from "./ledger-features";
 import { readPersistedState, usePersistWriter } from "./persist";
 import { useCellEditing } from "./use-cell-editing";
+import { useCheckboxEditing } from "./use-checkbox-editing";
 import { useResponsiveColumns } from "./use-responsive-columns";
 import { useSlice } from "./use-slice";
 import { useEventCallback } from "./utils";
@@ -244,6 +245,15 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     enableEditing,
     onEditCommit,
     setEditingCell,
+    tableRef
+  });
+
+  // The checkbox variant commits on toggle instead of opening an editor, but what a toggle
+  // leaves behind — a write still out, its failure, the value the application now holds —
+  // outlives the control just as a session outlives its editor (docs/architecture.md).
+  const checkboxSession = useCheckboxEditing<TData>({
+    enableEditing,
+    onEditCommit,
     tableRef
   });
 
@@ -1229,6 +1239,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
             write: cellSession.write
           },
           register: cellSession.register,
+          checkbox: checkboxSession,
           row: {
             id: editingRowId,
             active: rowSessionActive,
@@ -1264,6 +1275,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       processedColumns,
       editingCell,
       cellSession,
+      checkboxSession,
       editMode,
       editingRowId,
       startRowEditing,

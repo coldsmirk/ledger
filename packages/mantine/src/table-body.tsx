@@ -14,7 +14,7 @@ import type { Cell, ColumnDef, Row, TableInstance } from "./types";
 import { ActionIcon, Button, Loader, Table as MantineTable, Skeleton } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useReducer } from "react";
 
 import { columnHeaderText, EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
@@ -25,6 +25,7 @@ import { IconChevronRight, IconRefresh } from "./icons";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { syncTruncationTitle } from "./truncate";
 import { usePinnedRowOffsets } from "./use-pinned-row-offsets";
+import { useEventCallback } from "./utils";
 
 const TREE_INDENT_PX = 20;
 const DEFAULT_ESTIMATED_ROW_HEIGHT = 44;
@@ -146,75 +147,37 @@ function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
 }
 
 /**
- * The checkbox edit variant never enters edit mode — toggling commits immediately (docs/editing.md).
+ * The cell-mode checkbox (docs/editing.md): toggling *is* the commit, so it never enters edit
+ * mode. A view of its target in the controller, like the editor hosts are views of their session
+ * — what a toggle leaves behind must survive the column being hidden, a breakpoint removing it,
+ * or a virtual scroll taking the row off screen, none of which are the write landing.
  */
 function CheckboxCell({ cell }: { cell: Cell<any, unknown> }) {
   const { labels } = useDataTableContext();
   const { table } = cell.getContext();
-  const ledger = table.options.meta?.ledger;
-  const checked = Boolean(cell.getValue());
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const pendingRef = useRef(false);
+  const checkbox = table.options.meta?.ledger?.editing.checkbox;
+  const rowId = cell.row.id;
+  const columnId = cell.column.id;
   const errorId = useId();
 
-  const commitToggle = () => {
-    if (!ledger?.onEditCommit || pendingRef.current) {
-      return;
-    }
+  const [, redraw] = useReducer((token: number) => token + 1, 0);
+  const redrawFromTarget = useEventCallback(() => redraw());
+  const register = checkbox?.register;
 
-    setError(null);
+  // Layout, not passive: the registry is what "on screen right now" means to the target, and a
+  // toggle that unmounts this control is followed by microtasks — a settling write among them.
+  useLayoutEffect(
+    () => register?.(rowId, columnId, { redraw: redrawFromTarget }),
+    [register, rowId, columnId, redrawFromTarget]
+  );
 
-    const edit = cell.column.columnDef.meta?.edit;
+  if (!checkbox) {
+    return null;
+  }
 
-    try {
-      if (typeof edit === "object" && edit.validate) {
-        const validationError = edit.validate(!checked, cell.row);
-
-        if (validationError !== null) {
-          setError(validationError);
-
-          return;
-        }
-      }
-    } catch (validationError) {
-      setError(validationError instanceof Error ? validationError.message : String(validationError));
-
-      return;
-    }
-
-    let result: void | Promise<void>;
-
-    try {
-      result = ledger.onEditCommit({
-        row: cell.row,
-        column: cell.column,
-        value: !checked,
-        previousValue: checked
-      });
-    } catch (commitError) {
-      setError(commitError instanceof Error ? commitError.message : String(commitError));
-
-      return;
-    }
-
-    if (result && typeof result.then === "function") {
-      pendingRef.current = true;
-      setPending(true);
-
-      void Promise.resolve(result).then(
-        () => {
-          pendingRef.current = false;
-          setPending(false);
-        },
-        (commitError: unknown) => {
-          pendingRef.current = false;
-          setPending(false);
-          setError(commitError instanceof Error ? commitError.message : String(commitError));
-        }
-      );
-    }
-  };
+  const checked = checkbox.checked(rowId, columnId, cell.getValue());
+  const pending = checkbox.pending(rowId, columnId);
+  const error = checkbox.error(rowId, columnId);
 
   return (
     <>
@@ -226,7 +189,7 @@ function CheckboxCell({ cell }: { cell: Cell<any, unknown> }) {
         checked={checked}
         disabled={pending}
         type="checkbox"
-        onChange={commitToggle}
+        onChange={() => checkbox.toggle(cell)}
         onClick={event => event.stopPropagation()}
         onDoubleClick={event => event.stopPropagation()}
       />
