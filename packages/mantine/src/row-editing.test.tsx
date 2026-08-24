@@ -967,6 +967,56 @@ describe("row editing mode", () => {
     expect(committed[1]).toEqual({ age: 31, name: "Carol" });
   });
 
+  it("keeps the row when its only editable column leaves the definitions", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    const editableName: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { edit: "text" }
+      },
+      { accessorKey: "id", header: "Id" }
+    ];
+    // The breakpoint takes the column away entirely. No gate shut — the layout changed.
+    const narrow: Array<ColumnDef<Person, any>> = [{ accessorKey: "id", header: "Id" }];
+
+    const view = (columnSet: Array<ColumnDef<Person, any>>) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columnSet}
+            data={people}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(editableName));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    rerender(view(narrow));
+
+    expect(document.querySelector("[data-row-id=\"1\"][data-editing-row]")).toBeTruthy();
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
+    const change = onRowEditCommit.mock.calls[0]?.[0] as {
+      previousValues: Record<string, unknown>;
+      values: Record<string, unknown>;
+    };
+    expect(change.values).toEqual({ name: "Drafted" });
+    expect(change.previousValues).toEqual({ name: "Carol" });
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

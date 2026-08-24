@@ -561,8 +561,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * a gate that shut, and come back the moment it reopened.
    *
    * A row that keeps one editable cell keeps editing: a single column shutting drops that
-   * column's pending value, not the row. A row the table does not hold yet is a row that has not
-   * arrived, not one that may not be edited.
+   * column's pending value, not the row. A column that simply left the definitions — a responsive
+   * breakpoint crossing — shut no gate at all: the layout changed, the row keeps editing, and its
+   * draft still commits against the baseline (docs/editing.md). So the row ends when the table
+   * switch is off, or when a gate shut on a column this session was editing and none is left
+   * editable. A row the table does not hold yet is a row that has not arrived, not one that may
+   * not be edited.
    *
    * It is also where a value this session wrote retires: once the data has moved past it, it is
    * gone for good, so data that later returns to what the write departed from cannot bring our
@@ -591,7 +595,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     const erasedRow = row as Row<any>;
+    const { baseline } = rowDrafts.current;
     let editable = false;
+    let gateShut = false;
 
     for (const cell of erasedRow.getAllCells()) {
       const columnId = cell.column.id;
@@ -604,16 +610,19 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       if (canEditCell(cell, erasedRow)) {
         editable = true;
       } else {
-        // The gate shut on this column: its pending value goes now rather than at commit time,
-        // so a gate that reopens cannot bring back a draft nothing was showing.
+        // Here and not editable: the gate shut on it. Its pending value goes now rather than at
+        // commit time, so a gate that reopens cannot bring back a draft nothing was showing.
+        gateShut ||= baseline?.has(columnId) ?? false;
         rowDrafts.current.values.delete(columnId);
       }
     }
 
-    if (!editable) {
-      discardRowEdits(rowId);
-      finishRowEditing();
+    if (enableEditing && (editable || !gateShut)) {
+      return;
     }
+
+    discardRowEdits(rowId);
+    finishRowEditing();
   });
 
   /**
