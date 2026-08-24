@@ -426,6 +426,53 @@ describe("row editing mode", () => {
     blocker.resolve();
   });
 
+  it("captures the baseline when the edited row arrives after the first render", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    // Deep-linking straight into an edit: the row is named before the fetch that carries it
+    // lands, so the first pass has no row to read a previous value from.
+    const narrow: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      }
+    ];
+
+    const view = (rows: Person[], columnSet: Array<ColumnDef<Person, any>>) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columnSet}
+            data={rows}
+            editingRowId="1"
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view([], columns));
+    expect(editorInputs()).toHaveLength(0);
+
+    rerender(view(people, columns));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // The column leaves the definitions, so only the baseline can say what was there before.
+    rerender(view(people, narrow));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
+    const change = onRowEditCommit.mock.calls[0]?.[0] as { previousValues: Record<string, unknown> };
+    expect(change.previousValues).toEqual({ age: 30, name: "Carol" });
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

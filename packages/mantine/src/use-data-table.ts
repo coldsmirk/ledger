@@ -301,9 +301,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     rowId: string | null;
     values: Map<string, unknown>;
     /**
-     * Every editable column's value as the row's edit began — see `draftsFor`.
+     * Every editable column's value as the row's edit began, or null while the row itself is
+     * not in the table yet — see `openRowDrafts`.
      */
-    baseline: Map<string, unknown>;
+    baseline: Map<string, unknown> | null;
   }>({
     rowId: null,
     values: new Map(),
@@ -339,17 +340,15 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   };
 
   /**
-   * Drafts belong to exactly one row, and the store re-keys itself rather than trusting a
-   * lifecycle hook to do it: `editingRowId` is a controlled slice, so an application can move
-   * the edit from row A to row B without `startRowEditing` ever running. Keyed by column alone,
-   * B's editors would then read A's pending values — the columns share their ids.
+   * Every editable value of `rowId` as it stands now, or null while that row is not in the
+   * table: an application can name the row it wants edited before the fetch carrying it lands,
+   * and "this row has no previous values" is a different answer from "there is no row to ask".
    */
-  const snapshotEditableValues = (rowId: string | null): Map<string, unknown> => {
-    const baseline = new Map<string, unknown>();
+  const snapshotEditableValues = (rowId: string): Map<string, unknown> | null => {
     const tableInstance = tableRef.current;
 
-    if (rowId === null || !tableInstance) {
-      return baseline;
+    if (!tableInstance) {
+      return null;
     }
 
     let row: Row<TData> | undefined;
@@ -357,9 +356,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     try {
       row = tableInstance.getRow(rowId, true);
     } catch {
-      return baseline;
+      return null;
     }
 
+    const baseline = new Map<string, unknown>();
     const erasedRow = row as Row<any>;
 
     for (const cell of erasedRow.getAllCells()) {
@@ -375,7 +375,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * Opens the draft store on a row. The baseline is snapshotted now, while every editable
    * column still exists: a responsive breakpoint removes a column from the definitions before
    * TanStack ever sees it, so by commit time its cell is gone and there is nothing left to read
-   * a previous value from.
+   * a previous value from. A row the table does not hold yet leaves the baseline unrecorded for
+   * the effect below to take once it arrives.
    */
   const openRowDrafts = (rowId: string | null) => {
     rowDrafts.current = {
@@ -430,11 +431,15 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       editingRowRef.current = editingRowId;
     }
 
-    // Also on the first pass, where the ref already agrees with the prop but the store has
-    // never been keyed: a controlled row that is open from the very first render still needs
-    // its baseline, and the table instance only exists once the hook body has run.
     if (moved || rowDrafts.current.rowId !== editingRowId) {
+      // The second test also catches the first pass, where the ref already agrees with the prop
+      // but the store has never been keyed: a controlled row open from the very first render
+      // still needs its baseline, and the table instance only exists once the hook body has run.
       openRowDrafts(editingRowId);
+    } else if (editingRowId !== null && rowDrafts.current.baseline === null) {
+      // The row was not in the table when the edit opened. Data arriving later is the first
+      // chance to record what the user is editing away from; anything typed meanwhile stays.
+      rowDrafts.current.baseline = snapshotEditableValues(editingRowId);
     }
   });
 
@@ -550,7 +555,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       // crossing removes it before TanStack ever sees it, so there is no cell to read. The value
       // the user typed is still theirs and commits against the baseline captured at edit start.
       // Its `validate` cannot run, because the definition that carried it is gone.
-      const previous = rowDrafts.current.baseline.get(columnId);
+      const previous = rowDrafts.current.baseline?.get(columnId);
       values[columnId] = value;
       previousValues[columnId] = previous;
       changed ||= !Object.is(value, previous);
