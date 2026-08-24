@@ -195,21 +195,29 @@ export function useCheckboxEditing<TData extends RowData>({
   const toggle = useEventCallback((cell: Cell<any, unknown>) => {
     const rowId = cell.row.id;
     const columnId = cell.column.id;
-    const target = openTarget(rowId, columnId);
 
     // Eligibility is re-read here, not trusted from the render that put this control on screen:
     // `edit.enabled` is application code, and nothing makes it answer the same way twice, so a
     // click can be the first thing to learn that the gate is shut. Both editing modes' commits
     // re-read it for exactly this reason (docs/architecture.md) — a toggle is a commit, and the
     // one path that skipped the check would write through a gate the application had closed, and
-    // unvalidated besides, since a closed gate is what `validate` no longer guards.
+    // unvalidated besides, since a closed gate is what `validate` no longer guards. Asked before
+    // anything is opened, so that a click which does not pass leaves nothing behind at all.
     if (!canEditCell(cell, cell.row)) {
-      if (loseGate(target)) {
-        redraw(target);
+      const shut = findTarget(targets.current, rowId, columnId);
+
+      if (shut) {
+        if (loseGate(shut)) {
+          redraw(shut);
+        }
+
+        dropIfEmpty(rowId, columnId, shut);
       }
 
       return;
     }
+
+    const target = openTarget(rowId, columnId);
 
     // One write at a time per target: the control is disabled while its own is out, and a second
     // request would race the first to describe the same cell. Other targets are unaffected —
