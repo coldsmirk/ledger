@@ -1104,6 +1104,34 @@ describe("inline editing", () => {
     expect(onEditingCellChange.mock.calls).toEqual([[null]]);
   });
 
+  it("closes a session whose target never arrived when asked to", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditingCellChange = vi.fn();
+
+    render(
+      <DataTable
+        columns={customNameColumn}
+        data={[]}
+        editingCell={{ columnId: "name", rowId: "late" }}
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={vi.fn()}
+        onEditingCellChange={onEditingCellChange}
+      />,
+      { wrapper }
+    );
+
+    // Nothing to commit — but an explicit stop is still a request to leave, and a session waiting
+    // for a row that never came has to be closable.
+    act(() => handle.current?.stopEditing());
+    expect(onEditingCellChange.mock.calls).toEqual([[null]]);
+
+    // The owner ignored it, so asking again is a new request, not the same one repeated.
+    onEditingCellChange.mockClear();
+    act(() => handle.current?.stopEditing());
+    expect(onEditingCellChange.mock.calls).toEqual([[null]]);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

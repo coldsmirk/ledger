@@ -12,7 +12,9 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `data-table.tsx` | The factory component: option/presentation partition, Styles API, the header/body split (two synced tables), column CSS variables, infinite loading, scroll edges, imperative handle |
 | `build-columns.tsx` | Injected selection/expander columns (and the `selectionColumn` / `expanderColumn` merge); `meta.filter` → `filterFn` gap-filling |
 | `table-header.tsx` / `table-body.tsx` / `table-footer.tsx` | Renderers: header (sort/actions/resize/reorder), body (display rows, virtualization, pinned rows, group cells, skeletons), footer |
-| `cell-editor.tsx` | Editing host: draft, validation, async commit lifecycle, keyboard map, deferred unmount-commit |
+| `use-cell-editing.ts` | The cell editing session: draft, write record, pending, error, commit, gate, editor registry, deferred unmount-commit |
+| `edit-meta.ts` | The editing gate as pure functions: `meta.edit` normalization, `canEditCell`, error messages |
+| `cell-editor.tsx` | The editor hosts — views of their session, plus the keyboard map |
 | `filter-popover.tsx` | The header's filter dropdown surface |
 | `columns-panel.tsx` | `DataTable.ColumnsPanel`: zoned column list, dnd-kit sortable rows, visibility / pinning / width / grouping controls, reset |
 | `column-order.ts` | Pure edits over the flat `columnOrder` array, shared by the header drag and the panel |
@@ -58,7 +60,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 
 **Pinned rows measure, never assume.** Sticky offsets are the measured cumulative heights of preceding pinned data/detail items, ResizeObserver-tracked (`use-pinned-row-offsets.ts`); callback refs rebind observation when same-count rows are replaced or reordered. The header lives outside the scroller, so top offsets start at 0. A shared `top` stacks every pinned row onto one edge — found by the interactive browser pass; jsdom cannot express it.
 
-**Editing sessions live in the controller, not in the editors.** Both modes keep one session in `use-data-table.ts`; a mounted editor is a *view* of it plus a keyboard surface. This is not tidiness — an editor is unmountable at any moment (virtual scrolling, a hidden column, StrictMode's simulated unmount) while the session is not, and every previous defect in this area came from a session fact living somewhere a scroll could delete. The session owns: the pending draft, what the session has already written, the in-flight commit and its ownership, the pending flag, the error, whether the gate was lost, and whether the session has settled. The editor owns only what is genuinely per-instance: its DOM node, focus, and its own unmount.
+**Editing sessions live in the controller layer, not in the editors.** Cell mode's session is `use-cell-editing.ts`; row mode's is still inside `use-data-table.ts`; a mounted editor is a *view* of it plus a keyboard surface. This is not tidiness — an editor is unmountable at any moment (virtual scrolling, a hidden column, StrictMode's simulated unmount) while the session is not, and every previous defect in this area came from a session fact living somewhere a scroll could delete. The session owns: the pending draft, what the session has already written, the in-flight commit and its ownership, the pending flag, the error, whether the gate was lost, and whether the session has settled. The editor owns only what is genuinely per-instance: its DOM node, focus, and its own unmount.
 
 Seven invariants hold this together. Breaking any one of them reintroduces a defect the suite already pins:
 

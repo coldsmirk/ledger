@@ -3,11 +3,11 @@ import type { KeyboardEvent } from "react";
 import type { Cell, DataTableEditConfig } from "./types";
 
 /**
- * The inline cell editor host (docs/editing.md). Owns the draft value, validation, and the
- * async commit lifecycle; registers itself with the editing controller so `stopEditing` and
- * cell-switch commits reach it; commits (never discards) when unmounted mid-edit by virtual
- * scrolling. Editors are unstyled Mantine inputs filling the cell — a boxed input inside a
- * table cell is visual noise.
+ * The editor hosts, for both modes. Each is a view of its session plus a keyboard surface: the
+ * draft, the validation, the in-flight commit and the failure all belong to the controller, so
+ * that a hidden column or a virtual scroll unmounting an editor takes nothing with it
+ * (docs/architecture.md). Editors are unstyled Mantine inputs filling the cell — a boxed input
+ * inside a table cell is visual noise.
  */
 import { Loader, NumberInput, Select, TextInput } from "@mantine/core";
 import { useLayoutEffect, useReducer, useRef } from "react";

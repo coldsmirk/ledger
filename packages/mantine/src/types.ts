@@ -461,8 +461,8 @@ export interface LedgerEditingController {
   active: (rowId: string, columnId: string) => boolean;
   start: (cell: DataTableEditingCell) => void;
   /**
-   * Delegates to the mounted editor. A successful commit clears the slice; failure keeps the
-   * editor active. Default `commit: true`.
+   * Commits (default) or discards what the session holds. A successful commit asks for the slice
+   * to close; a failure keeps the session. Imperative — use `commit` when the answer matters.
    */
   stop: (options?: { commit?: boolean }) => void;
   /**

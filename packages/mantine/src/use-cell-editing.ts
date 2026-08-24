@@ -200,12 +200,6 @@ export function useCellEditing<TData extends RowData>({
   const settledValueRef = useRef(settledValue);
 
   /**
-   * Asks for the session to close. Deliberately not a navigation request: a commit closing the
-   * cell it just wrote is the very thing a `start` waiting on that commit is waiting *for*, and
-   * cancelling the move it is about to make would strand it. Only explicit navigation — another
-   * `start`, or a `stop` — invalidates a pending one.
-   */
-  /**
    * Whether the cell may still be edited right now — the gate, re-read.
    */
   const stillEditable = (rowId: string, columnId: string): boolean => {
@@ -214,6 +208,12 @@ export function useCellEditing<TData extends RowData>({
     return cell !== null && canEditCell(cell, cell.row);
   };
 
+  /**
+   * Asks for the session to close. Deliberately not a navigation request: a commit closing the
+   * cell it just wrote is the very thing a `start` waiting on that commit is waiting *for*, and
+   * cancelling the move it is about to make would strand it. Only explicit navigation — another
+   * `start`, or a `stop` — invalidates a pending one.
+   */
   const requestClose = useEventCallback(() => setEditingCell(null));
 
   /**
@@ -334,8 +334,12 @@ export function useCellEditing<TData extends RowData>({
 
     if (!cell) {
       // The row is not in the table — a target that has not arrived, or one the data no longer
-      // holds. There is nothing to commit against, and nothing about that is a gate closing, so
-      // the session is left alone and leaving is safe.
+      // holds. Nothing about that is a gate closing, so the session is not cancelled and nothing
+      // it holds is discarded; but there is nothing to write either, and an explicit stop still
+      // has to be able to close a session waiting on a row that never came.
+      store.current.settled = true;
+      requestClose();
+
       return true;
     }
 

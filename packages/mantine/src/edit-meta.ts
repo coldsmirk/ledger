@@ -61,10 +61,3 @@ export function isCheckboxEdit(cell: Cell<any, unknown>): boolean {
 
   return normalized?.kind === "variant" && normalized.config.variant === "checkbox";
 }
-
-/**
- * The inline cell editor host (docs/editing.md). A view of the cell session and a keyboard
- * surface — nothing it shows is its own, because a hidden column or a virtual scroll can unmount
- * it at any moment while the session goes on (docs/architecture.md). Editors are unstyled Mantine
- * inputs filling the cell: a boxed input inside a table cell is visual noise.
- */
