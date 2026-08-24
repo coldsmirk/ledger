@@ -90,6 +90,10 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     draftRef.current = value;
     setDraftState(value);
     setEditError(null);
+    // A new value is a new edit. This editor is only still on screen past a settled commit or
+    // cancel because the application declined to close the slice, and what it holds now is
+    // something no write has carried.
+    completedRef.current = false;
   });
 
   /**
@@ -188,7 +192,12 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
 
       const pendingCommit = Promise.resolve(result).then(
         () => {
-          completedRef.current = true;
+          // Settled — unless the editor has moved on. A custom editor is not disabled while the
+          // request is out, so a value typed since is one this write never carried, and the
+          // editor is not done with it.
+          completedRef.current = Object.is(draftRef.current, value);
+          // What the next edit departs from is what this editor last sent.
+          initialValue.current = value;
           pendingRef.current = false;
 
           if (mountedRef.current) {
@@ -221,6 +230,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     }
 
     completedRef.current = true;
+    initialValue.current = value;
     clearIfCurrent();
 
     return true;
@@ -231,6 +241,11 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
       return;
     }
 
+    // The pending value is discarded, not merely abandoned: an application that declines to
+    // close the slice keeps this editor on screen, and what it shows must be the cell again.
+    draftRef.current = initialValue.current;
+    setDraftState(initialValue.current);
+    setEditError(null);
     completedRef.current = true;
     clearIfCurrent();
   });

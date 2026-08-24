@@ -210,6 +210,92 @@ describe("inline editing", () => {
     expect(onEditCommit).toHaveBeenCalledTimes(1);
   });
 
+  it("commits again after the application declines to close the controlled cell", () => {
+    const onEditCommit = vi.fn();
+    // A controlled slice whose owner ignores the change keeps this editor on screen, and an
+    // editor on screen is a live one: the next value typed into it is a second edit.
+    const onEditingCellChange = vi.fn();
+
+    render(
+      <DataTable
+        columns={nameColumn()}
+        data={people}
+        editingCell={{ columnId: "name", rowId: "1" }}
+        getRowId={getRowId}
+        onEditCommit={onEditCommit}
+        onEditingCellChange={onEditingCellChange}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+    expect(onEditingCellChange).toHaveBeenCalledWith(null);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    expect(onEditCommit).toHaveBeenCalledTimes(2);
+    expect(onEditCommit.mock.calls[1]?.[0]).toMatchObject({
+      previousValue: "First",
+      value: "Second"
+    });
+  });
+
+  it("still commits a value typed while an async cell commit was in flight", async () => {
+    const inFlight = Promise.withResolvers<void>();
+    const committed: unknown[] = [];
+    // A custom editor is never disabled by the pending state, so typing while the write is out
+    // is ordinary rather than exotic.
+    const customName: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: ({ value, setValue }) => (
+            <input
+              aria-label="Edit Name"
+              value={value === null || value === undefined ? "" : String(value)}
+              onChange={event => setValue(event.currentTarget.value)}
+            />
+          )
+        }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={customName}
+        data={people}
+        editingCell={{ columnId: "name", rowId: "1" }}
+        getRowId={getRowId}
+        onEditCommit={({ value }) => {
+          committed.push(value);
+
+          return committed.length === 1 ? inFlight.promise : undefined;
+        }}
+        onEditingCellChange={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(committed).toEqual(["First"]);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(committed).toEqual(["First", "Second"]);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(
