@@ -313,25 +313,31 @@ function DataCell({
     ? (event: MouseEvent) => event.stopPropagation()
     : undefined;
 
+  // Two merges, not one spread. The Styles API answer is a consumer like `cellProps` is — it
+  // may carry `attributes` handlers, and those have to run *with* ledger's, not instead of
+  // them, while `role` and the structural data-attributes stay ledger's. Spreading the answer
+  // into the owned object would let an `attributes.selectionCell.onClick` replace the handler
+  // that keeps a control column from activating its row, and rewrite `role` besides.
+  const owned = mergeElementProps(getStyles(selector, { style: pinnedCellStyle(column) }), {
+    "aria-colspan": colSpan > 1 ? colSpan : undefined,
+    "aria-rowspan": rowSpan > 1 ? rowSpan : undefined,
+    colSpan: colSpan > 1 ? colSpan : undefined,
+    "data-align": meta?.align,
+    "data-editable": editable || undefined,
+    "data-editing": cellEditorActive || rowEditorActive || undefined,
+    "data-leading": column.getIsFirstColumn() || undefined,
+    "data-ledger-column-id": column.id,
+    "data-pinned": column.getIsPinned() || undefined,
+    "data-pinned-edge": pinnedEdge(column),
+    role: "cell",
+    rowSpan: rowSpan > 1 ? rowSpan : undefined,
+    onClick: stopActivation ?? (ledger?.editTrigger === "click" ? startEditing : undefined),
+    onDoubleClick: stopActivation ?? (ledger?.editTrigger === "double-click" ? startEditing : undefined)
+  });
+
   return (
     <MantineTable.Td
-      {...mergeElementProps(resolveElementProps(meta?.cellProps, cell), {
-        "aria-colspan": colSpan > 1 ? colSpan : undefined,
-        "aria-rowspan": rowSpan > 1 ? rowSpan : undefined,
-        colSpan: colSpan > 1 ? colSpan : undefined,
-        "data-align": meta?.align,
-        "data-editable": editable || undefined,
-        "data-editing": cellEditorActive || rowEditorActive || undefined,
-        "data-leading": column.getIsFirstColumn() || undefined,
-        "data-ledger-column-id": column.id,
-        "data-pinned": column.getIsPinned() || undefined,
-        "data-pinned-edge": pinnedEdge(column),
-        role: "cell",
-        rowSpan: rowSpan > 1 ? rowSpan : undefined,
-        onClick: stopActivation ?? (ledger?.editTrigger === "click" ? startEditing : undefined),
-        onDoubleClick: stopActivation ?? (ledger?.editTrigger === "double-click" ? startEditing : undefined),
-        ...getStyles(selector, { style: pinnedCellStyle(column) })
-      })}
+      {...mergeElementProps(resolveElementProps(meta?.cellProps, cell), owned)}
     >
       {content}
     </MantineTable.Td>

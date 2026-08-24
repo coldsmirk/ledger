@@ -1064,4 +1064,28 @@ describe("DataTable", () => {
     fireEvent.click(document.querySelector(".ledger-row .ledger-cell") as Element);
     expect(onRowClick).toHaveBeenCalledTimes(1);
   });
+
+  it("runs a Styles API handler on a control cell without letting it activate the row", () => {
+    const onRowClick = vi.fn();
+    const onCellClick = vi.fn();
+
+    render(
+      <DataTable
+        enableRowSelection
+        attributes={{ selectionCell: { onClick: onCellClick } }}
+        columns={columns}
+        data={people}
+        getRowId={getRowId}
+        onRowClick={onRowClick}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.click(document.querySelector(".ledger-selection-cell") as Element);
+
+    // Both handlers belong to the cell; only ledger's decides whether the event leaves it.
+    expect(onCellClick).toHaveBeenCalledTimes(1);
+    expect(onRowClick).not.toHaveBeenCalled();
+    expect(document.querySelector(".ledger-selection-cell")?.getAttribute("role")).toBe("cell");
+  });
 });
