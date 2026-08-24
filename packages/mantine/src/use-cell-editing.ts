@@ -286,12 +286,14 @@ export function useCellEditing<TData extends RowData>({
    * Ends a session whose eligibility is gone. Idempotent per session, which is what makes the
    * automatic path safe to reach from the effect, from a settling write, and from an editor
    * leaving the screen because the gate took it away — an application that ignores the close
-   * would otherwise be asked once for each. An explicit Escape or `stopEditing` is never this: it
-   * is always a fresh request.
+   * would otherwise be asked once for each. A command is never this: an Escape, a `stopEditing`,
+   * or a `startEditing` that has to leave this cell first is always a fresh request, because an
+   * owner that declined the last one still has the cell on screen. Reported back, so that a
+   * command finding the session already reconciled can ask again itself.
    */
-  const closeLostSession = () => {
+  const closeLostSession = (): boolean => {
     if (store.current.reconciled) {
-      return;
+      return false;
     }
 
     store.current.reconciled = true;
@@ -300,6 +302,8 @@ export function useCellEditing<TData extends RowData>({
     store.current.settled = true;
     redraw();
     requestClose();
+
+    return true;
   };
 
   const cancel = useEventCallback(() => {
@@ -329,8 +333,11 @@ export function useCellEditing<TData extends RowData>({
 
     if (store.current.settled) {
       if (store.current.gateLost) {
-        // This session was cancelled, not finished — its close has already been asked for once,
-        // and nothing waiting to move may proceed on the strength of it.
+        // This session was cancelled, not finished, so nothing waiting to move may proceed on
+        // the strength of it. Reconciliation has already discarded what it held and asked once
+        // for the close; this is a command, so it asks again.
+        requestClose();
+
         return false;
       }
 
@@ -361,7 +368,10 @@ export function useCellEditing<TData extends RowData>({
     // is cancelled, which is not the same as finished: nothing waiting to move may do so on it.
     if (!canEditCell(cell, cell.row)) {
       markGateLost();
-      closeLostSession();
+
+      if (!closeLostSession()) {
+        requestClose();
+      }
 
       return false;
     }
@@ -668,6 +678,14 @@ export function useCellEditing<TData extends RowData>({
         // cell in its place. Read the owner *before* reaching for a commit, which always speaks
         // for whatever session is current — otherwise this closes the cell that replaced it.
         if (session !== sessionRef.current || store.current.rowId !== rowId || store.current.columnId !== columnId) {
+          return;
+        }
+
+        // A session the gate cancelled has nothing left to commit on the way out, and its close
+        // has been asked for: this editor did not depart, it was taken off the screen. The
+        // cleanup that armed this tick tests the same thing, but it runs at layout time — before
+        // the reconciliation that latches the loss.
+        if (store.current.gateLost) {
           return;
         }
 

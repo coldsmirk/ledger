@@ -1156,6 +1156,49 @@ describe("inline editing", () => {
     expect(onEditingCellChange.mock.calls).toEqual([[null]]);
   });
 
+  it("asks again to close a cancelled session when an explicit stop commits it", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditingCellChange = vi.fn();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={customNameColumn}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            enableEditing={enableEditing}
+            getRowId={getRowId}
+            handleRef={handle}
+            onEditCommit={vi.fn()}
+            onEditingCellChange={onEditingCellChange}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    onEditingCellChange.mockClear();
+
+    // The gate shuts. Reconciliation cancels the session and asks once; the owner declines, so
+    // the slice goes on naming this cell — and reconciliation will not ask again.
+    rerender(view(false));
+    expect(onEditingCellChange.mock.calls).toEqual([[null]]);
+
+    rerender(view(false));
+    expect(onEditingCellChange.mock.calls).toEqual([[null]]);
+
+    // An explicit stop is a command, and a command is always a new request — whichever way it is
+    // spelled. `commit: true` has nothing left to send, but it still wants the cell closed.
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(onEditingCellChange.mock.calls).toEqual([[null], [null]]);
+
+    act(() => handle.current?.stopEditing({ commit: false }));
+    expect(onEditingCellChange.mock.calls).toEqual([[null], [null], [null]]);
+  });
+
   it("closes a session whose target never arrived when asked to", () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onEditingCellChange = vi.fn();
