@@ -17,7 +17,6 @@ import type {
 
 import type { LedgerFeatures } from "./ledger-features";
 import type {
-  ActiveCellEditor,
   DataTableEditingCell,
   LedgerMeta,
   LedgerRowEditor,
@@ -37,11 +36,12 @@ import { functionalUpdate, useTable } from "@tanstack/react-table";
 import { useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { buildColumns, EXPANDER_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
-import { canEditCell, editErrorMessage, normalizeEdit } from "./cell-editor";
+import { canEditCell, editErrorMessage, normalizeEdit } from "./edit-meta";
 import { isDev, warnOnce } from "./env";
 import { ledgerFilterFns } from "./filter-fns";
 import { buildLedgerFeatures } from "./ledger-features";
 import { readPersistedState, usePersistWriter } from "./persist";
+import { useCellEditing } from "./use-cell-editing";
 import { useResponsiveColumns } from "./use-responsive-columns";
 import { useSlice } from "./use-slice";
 import { useEventCallback } from "./utils";
@@ -233,78 +233,18 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   }, [setGlobalFilter]);
 
   /* ---- editing controller (docs/editing.md) ---- */
-  const activeEditorRef = useRef<ActiveCellEditor | null>(null);
-  const editingCellRef = useRef(editingCell);
-  const editingRequestRef = useRef(0);
+  // Both sessions need the live instance; the hook's table is created further down.
+  const tableRef = useRef<TableInstance<TData> | null>(null);
 
-  /**
-   * Mirrors the cell that actually reached the screen. The render phase would do, until it does
-   * not: refs are shared between the current tree and a work-in-progress one, so a transition
-   * React renders and then throws away — a sibling suspends — would leave this pointing at a cell
-   * nobody is editing. `startEditing` reads it to decide what to commit before it moves, and
-   * would then commit the wrong editor, or mistake the abandoned target for where it already is
-   * and skip the commit entirely. The row session's boundary is taken in an effect for the same
-   * reason; no dependency array, because the comparison is against what was committed last time.
-   */
-  useLayoutEffect(() => {
-    editingCellRef.current = editingCell;
+  // The cell session lives in its own module: everything an editor shows, and everything its
+  // commit decides with, has to outlive an editor that a hidden column or a virtual scroll can
+  // unmount at any moment (docs/architecture.md).
+  const cellSession = useCellEditing<TData>({
+    editingCell,
+    onEditCommit,
+    setEditingCell,
+    tableRef
   });
-
-  const stopEditing = useEventCallback((stopOptions?: { commit?: boolean }) => {
-    editingRequestRef.current += 1;
-    const editor = activeEditorRef.current;
-
-    if (!editor) {
-      setEditingCell(null);
-      return;
-    }
-
-    if (stopOptions?.commit ?? true) {
-      void Promise.resolve(editor.commit()).catch(() => false);
-    } else {
-      editor.cancel();
-    }
-  });
-
-  const startEditing = useEventCallback((cell: DataTableEditingCell) => {
-    const request = ++editingRequestRef.current;
-    const { current } = editingCellRef;
-
-    if (!current || (current.rowId === cell.rowId && current.columnId === cell.columnId)) {
-      setEditingCell(cell);
-      return;
-    }
-
-    const editor = activeEditorRef.current;
-
-    if (!editor) {
-      setEditingCell(cell);
-      return;
-    }
-
-    // Only the latest navigation request may win after an async commit settles.
-    const committed = editor.commit();
-
-    if (typeof committed !== "boolean") {
-      void Promise.resolve(committed).then(
-        success => {
-          if (success && editingRequestRef.current === request) {
-            setEditingCell(cell);
-          }
-        },
-        // Custom editors may still reject despite the boolean-result contract; stay put.
-        () => false
-      );
-    } else if (committed && editingRequestRef.current === request) {
-      setEditingCell(cell);
-    }
-  });
-
-  const clearEditing = useEventCallback(() => setEditingCell(null));
-
-  const registerEditor = useCallback((editor: ActiveCellEditor | null) => {
-    activeEditorRef.current = editor;
-  }, []);
 
   /* ---- row editing controller (editMode: "row", docs/editing.md#row-mode) ---- */
   // Drafts live here, not in editors: a virtualized editing row that scrolls out unmounts its
@@ -364,8 +304,6 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    */
   const rowPendingCommit = useRef<{ session: number; rowId: string; promise: Promise<boolean> } | null>(null);
   const rowStartRequestRef = useRef(0);
-  // The row commit needs the live instance; the hook's table is created further down.
-  const tableRef = useRef<TableInstance<TData> | null>(null);
 
   /**
    * Ends the session: whatever is in flight stops owning the row, and stops speaking for it.
@@ -1110,10 +1048,18 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         editing: {
           mode: editMode,
           cell: editingCell,
-          start: startEditing,
-          stop: stopEditing,
-          clear: clearEditing,
-          registerEditor,
+          start: cellSession.start,
+          stop: cellSession.stop,
+          clear: cellSession.clear,
+          commit: cellSession.commit,
+          cancel: cellSession.cancel,
+          drafts: {
+            error: cellSession.error,
+            pending: cellSession.pending,
+            read: cellSession.read,
+            write: cellSession.write
+          },
+          register: cellSession.register,
           row: {
             id: editingRowId,
             start: startRowEditing,
@@ -1146,10 +1092,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     [
       processedColumns,
       editingCell,
-      startEditing,
-      stopEditing,
-      clearEditing,
-      registerEditor,
+      cellSession,
       editMode,
       editingRowId,
       startRowEditing,

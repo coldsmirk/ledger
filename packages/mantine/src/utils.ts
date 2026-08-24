@@ -43,6 +43,14 @@ export function toPx(value: number | string | undefined): string | undefined {
 }
 
 /**
+ * Whether a commit handler answered with a promise. Editing commits are `boolean | Promise<boolean>`
+ * throughout, and both the session and the editors have to tell the two apart.
+ */
+export function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLike<T> {
+  return typeof value === "object" && value !== null && "then" in value && typeof value.then === "function";
+}
+
+/**
  * Stable-identity event callback (the classic useEvent shape) for handlers stored in table meta.
  */
 export function useEventCallback<Args extends unknown[], Result>(

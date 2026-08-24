@@ -1,6 +1,6 @@
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent } from "react";
 
-import type { Cell, DataTableEditConfig, DataTableEditContext, Row } from "./types";
+import type { Cell, DataTableEditConfig } from "./types";
 
 /**
  * The inline cell editor host (docs/editing.md). Owns the draft value, validation, and the
@@ -10,399 +10,54 @@ import type { Cell, DataTableEditConfig, DataTableEditContext, Row } from "./typ
  * table cell is visual noise.
  */
 import { Loader, NumberInput, Select, TextInput } from "@mantine/core";
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
+import { useLayoutEffect, useReducer, useRef } from "react";
 
 import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
-import { useEventCallback } from "./utils";
+import { canEditCell, isCheckboxEdit, normalizeEdit } from "./edit-meta";
+import { isPromiseLike, useEventCallback } from "./utils";
 
-type NormalizedEdit
-  = | { kind: "variant"; config: DataTableEditConfig<any, unknown> }
-    | { kind: "custom"; render: (ctx: DataTableEditContext<any, unknown>) => ReactNode };
+export { canEditCell, editErrorMessage, isCheckboxEdit, normalizeEdit } from "./edit-meta";
 
 type CommitResult = boolean | Promise<boolean>;
-
-function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLike<T> {
-  return typeof value === "object" && value !== null && "then" in value && typeof value.then === "function";
-}
-
-export function editErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-export function normalizeEdit(
-  edit: NonNullable<Cell<any, unknown>["column"]["columnDef"]["meta"]>["edit"]
-): NormalizedEdit | null {
-  if (!edit) {
-    return null;
-  }
-
-  if (typeof edit === "function") {
-    return { kind: "custom", render: edit };
-  }
-
-  return { kind: "variant", config: typeof edit === "string" ? { variant: edit } : edit };
-}
-
-/**
- * Whether this cell is editable right now (column meta + table switch + per-row gate).
- */
-export function canEditCell(cell: Cell<any, unknown>, row: Row<any>): boolean {
-  const { table } = cell.getContext();
-  const ledger = table.options.meta?.ledger;
-
-  if (!ledger?.enableEditing) {
-    return false;
-  }
-
-  const edit = cell.column.columnDef.meta?.edit;
-
-  if (!edit) {
-    return false;
-  }
-
-  return !(typeof edit === "object" && edit.enabled && !edit.enabled(row));
-}
-
-export function isCheckboxEdit(cell: Cell<any, unknown>): boolean {
-  const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
-
-  return normalized?.kind === "variant" && normalized.config.variant === "checkbox";
-}
 
 export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const { labels, getStyles } = useDataTableContext();
   const { table } = cell.getContext();
-  const ledger = table.options.meta?.ledger;
+  const editing = table.options.meta?.ledger?.editing;
   const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
+  const rowId = cell.row.id;
+  const columnId = cell.column.id;
 
-  /**
-   * What this session has written, against what the data read when it went out — the cell-mode
-   * counterpart of the row session's record. While it stands, it is what the cell holds and what
-   * the next edit departs from; once the data moves past it (the write applied, normalized, or
-   * another writer's edit) the data wins and the record retires for good. A value copied at mount
-   * could do neither.
-   */
-  const written = useRef<{ value: unknown; source: unknown } | null>(null);
-  const draftRef = useRef<{ value: unknown } | null>(null);
   const [, redraw] = useReducer((token: number) => token + 1, 0);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  const pendingRef = useRef(false);
-  const pendingCommitRef = useRef<Promise<boolean> | null>(null);
-  const completedRef = useRef(false);
-  const mountedRef = useRef(true);
-  /**
-   * Whether the gate closing has already been answered for this session. Only the automatic
-   * reconciliation below is idempotent — an explicit Escape or `stopEditing` is always a fresh
-   * request, because a controlled owner that ignored the last one has to be asked again.
-   */
-  const reconciledRef = useRef(false);
+  const redrawFromSession = useEventCallback(() => redraw());
 
-  /**
-   * What the cell holds as far as the application is concerned.
-   */
-  const settledValue = () => {
-    const record = written.current;
-    const source = cell.getValue();
-
-    return record && Object.is(record.source, source) ? record.value : source;
-  };
-
-  const draft = draftRef.current ? draftRef.current.value : settledValue();
-
-  // The record only stands while the data has not moved past it. Retiring it here rather than on
-  // read makes it permanent: data that later returns to what the write departed from is the
-  // application's own value, not ours resurfacing.
-  useEffect(() => {
-    const record = written.current;
-
-    if (record && !Object.is(record.source, cell.getValue())) {
-      written.current = null;
-    }
-  });
-
-  const setValue = useEventCallback((value: unknown) => {
-    draftRef.current = { value };
-    redraw();
-    setEditError(null);
-    // A new value is a new edit. This editor is only still on screen past a settled commit or
-    // cancel because the application declined to close the slice, and what it holds now is
-    // something no write has carried.
-    completedRef.current = false;
-  });
-
-  /**
-   * Clear the editing slice only if this cell is still the one being edited.
-   */
-  const clearIfCurrent = useEventCallback(() => {
-    const editing = table.options.meta?.ledger?.editing;
-
-    if (
-      editing?.cell
-      && editing.cell.rowId === cell.row.id
-      && editing.cell.columnId === cell.column.id
-    ) {
-      editing.clear();
-    }
-  });
-
-  const commit = useEventCallback<[], CommitResult>(() => {
-    if (completedRef.current) {
-      // Nothing new to send. Still a request to leave, though: a controlled owner that ignored
-      // the first one keeps this editor on screen, and asking again is how it is closed.
-      clearIfCurrent();
-
-      return true;
-    }
-
-    if (pendingCommitRef.current) {
-      return pendingCommitRef.current;
-    }
-
-    if (!ledger) {
-      return false;
-    }
-
-    // Eligibility is re-read here, not trusted from mount: `enableEditing` can switch off,
-    // `meta.edit` can be removed, and `edit.enabled(row)` can turn false while this editor is
-    // open. Committing then would push a value through a gate the application has just shut —
-    // and unvalidated, since a closed gate is exactly what `validate` no longer guards. The
-    // draft is dropped and leaving the cell is safe, the same resolution row mode gives it
-    // (docs/editing.md).
-    if (!canEditCell(cell, cell.row)) {
-      completedRef.current = true;
-      clearIfCurrent();
-
-      return true;
-    }
-
-    const source = cell.getValue();
-    const previousValue = settledValue();
-    const value = draftRef.current ? draftRef.current.value : previousValue;
-
-    if (Object.is(value, previousValue)) {
-      completedRef.current = true;
-      clearIfCurrent();
-      return true;
-    }
-
-    try {
-      if (normalized?.kind === "variant" && normalized.config.validate) {
-        const validationError = normalized.config.validate(value, cell.row);
-
-        if (validationError !== null) {
-          if (mountedRef.current) {
-            setEditError(validationError);
-          }
-
-          return false;
-        }
-      }
-    } catch (error) {
-      if (mountedRef.current) {
-        setEditError(editErrorMessage(error));
-      }
-
-      return false;
-    }
-
-    let result: void | Promise<void>;
-
-    try {
-      result = ledger.onEditCommit?.({
-        row: cell.row,
-        column: cell.column,
-        value,
-        previousValue
-      });
-    } catch (error) {
-      if (mountedRef.current) {
-        setEditError(editErrorMessage(error));
-      }
-
-      return false;
-    }
-
-    if (isPromiseLike(result)) {
-      pendingRef.current = true;
-
-      if (mountedRef.current) {
-        setPending(true);
-      }
-
-      // The in-flight slot is released inside the handlers rather than in a `finally`: the
-      // not-carried branch below commits again, and a request that has settled must not still be
-      // standing there for its own successor to join.
-      const pendingCommit: Promise<boolean> = Promise.resolve(result).then(
-        () => {
-          // A custom editor is not disabled while the request is out, so the user can type
-          // straight past it. What this write carried is what the next edit departs from, but a
-          // value typed since is one it never carried.
-          const carried = !draftRef.current || Object.is(draftRef.current.value, value);
-          completedRef.current = carried;
-          written.current = { source, value };
-
-          if (carried) {
-            draftRef.current = null;
-          }
-
-          pendingRef.current = false;
-
-          if (pendingCommitRef.current === pendingCommit) {
-            pendingCommitRef.current = null;
-          }
-
-          if (mountedRef.current) {
-            setPending(false);
-          }
-
-          // The gate can shut while a request is out. This write passed it on the way, so it
-          // stands — but the session it belonged to is over, and nothing waiting to move may do
-          // so on the strength of a commit whose editor was taken out from under it.
-          if (!canEditCell(cell, cell.row)) {
-            completedRef.current = true;
-            reconciledRef.current = true;
-            clearIfCurrent();
-
-            return false;
-          }
-
-          if (!carried) {
-            // Still on screen: the cell does not close, and whoever was waiting to leave it is
-            // told it is not safe to. Gone from the screen: nobody can commit it by hand any
-            // more, and an unmount commits rather than discards (docs/editing.md) — so this
-            // write, which did succeed, is followed by the one it outran. That successor carries
-            // the latest value, so it settles `carried` and recurses no further.
-            return mountedRef.current ? false : commit();
-          }
-
-          clearIfCurrent();
-
-          return true;
-        },
-        (error: unknown) => {
-          pendingRef.current = false;
-
-          if (pendingCommitRef.current === pendingCommit) {
-            pendingCommitRef.current = null;
-          }
-
-          if (mountedRef.current) {
-            setPending(false);
-            setEditError(editErrorMessage(error));
-          }
-
-          return false;
-        }
-      );
-
-      pendingCommitRef.current = pendingCommit;
-
-      return pendingCommit;
-    }
-
-    completedRef.current = true;
-    written.current = { source, value };
-    draftRef.current = null;
-    clearIfCurrent();
-
-    return true;
-  }) as () => CommitResult;
-
-  const cancel = useEventCallback(() => {
-    if (pendingRef.current) {
-      return;
-    }
-
-    // The pending value is discarded, not merely abandoned: an application that declines to
-    // close the slice keeps this editor on screen, and what it shows must be the cell again.
-    draftRef.current = null;
-    redraw();
-    setEditError(null);
-    completedRef.current = true;
-    clearIfCurrent();
-  });
-
-  /**
-   * The same rule as a live event: when eligibility closes under an open editor, the editor
-   * cancels. Cancelling clears the editing slice, so the editor leaves through the ordinary
-   * path and the unmount carve-out below — which commits — never arms. An async commit already
-   * in flight is left alone: that value passed the gate before it shut.
-   */
-  const editable = canEditCell(cell, cell.row);
-
-  useEffect(() => {
-    if (editable) {
-      // A gate that reopens is a new eligibility, and closing it again cancels again.
-      reconciledRef.current = false;
-
-      return;
-    }
-
-    // `pending` is a dependency, not noise: `cancel()` refuses while a commit is in flight, so
-    // an editor that lost eligibility mid-request would otherwise come back on rejection —
-    // typable, under a switch that is off — and stay until the next commit attempt.
-    if (!pending && !reconciledRef.current) {
-      reconciledRef.current = true;
-      cancel();
-    }
-  }, [editable, pending, cancel]);
-
-  /**
-   * Unmount-commit is deferred one tick so a remount of the same cell — React StrictMode's
-   * simulated unmount, or the virtualizer re-mounting a row that stayed in view — cancels it.
-   * Only a real departure (scrolled out of the window) lets the timer fire: commit, never
-   * discard (docs/editing.md). A validation failure has nowhere to display anymore and degrades to discard.
-   */
-  const unmountCommitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    if (unmountCommitTimer.current !== null) {
-      clearTimeout(unmountCommitTimer.current);
-      unmountCommitTimer.current = null;
-    }
-
-    const editing = table.options.meta?.ledger?.editing;
-    editing?.registerEditor({ commit, cancel });
-
-    return () => {
-      mountedRef.current = false;
-      editing?.registerEditor(null);
-
-      const latest = table.options.meta?.ledger?.editing;
-
-      if (
-        latest?.cell
-        && latest.cell.rowId === cell.row.id
-        && latest.cell.columnId === cell.column.id
-      ) {
-        unmountCommitTimer.current = setTimeout(() => {
-          unmountCommitTimer.current = null;
-          const result = commit();
-
-          if (isPromiseLike(result)) {
-            void Promise.resolve(result).then(() => clearIfCurrent());
-          } else {
-            clearIfCurrent();
-          }
-        }, 0);
-      }
-    };
+  // Layout, not passive: the registry is what "on screen right now" means to the session, and a
+  // commit that unmounts this editor is followed by microtasks — a settling write among them —
+  // long before a passive cleanup would run.
+  useLayoutEffect(
+    () => editing?.register(rowId, columnId, { redraw: redrawFromSession }),
     // eslint-disable-next-line @eslint-react/exhaustive-deps -- registration is a mount/unmount pairing; handlers are stable
-  }, []);
+    []
+  );
 
-  if (!normalized) {
+  if (!normalized || !editing) {
     return null;
   }
+
+  const draft = editing.drafts.read(rowId, columnId, cell.getValue());
+  const editError = editing.drafts.error(rowId, columnId);
+  const pending = editing.drafts.pending(rowId, columnId);
+
+  const setValue = (value: unknown) => {
+    editing.drafts.write(rowId, columnId, value);
+  };
 
   const handleKeyDown = (event: KeyboardEvent) => {
     switch (event.key) {
       case "Enter": {
         event.preventDefault();
-        void commit();
+        void editing.commit();
 
         break;
       }
@@ -410,14 +65,14 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
       case "Escape": {
         event.preventDefault();
         event.stopPropagation();
-        cancel();
+        editing.cancel();
 
         break;
       }
 
       case "Tab": {
         event.preventDefault();
-        const result = commit();
+        const result = editing.commit();
 
         if (isPromiseLike(result)) {
           void Promise.resolve(result).then(succeeded => {
@@ -442,8 +97,8 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
           column: cell.column,
           value: draft,
           setValue,
-          commit,
-          cancel,
+          commit: () => editing.commit(),
+          cancel: () => editing.cancel(),
           error: editError
         })
       : (
@@ -453,7 +108,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
             error={editError}
             name={labels.editColumn(columnHeaderText(cell.column))}
             pending={pending}
-            onCommit={commit}
+            onCommit={() => editing.commit()}
             onValueChange={setValue}
           />
         );
@@ -466,7 +121,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
       onBlur={event => {
         // Blur commits — unless focus moved elsewhere inside the editor (e.g. a select option).
         if (!event.currentTarget.contains(event.relatedTarget)) {
-          commit();
+          editing.commit();
         }
       }}
       onClick={event => event.stopPropagation()}

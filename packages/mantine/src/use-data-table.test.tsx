@@ -38,6 +38,37 @@ const columns: Array<ColumnDef<Person, any>> = [
   { accessorKey: "age", header: "Age" }
 ];
 
+const editableColumns: Array<ColumnDef<Person, any>> = [
+  {
+    accessorKey: "name",
+    header: "Name",
+    meta: { edit: "text" }
+  },
+  {
+    accessorKey: "age",
+    header: "Age",
+    meta: { edit: "number" }
+  }
+];
+
+const validatedColumns: Array<ColumnDef<Person, any>> = [
+  {
+    accessorKey: "name",
+    header: "Name",
+    meta: {
+      edit: {
+        validate: value => String(value ?? "").length > 0 ? null : "Name is required",
+        variant: "text"
+      }
+    }
+  },
+  {
+    accessorKey: "age",
+    header: "Age",
+    meta: { edit: "number" }
+  }
+];
+
 const getRowId = (person: Person) => person.id;
 const startsWithFilter: FilterFn<any, any> = (row, columnId, value: string) => String(row.getValue(columnId)).startsWith(value);
 const rejectFilter: FilterFn<any, any> = () => false;
@@ -394,15 +425,16 @@ describe("useDataTable", () => {
   it("keeps the current editor active when commit rejects navigation", () => {
     const { result } = renderHook(() => useDataTable({
       data: people,
-      columns,
+      columns: validatedColumns,
       getRowId
     }));
     const editing = () => result.current.options.meta?.ledger?.editing;
 
     act(() => editing()?.start({ rowId: "1", columnId: "name" }));
-    act(() => editing()?.registerEditor({ commit: () => false, cancel: vi.fn() }));
+    act(() => editing()?.drafts.write("1", "name", ""));
     act(() => editing()?.start({ rowId: "2", columnId: "age" }));
 
+    // The value fails its own `validate`, so there is nowhere to move on to.
     expect(editing()?.cell).toEqual({ rowId: "1", columnId: "name" });
 
     act(() => editing()?.stop({ commit: true }));
@@ -411,47 +443,47 @@ describe("useDataTable", () => {
   });
 
   it("lets only the latest navigation request win after an async commit", async () => {
-    const { promise: pendingCommit, resolve: resolveCommit } = Promise.withResolvers<boolean>();
-    const foreignCommit = {
-      then: pendingCommit.then.bind(pendingCommit)
-    } as Promise<boolean>;
+    const inFlight = Promise.withResolvers<void>();
     const { result } = renderHook(() => useDataTable({
       data: people,
-      columns,
-      getRowId
+      columns: editableColumns,
+      getRowId,
+      onEditCommit: () => inFlight.promise
     }));
     const editing = () => result.current.options.meta?.ledger?.editing;
 
-    expect(foreignCommit).not.toBeInstanceOf(Promise);
     act(() => editing()?.start({ rowId: "1", columnId: "name" }));
-    act(() => editing()?.registerEditor({ commit: () => foreignCommit, cancel: vi.fn() }));
+    act(() => editing()?.drafts.write("1", "name", "Changed"));
     act(() => {
       editing()?.start({ rowId: "2", columnId: "name" });
       editing()?.start({ rowId: "3", columnId: "age" });
     });
 
     await act(async () => {
-      resolveCommit(true);
-      await pendingCommit;
+      inFlight.resolve();
+      await inFlight.promise;
     });
 
     expect(editing()?.cell).toEqual({ rowId: "3", columnId: "age" });
   });
 
-  it("keeps the current editor active when a custom commit promise rejects", async () => {
-    const rejectedCommit = Promise.reject(new Error("commit failed"));
+  it("keeps the current editor active when a commit promise rejects", async () => {
+    const inFlight = Promise.withResolvers<void>();
     const { result } = renderHook(() => useDataTable({
       data: people,
-      columns,
-      getRowId
+      columns: editableColumns,
+      getRowId,
+      onEditCommit: () => inFlight.promise
     }));
     const editing = () => result.current.options.meta?.ledger?.editing;
 
     act(() => editing()?.start({ rowId: "1", columnId: "name" }));
-    act(() => editing()?.registerEditor({ commit: () => rejectedCommit, cancel: vi.fn() }));
+    act(() => editing()?.drafts.write("1", "name", "Changed"));
+    act(() => editing()?.start({ rowId: "2", columnId: "age" }));
+
     await act(async () => {
-      editing()?.start({ rowId: "2", columnId: "age" });
-      await rejectedCommit.catch(() => undefined);
+      inFlight.reject(new Error("commit failed"));
+      await inFlight.promise.catch(() => undefined);
     });
 
     expect(editing()?.cell).toEqual({ rowId: "1", columnId: "name" });

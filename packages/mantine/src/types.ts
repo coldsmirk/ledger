@@ -372,9 +372,15 @@ export interface DataTableHandle<TData extends RowData> {
 // meta.ledger — ledger-private state carried on TanStack's sanctioned extension point
 // ----------------------------------------------------------------------------------------------
 
-export interface ActiveCellEditor {
-  commit: () => boolean | Promise<boolean>;
-  cancel: () => void;
+/**
+ * What a mounted cell-mode editor hands the controller. Only what is genuinely per-instance: the
+ * editor holds no state of its own, so everything it shows it reads back from the session.
+ */
+export interface LedgerCellEditor {
+  /**
+   * Something the editor shows has changed in the session — draw again.
+   */
+  redraw: () => void;
 }
 
 /**
@@ -442,13 +448,34 @@ export interface LedgerEditingController {
    */
   stop: (options?: { commit?: boolean }) => void;
   /**
-   * Clears the slice directly — called by the editor once its commit/cancel settles.
+   * Clears the slice directly.
    */
   clear: () => void;
   /**
-   * The active editor registers itself while mounted so `stop` can reach it.
+   * Commits or discards what the session holds. The editors call these for Enter and Escape; the
+   * logic itself belongs to the session, because an editor can be unmounted at any moment.
    */
-  registerEditor: (editor: ActiveCellEditor | null) => void;
+  commit: () => boolean | Promise<boolean>;
+  cancel: () => void;
+  /**
+   * The cell session's editing store, addressed by cell for the same reason row mode's is
+   * addressed by row: two editors for one cell can exist at once while React reconciles a
+   * remount, and a settled write must not act on the instance that replaced the one that sent it.
+   */
+  drafts: {
+    pending: (rowId: string, columnId: string) => boolean;
+    error: (rowId: string, columnId: string) => string | null;
+    /**
+     * What the editor should show: the pending value if there is one, else what this session has
+     * already written, else `source` — the cell's own value.
+     */
+    read: (rowId: string, columnId: string, source: unknown) => unknown;
+    write: (rowId: string, columnId: string, value: unknown) => void;
+  };
+  /**
+   * A mounted editor registers while it is on screen; its departure arms the unmount commit.
+   */
+  register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
   /**
    * Row-mode surface; inert while `mode` is `"cell"`.
    */

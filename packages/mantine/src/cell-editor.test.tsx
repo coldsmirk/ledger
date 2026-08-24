@@ -94,6 +94,30 @@ function fixedCellView(rows: Person[]) {
   );
 }
 
+const customNameColumn: Array<ColumnDef<Person, any>> = [
+  {
+    accessorKey: "name",
+    header: "Name",
+    meta: {
+      edit: ({
+        value,
+        setValue,
+        error
+      }) => (
+        <>
+          <input
+            aria-label="Edit Name"
+            value={value === null || value === undefined ? "" : String(value)}
+            onChange={event => setValue(event.currentTarget.value)}
+          />
+
+          {error === null ? null : <span>{error}</span>}
+        </>
+      )
+    }
+  }
+];
+
 describe("inline editing", () => {
   it("enters on double-click, commits on Enter with value and previousValue", () => {
     const onEditCommit = vi.fn();
@@ -645,6 +669,97 @@ describe("inline editing", () => {
     rerender(fixedCellView(namedPerson("Carol")));
 
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Carol");
+  });
+
+  it("hands a remounted editor the session it belongs to", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const committed: Array<{ previousValue: unknown; value: unknown }> = [];
+
+    render(
+      <DataTable
+        columns={customNameColumn}
+        data={people}
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={change => {
+          committed.push({ previousValue: change.previousValue, value: change.value });
+
+          return committed.length === 1 ? inFlight.promise : undefined;
+        }}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(committed).toEqual([{ previousValue: "Carol", value: "First" }]);
+    expect(document.querySelector("[data-pending]")).toBeTruthy();
+
+    // The row scrolls out and back while the write is still out — a real unmount and a new editor
+    // for the same cell, not StrictMode replaying an effect.
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(false));
+    expect(screen.queryByRole("textbox")).toBeNull();
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(true));
+    expect(await screen.findByRole("textbox")).toBeTruthy();
+
+    // What the editor shows and what it may do both belong to the session, not to the instance
+    // that started it: the value it sent is still what the cell holds, and the write is still out.
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("First");
+    expect(document.querySelector("[data-pending]")).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // The settle never carried "Second", so it cannot close the editor holding it.
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Second");
+
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    // And the second write departs from what the first one wrote, not from the data behind it.
+    expect(committed).toEqual([
+      { previousValue: "Carol", value: "First" },
+      { previousValue: "First", value: "Second" }
+    ]);
+  });
+
+  it("shows a rejection to the editor that came back for it", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+
+    render(
+      <DataTable
+        columns={customNameColumn}
+        data={people}
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={() => inFlight.promise}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(false));
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(true));
+    expect(await screen.findByRole("textbox")).toBeTruthy();
+
+    await act(async () => {
+      inFlight.reject(new Error("Server said no"));
+      await inFlight.promise.catch(() => undefined);
+    });
+
+    // The failure belongs to the session, so the instance that replaced the sender shows it — and
+    // the value that failed is still there to fix.
+    expect(await screen.findByText("Server said no")).toBeTruthy();
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("First");
   });
 
   it("a validation message blocks the commit and stays in editing", () => {

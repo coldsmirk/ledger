@@ -40,7 +40,6 @@ export type { DataTableSelectionBarProps } from "./selection-bar";
 
 /* Public types (docs/api.md) */
 export type {
-  ActiveCellEditor,
   DataTableEditCommit,
   DataTableEditConfig,
   DataTableEditContext,
@@ -56,6 +55,7 @@ export type {
   DataTablePersistState,
   DataTableRowEditCommit,
   DataTableScrollToRowOptions,
+  LedgerCellEditor,
   LedgerEditingController,
   LedgerMeta,
   LedgerRowEditingController,

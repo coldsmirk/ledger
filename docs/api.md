@@ -33,7 +33,7 @@ import "@coldsmirk/ledger-mantine/styles.css";
 
 Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell`, `Header`, `HeaderGroup` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape. Its methods are v9's — `accessor` / `display` / `group` / **`columns`**, the last being the variadic-tuple wrapper a `group`'s children need so each keeps its own `TValue` ([columns.md](columns.md#header-groups-and-footers)).
 
-ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `ActiveCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
+ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
 
 Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
@@ -304,17 +304,29 @@ Per-column control rides `meta.export`: `false` excludes the column entirely; `{
 
 `table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the stable processed `columns` (the render layer's memo token — v9 re-resolves `table.options` per state tick), the `editing` controller (below), filter-set subscriptions (`subscribeColumnFilters` / `subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `onRowEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), `activeRow` (`enabled` / `id` / `set`), `enableColumnOrdering`, `enableColumnResizing`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
 
-`meta.ledger.editing` carries both modes at once; `mode` says which one is live.
+`meta.ledger.editing` carries both modes at once; `mode` says which one is live. Both sessions live in the controller and the editors are views of them — an editor is unmounted by a hidden column or a virtual scroll at any moment, while the session is not ([architecture.md](architecture.md#load-bearing-internals)).
 
 ```ts
 interface LedgerEditingController {
   mode: DataTableEditMode;                                 // "cell" | "row"
   cell: DataTableEditingCell | null;                       // cell mode: the cell being edited
   start: (cell: DataTableEditingCell) => void;
-  stop: (options?: { commit?: boolean }) => void;          // delegates to the mounted editor
-  clear: () => void;                                       // the editor calls it once it settles
-  registerEditor: (editor: ActiveCellEditor | null) => void;
+  stop: (options?: { commit?: boolean }) => void;
+  clear: () => void;
+  commit: () => boolean | Promise<boolean>;                // the session's, not an editor's
+  cancel: () => void;
+  drafts: {
+    pending: (rowId: string, columnId: string) => boolean;
+    error: (rowId: string, columnId: string) => string | null;
+    read: (rowId: string, columnId: string, source: unknown) => unknown;
+    write: (rowId: string, columnId: string, value: unknown) => void;
+  };
+  register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
   row: LedgerRowEditingController;                         // inert while mode is "cell"
+}
+
+interface LedgerCellEditor {
+  redraw: () => void;                                      // something the editor shows changed
 }
 
 interface LedgerRowEditingController {
