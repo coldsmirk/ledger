@@ -269,6 +269,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
      */
     gateLost: boolean;
     /**
+     * The automatic reconciliation has already answered this session's gate closing.
+     */
+    reconciled: boolean;
+    /**
      * The write currently out, per column, and whether the data has moved since it left. A record
      * is only true while the data has not moved past it, and the moving can happen *during* the
      * request — including out and back again, which comparing at settle time could never see.
@@ -280,6 +284,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     baseline: new Map(),
     committed: new Map(),
     gateLost: false,
+    reconciled: false,
     writing: null
   });
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
@@ -380,6 +385,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       baseline: rowId === null ? new Map() : snapshotEditableValues(rowId),
       committed: new Map(),
       gateLost: false,
+      reconciled: false,
       writing: null
     };
     rowPresentation.current = { error: null, pending: false };
@@ -590,6 +596,14 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return false;
     }
 
+    // Once per session. This runs after every render, and an application that ignores the close
+    // would otherwise be asked again on each one — reconciliation, not nagging. An explicit stop
+    // or start goes its own way and is always a fresh request.
+    if (rowDrafts.current.reconciled) {
+      return false;
+    }
+
+    rowDrafts.current.reconciled = true;
     discardRowEdits(rowId);
     finishRowEditing();
 

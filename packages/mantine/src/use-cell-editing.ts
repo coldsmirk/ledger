@@ -317,6 +317,12 @@ export function useCellEditing<TData extends RowData>({
     }
 
     if (store.current.settled) {
+      if (store.current.gateLost) {
+        // This session was cancelled, not finished — its close has already been asked for once,
+        // and nothing waiting to move may proceed on the strength of it.
+        return false;
+      }
+
       // Nothing new to send. Still a request to leave, though: an application that ignored the
       // first one keeps this session open, and asking again is how it is closed.
       requestClose();
@@ -326,17 +332,23 @@ export function useCellEditing<TData extends RowData>({
 
     const cell = cellFor(rowId, columnId);
 
+    if (!cell) {
+      // The row is not in the table — a target that has not arrived, or one the data no longer
+      // holds. There is nothing to commit against, and nothing about that is a gate closing, so
+      // the session is left alone and leaving is safe.
+      return true;
+    }
+
     // Eligibility is re-read here, not trusted from when the session opened: `enableEditing` can
     // switch off, `meta.edit` can be removed, and `edit.enabled(row)` can turn false meanwhile.
     // Committing then would push a value through a gate the application has just shut — and
-    // unvalidated, since a closed gate is exactly what `validate` no longer guards.
-    if (!cell || !canEditCell(cell, cell.row)) {
-      store.current.draft = null;
-      store.current.settled = true;
-      store.current.gateLost = true;
-      requestClose();
+    // unvalidated, since a closed gate is exactly what `validate` no longer guards. The session
+    // is cancelled, which is not the same as finished: nothing waiting to move may do so on it.
+    if (!canEditCell(cell, cell.row)) {
+      markGateLost();
+      closeLostSession();
 
-      return true;
+      return false;
     }
 
     const source = cell.getValue();

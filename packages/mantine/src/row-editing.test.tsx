@@ -1718,6 +1718,47 @@ describe("row editing mode", () => {
     expect(committed[1]?.previousValues).toEqual({ age: 30, name: "Carol" });
   });
 
+  it("asks a controlled owner to close a lost row session exactly once", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditingRowIdChange = vi.fn();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId="1"
+            editMode="row"
+            enableEditing={enableEditing}
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={onEditingRowIdChange}
+            onRowEditCommit={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    onEditingRowIdChange.mockClear();
+
+    // The gate shuts and the owner ignores the close. Asking again on every render that happens
+    // to follow is not reconciliation, it is nagging.
+    rerender(view(false));
+    expect(onEditingRowIdChange.mock.calls).toEqual([[null]]);
+
+    rerender(view(false));
+    rerender(view(true));
+    expect(onEditingRowIdChange.mock.calls).toEqual([[null]]);
+
+    // An explicit stop is a new request, not the same one repeated.
+    act(() => handle.current?.stopEditing({ commit: false }));
+    expect(onEditingRowIdChange.mock.calls).toEqual([[null], [null]]);
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

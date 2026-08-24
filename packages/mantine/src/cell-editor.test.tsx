@@ -1058,6 +1058,52 @@ describe("inline editing", () => {
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Second");
   });
 
+  it("does not authorize a move when the commit itself finds the gate shut", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditingCellChange = vi.fn();
+    // `edit.enabled` is application code, and nothing makes it answer the same way twice — so a
+    // commit can be the first thing to learn that the gate is shut, with no render in between.
+    let gateOpen = true;
+    const gated: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: {
+            enabled: () => gateOpen,
+            variant: "text"
+          }
+        }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={gated}
+        data={people}
+        editingCell={{ columnId: "name", rowId: "1" }}
+        getRowId={getRowId}
+        handleRef={handle}
+        onEditCommit={vi.fn()}
+        onEditingCellChange={onEditingCellChange}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    onEditingCellChange.mockClear();
+
+    act(() => {
+      gateOpen = false;
+      handle.current?.startEditing("2", "name");
+    });
+
+    // A session cancelled by its gate did not finish, so nothing opens on its behalf — and the
+    // one close it needed was asked for once.
+    expect(onEditingCellChange).not.toHaveBeenCalledWith({ columnId: "name", rowId: "2" });
+    expect(onEditingCellChange.mock.calls).toEqual([[null]]);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(
