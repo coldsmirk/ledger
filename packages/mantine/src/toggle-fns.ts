@@ -120,7 +120,14 @@ export function mutateRowIsSelected(
   row: Row<any>,
   value: boolean,
   rules: SelectionRules,
-  respectCanSelectOnDeselect = false
+  /**
+   * Whether the write cascades into `subRows`. Not a constant: an ordinary row toggle cascades
+   * only when the row accepts company, because a single-select row clears the map before it
+   * writes itself — so cascading there would leave the last descendant selected instead of the
+   * row that was clicked. A range and a select-all always cascade; only their deselect half
+   * differs, and that is `respectCanSelectOnDeselect`.
+   */
+  options: { includeChildren: boolean; respectCanSelectOnDeselect?: boolean }
 ): void {
   if (value) {
     if (!rules.canMultiSelect(row)) {
@@ -132,13 +139,13 @@ export function mutateRowIsSelected(
     if (rules.canSelect(row)) {
       selection[row.id] = true;
     }
-  } else if (!respectCanSelectOnDeselect || rules.canSelect(row)) {
+  } else if (!options.respectCanSelectOnDeselect || rules.canSelect(row)) {
     delete selection[row.id];
   }
 
-  if (row.subRows.length > 0 && rules.canSelectSubRows(row)) {
+  if (options.includeChildren && row.subRows.length > 0 && rules.canSelectSubRows(row)) {
     for (const subRow of row.subRows) {
-      mutateRowIsSelected(selection, subRow as Row<any>, value, rules, respectCanSelectOnDeselect);
+      mutateRowIsSelected(selection, subRow as Row<any>, value, rules, options);
     }
   }
 }
@@ -150,7 +157,7 @@ export function nextRowSelection(
   rules: SelectionRules
 ): RowSelectionState {
   const selection = Object.assign(emptyMap<RowSelectionState>(), old);
-  mutateRowIsSelected(selection, row, value, rules);
+  mutateRowIsSelected(selection, row, value, rules, { includeChildren: rules.canMultiSelect(row) });
 
   return selection;
 }
@@ -178,7 +185,7 @@ export function nextRangeSelection(
     const rangeRow = rows[index];
 
     if (rangeRow && rules.canSelect(rangeRow) && rules.canMultiSelect(rangeRow)) {
-      mutateRowIsSelected(selection, rangeRow, value, rules);
+      mutateRowIsSelected(selection, rangeRow, value, rules, { includeChildren: true });
     }
   }
 
@@ -194,7 +201,7 @@ export function nextPageSelection(
   const selection = Object.assign(emptyMap<RowSelectionState>(), old);
 
   for (const row of pageRows) {
-    mutateRowIsSelected(selection, row, value, rules, true);
+    mutateRowIsSelected(selection, row, value, rules, { includeChildren: true, respectCanSelectOnDeselect: true });
   }
 
   return selection;

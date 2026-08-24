@@ -1,11 +1,11 @@
 import type { ColumnFiltersState, ExpandedState, RowSelectionState, SortingState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 
-import type { ColumnDef } from "./types";
+import type { ColumnDef, DataTableHandle } from "./types";
 
 import { MantineProvider } from "@mantine/core";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { startTransition, StrictMode, Suspense, useState } from "react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { createRef, startTransition, StrictMode, Suspense, useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { DataTable } from "./data-table";
@@ -472,5 +472,63 @@ describe("row-state toggles keep TanStack's own semantics", () => {
 
     fireEvent.click(screen.getByLabelText("Collapse all rows"));
     expect(rowIds()).toEqual(["1", "2"]);
+  });
+
+  it("selects one row of a tree when the table is single-select", () => {
+    render(
+      <DataTable
+        defaultExpanded
+        enableRowSelection
+        columns={treeColumns}
+        data={tree}
+        enableMultiRowSelection={false}
+        getRowId={getNodeId}
+        getSubRows={node => node.children}
+      />,
+      { wrapper }
+    );
+
+    // A single-select row clears the map before it writes itself. Cascading into its subtree
+    // would leave the last descendant selected instead of the row that was clicked.
+    // Single-select renders radios, not checkboxes — one choice at a time is what a radio means.
+    fireEvent.click(document.querySelector(".ledger-row input[type=\"radio\"]") as Element);
+
+    expect(selectedIds()).toEqual(["1"]);
+  });
+
+  it("does not walk the display order again for an unrelated state change", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    render(
+      <DataTable enableRowSelection columns={columns} data={people} getRowId={getRowId} handleRef={handle} />,
+      { wrapper }
+    );
+
+    // Building the display order walks every pre-paginated row and stamps its
+    // `_displayIndexCache`, so a rebuild is observable on the rows themselves. Upstream memoizes
+    // that answer on the rows, `paginateExpandedRows` and `expanded`; this pins that the
+    // committed snapshot rides that memo rather than forcing a walk per commit.
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- TanStack's own field name
+    const rows = handle.current!.table.getPrePaginatedRowModel().rows as Array<{ _displayIndexCache: number }>;
+
+    const stamp = () => {
+      for (const row of rows) {
+        row._displayIndexCache = -99;
+      }
+    };
+
+    const walked = () => rows.some(row => row._displayIndexCache !== -99);
+
+    stamp();
+    act(() => handle.current!.table.setColumnSizing({ name: 120 }));
+    expect(walked()).toBe(false);
+
+    // And again for a burst of them, which is what a resize drag is.
+    act(() => handle.current!.table.setColumnSizing({ name: 121 }));
+    act(() => handle.current!.table.setColumnSizing({ name: 122 }));
+    expect(walked()).toBe(false);
+
+    // A real change to the order does rebuild it.
+    act(() => handle.current!.table.setSorting([{ desc: true, id: "name" }]));
+    expect(handle.current!.table.getPrePaginatedRowModel().rows).not.toBe(rows);
   });
 });

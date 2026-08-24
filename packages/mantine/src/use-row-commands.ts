@@ -110,6 +110,10 @@ export function useRowCommands<TData extends RowData>(
     const canExpand = (row: Row<any>): boolean => options.getRowCanExpand?.(row as never) ?? ((options.enableExpanding ?? true) && row.subRows.length > 0);
     const rowModelRows = table.getRowModel().rowsById as Record<string, Row<any>>;
 
+    // Every read here is an identity check on a memoized answer, so a commit costs O(1). The
+    // display order in particular is memoized upstream on the three things that move it — the
+    // pre-paginated rows, `paginateExpandedRows`, and `expanded` in the mode that interleaves
+    // descendants — so an unrelated state tick never walks the rows (a guardrail test pins it).
     snapshot.current = {
       displayOrder: table.getRowsInDisplayOrder() as Array<Row<any>>,
       expandableRowIds: () => Object.values(rowModelRows).filter(row => canExpand(row)).map(row => row.id),
