@@ -40,10 +40,12 @@ interface ResizeSession {
   startX: number;
   rtl: boolean;
   /**
-   * Whether the handle for this column is still on screen. Asked of the document rather than of a
-   * captured node — the node is replaced whenever the header re-renders, which a live drag does on
-   * every move — and it is the only signal a window-level pointer stream gets that a real render
-   * has taken its column away.
+   * Whether the handle for this column is still on screen, in *this* table. Asked of the table's
+   * own root rather than of a captured handle — that node is replaced whenever the header
+   * re-renders, which a live drag does on every move — and scoped to that root rather than to the
+   * document, because two tables on a page routinely share a column id and a `name` handle in the
+   * other one says nothing about this drag. It is the only signal a window-level pointer stream
+   * gets that a real render has taken its column away.
    */
   onScreen: () => boolean;
   cleanup: () => void;
@@ -80,8 +82,11 @@ export function useColumnResize(
         // Captured now: React clears `currentTarget` once the dispatch returns, and the handlers
         // below outlive it.
         const handle = event.currentTarget;
-        const { ownerDocument } = handle;
         const rtl = getComputedStyle(handle).direction === "rtl";
+        // The table this handle belongs to. `.ledger-main` is structural — it is there for as long
+        // as the table is — so it survives the header re-rendering under the drag, while the
+        // handle itself does not.
+        const root = handle.closest(".ledger-main");
         const handleSelector = `.ledger-header [data-ledger-column-id="${CSS.escape(columnId)}"] [data-ledger-resizer]`;
 
         const endSession = (restore: boolean) => {
@@ -142,7 +147,7 @@ export function useColumnResize(
         session.current = {
           startX: event.clientX,
           rtl,
-          onScreen: () => ownerDocument.querySelector(handleSelector) !== null,
+          onScreen: () => root !== null && root.isConnected && root.querySelector(handleSelector) !== null,
           cleanup: () => {
             removeEventListener("pointermove", onPointerMove);
             removeEventListener("pointerup", onPointerUp);

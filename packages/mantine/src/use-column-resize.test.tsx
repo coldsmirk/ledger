@@ -393,6 +393,116 @@ describe("useColumnResize", () => {
     expect(onColumnSizingChange).not.toHaveBeenCalled();
   });
 
+  it("stops a drag when its own table loses the column, whatever another table shows", () => {
+    const onColumnSizingChange = vi.fn();
+    const withoutName: Array<ColumnDef<Person, any>> = [{ accessorKey: "age", header: "Age" }];
+
+    function Harness() {
+      const [defs, setDefs] = useState(() => columns);
+
+      return (
+        <>
+          <div data-testid="first">
+            <DataTable
+              enableColumnResizing
+              columns={defs}
+              data={people}
+              getRowId={person => person.id}
+              onColumnSizingChange={onColumnSizingChange}
+            />
+          </div>
+
+          {/* A second table on the same page, with a column of the same id. Ids are the
+              application's, and nothing makes them unique across tables. */}
+          <DataTable
+            enableColumnResizing
+            columns={columns}
+            data={people}
+            getRowId={person => person.id}
+            onColumnSizingChange={vi.fn()}
+          />
+
+          <button type="button" onClick={() => setDefs(withoutName)}>
+            drop
+          </button>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    const first = screen.getByTestId("first").querySelector(":scope .ledger-header .ledger-resizer") as Element;
+    fireEvent.pointerDown(first, { button: 0, clientX: 300 });
+    fireEvent.pointerMove(document, { clientX: 320 });
+    expect(onColumnSizingChange).toHaveBeenLastCalledWith({ name: 140 });
+
+    // The first table loses the column. The second still has one called `name`, and it has
+    // nothing to do with this drag.
+    fireEvent.click(screen.getByRole("button", { name: "drop" }));
+    onColumnSizingChange.mockClear();
+
+    fireEvent.pointerMove(document, { clientX: 500 });
+    expect(onColumnSizingChange).not.toHaveBeenCalled();
+  });
+
+  it("autosizes to the constraints of the render on screen", () => {
+    const onColumnSizingChange = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+    const capped: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        size: 120,
+        minSize: 60,
+        maxSize: 130
+      },
+      { accessorKey: "age", header: "Age" }
+    ];
+
+    function Harness() {
+      const [defs, setDefs] = useState(() => columns);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            enableColumnResizing
+            columns={defs}
+            data={people}
+            getRowId={person => person.id}
+            onColumnSizingChange={onColumnSizingChange}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setDefs(capped);
+              setBlocked(true);
+            })}
+          >
+            cap
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} promise={blocker.promise} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: "cap" }));
+
+    for (const cell of document.querySelectorAll<HTMLElement>(".ledger-tbody td[data-ledger-column-id=\"name\"]")) {
+      Object.defineProperty(cell, "scrollWidth", { configurable: true, value: 252 });
+    }
+
+    // A maxSize nobody ever saw may not decide how wide the fit is allowed to be.
+    fireEvent.doubleClick(resizer());
+
+    expect(onColumnSizingChange).toHaveBeenLastCalledWith({ name: 260 });
+  });
+
   it("restores the pre-drag width on Escape", () => {
     const { onColumnSizingChange, resizer } = renderResizable();
 
