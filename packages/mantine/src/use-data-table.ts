@@ -446,8 +446,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
   /**
    * Records a write that went through, so the next commit departs from it rather than from data
-   * that has not caught up. The entry is retired by the effect below the moment the data moves —
-   * see `previousRowValue`.
+   * that has not caught up. The entry is retired by `reconcileRowEligibility` the moment the data
+   * moves — see `previousRowValue`.
    */
   const recordRowCommit = (rowId: string, values: Record<string, unknown>, sources: Map<string, unknown>) => {
     if (rowDrafts.current.rowId !== rowId) {
