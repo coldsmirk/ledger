@@ -256,9 +256,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   // leaves behind — a write still out, its failure, the value the application now holds —
   // outlives the control just as a session outlives its editor (docs/architecture.md).
   const checkboxSession = useCheckboxEditing<TData>({
-    enableEditing,
-    onEditCommit,
-    tableRef
+    committed,
+    onEditCommit
   });
 
   /* ---- row editing controller (editMode: "row", docs/editing.md#row-mode) ---- */

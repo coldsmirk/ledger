@@ -4,7 +4,7 @@ import type { ColumnDef } from "./types";
 
 import { MantineProvider } from "@mantine/core";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { StrictMode, useState } from "react";
+import { startTransition, StrictMode, Suspense, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
@@ -321,6 +321,115 @@ describe("checkbox transient editing", () => {
     });
 
     expect(box("Edit Archived", 1).disabled).toBe(false);
+  });
+
+  it("does not let a render nobody saw shut the gate on the checkbox on screen", () => {
+    const onEditCommit = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [editingEnabled, setEditingEnabled] = useState(true);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={columns}
+            data={items}
+            enableEditing={editingEnabled}
+            getRowId={getRowId}
+            onEditCommit={onEditCommit}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setEditingEnabled(false);
+              setBlocked(true);
+            })}
+          >
+            shut
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    // The transition renders the table with editing switched off and is then thrown away. The
+    // checkbox is still on screen, and still a live control.
+    fireEvent.click(screen.getByRole("button", { name: "shut" }));
+    expect(box("Edit On sale")).toBeTruthy();
+
+    fireEvent.click(box("Edit On sale"));
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles against the row on screen, not one a discarded render replaced", () => {
+    const commits: Array<{ previousValue: unknown; value: unknown }> = [];
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [rows, setRows] = useState(items);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={columns}
+            data={rows}
+            getRowId={getRowId}
+            onEditCommit={change => {
+              commits.push({ previousValue: change.previousValue, value: change.value });
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setRows([{ ...(items[0] as Item), onSale: false }, items[1] as Item]);
+              setBlocked(true);
+            })}
+          >
+            swap
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    // The transition renders the row already off sale and is then thrown away. The checkbox on
+    // screen is still checked, so toggling it means switching it off.
+    fireEvent.click(screen.getByRole("button", { name: "swap" }));
+    expect(box("Edit On sale").checked).toBe(true);
+
+    fireEvent.click(box("Edit On sale"));
+    expect(commits).toEqual([{ previousValue: true, value: false }]);
   });
 
   it("does not send a toggle the gate shut on since the last render", () => {

@@ -189,7 +189,7 @@ function CheckboxCell({ cell }: { cell: Cell<any, unknown> }) {
         checked={checked}
         disabled={pending}
         type="checkbox"
-        onChange={() => checkbox.toggle(cell)}
+        onChange={() => checkbox.toggle(rowId, columnId)}
         onClick={event => event.stopPropagation()}
         onDoubleClick={event => event.stopPropagation()}
       />

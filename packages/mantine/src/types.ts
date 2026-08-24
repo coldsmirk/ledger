@@ -524,8 +524,10 @@ export interface LedgerCheckboxEditingController {
   error: (rowId: string, columnId: string) => string | null;
   /**
    * Toggles and commits in one act, against what the application last knew the cell to hold.
+   * Addressed, not handed a `Cell`: the cell would carry the shared core with it, and everything
+   * this decides with comes from the render that reached the screen.
    */
-  toggle: (cell: Cell<any, unknown>) => void;
+  toggle: (rowId: string, columnId: string) => void;
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
 }
 

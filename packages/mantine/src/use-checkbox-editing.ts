@@ -1,7 +1,7 @@
 import type { RowData } from "@tanstack/react-table";
-import type { RefObject } from "react";
 
-import type { Cell, DataTableEditCommit, LedgerCellEditor, Row, TableInstance } from "./types";
+import type { DataTableEditCommit, LedgerCellEditor } from "./types";
+import type { CommittedTable } from "./use-committed-table";
 
 /**
  * The checkbox variant's transient edits (docs/editing.md). A checkbox never enters edit mode —
@@ -18,12 +18,15 @@ import type { Cell, DataTableEditCommit, LedgerCellEditor, Row, TableInstance } 
  */
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { canEditCell, editErrorMessage, normalizeEdit } from "./edit-meta";
+import { editErrorMessage, normalizeEdit } from "./edit-meta";
 import { isPromiseLike, useEventCallback } from "./utils";
 
 export interface UseCheckboxEditingInput<TData extends RowData> {
-  enableEditing: boolean;
-  tableRef: RefObject<TableInstance<TData> | null>;
+  /**
+   * Rows, definitions and the gate as the render that reached the screen left them — never the
+   * cell's own table, which is the shared core (see `use-committed-table.ts`).
+   */
+  committed: CommittedTable;
   onEditCommit: ((change: DataTableEditCommit<TData>) => void | Promise<void>) | undefined;
 }
 
@@ -35,7 +38,7 @@ export interface CheckboxEditingSession {
   checked: (rowId: string, columnId: string, source: unknown) => boolean;
   pending: (rowId: string, columnId: string) => boolean;
   error: (rowId: string, columnId: string) => string | null;
-  toggle: (cell: Cell<any, unknown>) => void;
+  toggle: (rowId: string, columnId: string) => void;
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
 }
 
@@ -100,8 +103,7 @@ function effectiveValue(target: CheckboxTarget | undefined, source: unknown): bo
 }
 
 export function useCheckboxEditing<TData extends RowData>({
-  enableEditing,
-  tableRef,
+  committed,
   onEditCommit
 }: UseCheckboxEditingInput<TData>): CheckboxEditingSession {
   const targets = useRef<TargetStore>(new Map());
@@ -150,22 +152,6 @@ export function useCheckboxEditing<TData extends RowData>({
     }
   };
 
-  const cellFor = (rowId: string, columnId: string): Cell<any, unknown> | null => {
-    const tableInstance = tableRef.current;
-
-    if (!tableInstance) {
-      return null;
-    }
-
-    try {
-      const erasedRow = tableInstance.getRow(rowId, true) as Row<any>;
-
-      return erasedRow.getAllCells().find(candidate => candidate.column.id === columnId) ?? null;
-    } catch {
-      return null;
-    }
-  };
-
   const settle = (rowId: string, columnId: string, token: number, message: string | null) => {
     const target = findTarget(targets.current, rowId, columnId);
     const request = target?.request;
@@ -192,9 +178,12 @@ export function useCheckboxEditing<TData extends RowData>({
     dropIfEmpty(rowId, columnId, target);
   };
 
-  const toggle = useEventCallback((cell: Cell<any, unknown>) => {
-    const rowId = cell.row.id;
-    const columnId = cell.column.id;
+  const toggle = useEventCallback((rowId: string, columnId: string) => {
+    const row = committed.row(rowId);
+
+    if (!row) {
+      return;
+    }
 
     // Eligibility is re-read here, not trusted from the render that put this control on screen:
     // `edit.enabled` is application code, and nothing makes it answer the same way twice, so a
@@ -203,7 +192,7 @@ export function useCheckboxEditing<TData extends RowData>({
     // one path that skipped the check would write through a gate the application had closed, and
     // unvalidated besides, since a closed gate is what `validate` no longer guards. Asked before
     // anything is opened, so that a click which does not pass leaves nothing behind at all.
-    if (!canEditCell(cell, cell.row)) {
+    if (!committed.canEdit(rowId, columnId)) {
       const shut = findTarget(targets.current, rowId, columnId);
 
       if (shut) {
@@ -226,7 +215,7 @@ export function useCheckboxEditing<TData extends RowData>({
       return;
     }
 
-    const source = cell.getValue();
+    const source = committed.value(rowId, columnId);
     // What the application last knew, which after a write it has not fed back is that write —
     // not the data, which would ask it to make the same change twice.
     const previousValue = effectiveValue(target, source);
@@ -234,11 +223,11 @@ export function useCheckboxEditing<TData extends RowData>({
 
     target.error = null;
 
-    const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
+    const normalized = normalizeEdit(committed.edit(columnId));
 
     try {
       if (normalized?.kind === "variant" && normalized.config.validate) {
-        const validationError = normalized.config.validate(value, cell.row);
+        const validationError = normalized.config.validate(value, row);
 
         if (validationError !== null) {
           target.error = validationError;
@@ -258,9 +247,9 @@ export function useCheckboxEditing<TData extends RowData>({
 
     try {
       result = onEditCommit?.({
-        column: cell.column,
+        column: committed.column(columnId),
         previousValue,
-        row: cell.row,
+        row,
         value
       } as DataTableEditCommit<TData>);
     } catch (error) {
@@ -308,11 +297,11 @@ export function useCheckboxEditing<TData extends RowData>({
     // defined to tolerate — an entry removed before it is reached is simply not visited.
     for (const [rowId, columns] of targets.current) {
       for (const [columnId, target] of columns) {
-        const cell = cellFor(rowId, columnId);
+        const row = committed.row(rowId);
         let touched = false;
 
-        if (cell) {
-          const source = cell.getValue();
+        if (row) {
+          const source = committed.value(rowId, columnId);
 
           if (target.written && !Object.is(target.written.source, source)) {
             target.written = null;
@@ -326,10 +315,10 @@ export function useCheckboxEditing<TData extends RowData>({
           }
         }
 
-        // A cell the table does not hold is a row that has not arrived, or one the data no longer
-        // holds. Neither is an application shutting a gate; the table-level switch is one either
-        // way, and is answered without needing the cell at all.
-        const eligible = enableEditing && (cell === null || canEditCell(cell, cell.row));
+        // A row the table does not hold has not arrived, or the data no longer holds it. Neither
+        // is an application shutting a gate; the table-level switch is one either way, and is
+        // answered without needing the row at all.
+        const eligible = committed.enableEditing() && (row === null || committed.canEdit(rowId, columnId));
 
         if (!eligible) {
           touched = loseGate(target) || touched;
