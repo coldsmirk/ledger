@@ -63,6 +63,37 @@ function gatedNameColumn(enabled: boolean): Array<ColumnDef<Person, any>> {
   ];
 }
 
+/**
+ * A controlled cell whose owner ignores the close, over one row whose name the test moves.
+ */
+function namedPerson(name: string): Person[] {
+  return [
+    {
+      active: true,
+      id: "1",
+      name
+    },
+    people[1] as Person
+  ];
+}
+
+function fixedCellView(rows: Person[]) {
+  return (
+    <StrictMode>
+      <MantineProvider>
+        <DataTable
+          columns={nameColumn()}
+          data={rows}
+          editingCell={{ columnId: "name", rowId: "1" }}
+          getRowId={getRowId}
+          onEditCommit={vi.fn()}
+          onEditingCellChange={vi.fn()}
+        />
+      </MantineProvider>
+    </StrictMode>
+  );
+}
+
 describe("inline editing", () => {
   it("enters on double-click, commits on Enter with value and previousValue", () => {
     const onEditCommit = vi.fn();
@@ -597,6 +628,23 @@ describe("inline editing", () => {
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
 
     expect(committed[1]).toEqual({ previousValue: "FIRST", value: "Second" });
+  });
+
+  it("does not bring a written value back when the data returns to what it departed from", () => {
+    const { rerender } = render(fixedCellView(namedPerson("Carol")));
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    // The write lands in the data...
+    rerender(fixedCellView(namedPerson("First")));
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("First");
+
+    // ...and is then reverted by somebody else. That is the data's own value now, not ours
+    // resurfacing because it happens to match what the write departed from.
+    rerender(fixedCellView(namedPerson("Carol")));
+
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Carol");
   });
 
   it("a validation message blocks the commit and stays in editing", () => {
