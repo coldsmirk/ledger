@@ -501,10 +501,10 @@ export function useCellEditing<TData extends RowData>({
       return;
     }
 
-    // The table switch is answered first, and without a row: a session whose row has not arrived
-    // still loses its gate when editing is switched off, and must not be found waiting when it is
-    // switched back on.
-    if (committed.enableEditing()) {
+    // The table-level gate is answered first, and without a row: a session whose row has not
+    // arrived still loses its gate when editing is switched off or the mode's commit handler is
+    // taken away, and must not be found waiting when either comes back.
+    if (committed.tableGate()) {
       if (committed.row(rowId) === null) {
         // The row is not in the table: a target that has not arrived, or one the data no longer
         // holds. Neither is an application closing a gate, so the session waits for it.

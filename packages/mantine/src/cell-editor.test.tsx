@@ -1695,6 +1695,49 @@ describe("inline editing", () => {
     expect(validated).toEqual(["Drafted"]);
   });
 
+  it("ends a session whose commit handler went away while its row was absent", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditingCellChange = vi.fn();
+    const view = (rows: Person[], withHandler: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={customNameColumn}
+            data={rows}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            getRowId={getRowId}
+            handleRef={handle}
+            onEditCommit={withHandler ? vi.fn() : undefined}
+            onEditingCellChange={onEditingCellChange}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(people, true));
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    onEditingCellChange.mockClear();
+
+    // The row leaves and the handler goes with it. A row that is not there is a row that has not
+    // arrived — but a handler that is not there is the application closing the gate, and the two
+    // must not be confused just because they happened together.
+    rerender(view([], false));
+    expect(onEditingCellChange.mock.calls).toEqual([[null]]);
+
+    // The handler comes back while the row is still away, then the row comes back. Neither is a
+    // session resuming: the gate shut, and the loss latches.
+    rerender(view([], true));
+    rerender(view(people, true));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    // Only an explicit start opens the next one, with nothing the old one held.
+    act(() => handle.current?.startEditing("1", "name"));
+
+    const input = await screen.findByRole("textbox");
+    expect((input as HTMLInputElement).value).toBe("Carol");
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

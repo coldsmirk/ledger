@@ -57,7 +57,13 @@ export interface CommittedTable {
    */
   columnIds: () => string[];
   canEdit: (rowId: string, columnId: string) => boolean;
-  enableEditing: () => boolean;
+  /**
+   * Whether editing is possible at all: the table switch is on *and* the live mode has a handler
+   * to send an edit to. Both are table-level facts, so this is answered without a row — which is
+   * what lets a session whose row has not arrived still lose its gate, and keeps "the row is not
+   * here" apart from "the application closed the gate" when they happen together.
+   */
+  tableGate: () => boolean;
   /**
    * The committed TanStack column, for the payload handed to the application.
    */
@@ -118,7 +124,7 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
   const has = useCallback((columnId: string) => snapshot.current.columns.has(columnId), []);
   const columnIds = useCallback(() => snapshot.current.columnIds, []);
   const edit = useCallback((columnId: string) => snapshot.current.columns.get(columnId)?.columnDef.meta?.edit, []);
-  const enableEditingNow = useCallback(() => snapshot.current.enableEditing, []);
+  const tableGate = useCallback(() => snapshot.current.enableEditing && snapshot.current.hasCommitHandler, []);
 
   const value = useCallback((rowId: string, columnId: string) => {
     const found = snapshot.current.rows[rowId] ?? snapshot.current.coreRows[rowId] ?? null;
@@ -150,13 +156,13 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
         column,
         columnIds,
         edit,
-        enableEditing: enableEditingNow,
         has,
         row,
+        tableGate,
         value
       };
     },
-    [canEdit, column, columnIds, edit, enableEditingNow, has, row, value]
+    [canEdit, column, columnIds, edit, has, row, tableGate, value]
   );
 
   return [committed, capture] as const;

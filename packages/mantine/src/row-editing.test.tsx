@@ -2161,6 +2161,48 @@ describe("row editing mode", () => {
     await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
   });
 
+  it("ends a row session whose commit handler went away while its row was absent", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditingRowIdChange = vi.fn();
+    const view = (rows: Person[], withHandler: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={rows}
+            editingRowId="1"
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={onEditingRowIdChange}
+            onRowEditCommit={withHandler ? vi.fn() : undefined}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(people, true));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    onEditingRowIdChange.mockClear();
+
+    // The row leaves and the handler goes with it. A row that is not there is a row that has not
+    // arrived; a handler that is not there is the application closing the gate.
+    rerender(view([], false));
+    expect(onEditingRowIdChange.mock.calls).toEqual([[null]]);
+
+    // Neither the handler coming back nor the row coming back resumes it.
+    rerender(view([], true));
+    rerender(view(people, true));
+    expect(editorInputs()).toHaveLength(0);
+
+    act(() => handle.current?.startEditing("1"));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    expect((editorInputs()[0] as HTMLInputElement).value).toBe("Carol");
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

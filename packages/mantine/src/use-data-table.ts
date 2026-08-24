@@ -627,10 +627,11 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return false;
     }
 
-    // The table switch is answered before the row is even looked for. A session opened on a row
-    // whose data has not arrived would otherwise survive the switch closing, and a switch that
-    // reopened before the data landed would find the old session waiting.
-    if (!committed.enableEditing()) {
+    // The table-level gate — the switch and the mode's commit handler — is answered before the row
+    // is even looked for. A session opened on a row whose data has not arrived would otherwise
+    // survive it closing, and one that reopened before the data landed would find the old session
+    // waiting.
+    if (!committed.tableGate()) {
       markRowGateLost();
     }
 

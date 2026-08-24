@@ -316,9 +316,9 @@ export function useCheckboxEditing<TData extends RowData>({
         }
 
         // A row the table does not hold has not arrived, or the data no longer holds it. Neither
-        // is an application shutting a gate; the table-level switch is one either way, and is
-        // answered without needing the row at all.
-        const eligible = committed.enableEditing() && (row === null || committed.canEdit(rowId, columnId));
+        // is an application shutting a gate; the table-level one — the switch and the mode's
+        // commit handler — is, either way, and is answered without needing the row at all.
+        const eligible = committed.tableGate() && (row === null || committed.canEdit(rowId, columnId));
 
         if (!eligible) {
           touched = loseGate(target) || touched;
