@@ -415,7 +415,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   };
 
   /**
-   * Throws the whole pending edit away — what cancelling means.
+   * Throws the whole pending edit away — what cancelling means. The mounted editors are put back
+   * alongside the store because the row can stay on screen: a controlled application may decline
+   * to close it, and an editor still showing a value the store no longer holds is one nothing
+   * would commit.
    */
   const discardRowEdits = (rowId: string | null) => {
     if (rowDrafts.current.rowId !== rowId) {
@@ -423,6 +426,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     rowDrafts.current.values.clear();
+
+    for (const editor of rowEditors.current.values()) {
+      editor.reset();
+    }
   };
 
   /**

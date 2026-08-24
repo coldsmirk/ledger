@@ -385,6 +385,11 @@ export interface LedgerRowEditor {
   focus: () => void;
   setError: (error: string | null) => void;
   setPending: (pending: boolean) => void;
+  /**
+   * Discards the editor's own copy of the draft and shows the row's value again — what a
+   * cancelled row has to look like when the application declines to close it.
+   */
+  reset: () => void;
 }
 
 export interface LedgerRowEditingController {

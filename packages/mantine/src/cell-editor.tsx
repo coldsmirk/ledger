@@ -413,6 +413,16 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
     rowApi?.drafts.set(rowId, columnId, value);
   });
 
+  /**
+   * The controller calls this when the row's pending edit is thrown away. An event callback, not
+   * a closure captured at registration: the cell it reads the value from is a fresh object every
+   * render.
+   */
+  const resetDraft = useEventCallback(() => {
+    setDraftState(cell.getValue());
+    setEditError(null);
+  });
+
   useEffect(() => {
     mountedRef.current = true;
 
@@ -429,7 +439,8 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
         if (mountedRef.current) {
           setPending(value);
         }
-      }
+      },
+      reset: resetDraft
     });
 
     return () => {

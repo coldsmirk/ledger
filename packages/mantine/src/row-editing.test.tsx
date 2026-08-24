@@ -611,6 +611,39 @@ describe("row editing mode", () => {
     expect(committed).toEqual([{ name: "First" }, { name: "Second" }]);
   });
 
+  it("puts the editors back when the application declines to close a cancelled row", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editingRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onEditingRowIdChange={vi.fn()}
+        onRowEditCommit={onRowEditCommit}
+      />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    const nameInput = editorInputs()[0] as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: "Drafted" } });
+    expect((editorInputs()[0] as HTMLInputElement).value).toBe("Drafted");
+
+    fireEvent.keyDown(nameInput, { key: "Escape" });
+
+    // The cancel discarded the pending values and the controller kept the row, so what the row
+    // shows has to be the row again — not a value nothing would commit.
+    expect((editorInputs()[0] as HTMLInputElement).value).toBe("Carol");
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(onRowEditCommit).not.toHaveBeenCalled();
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();
