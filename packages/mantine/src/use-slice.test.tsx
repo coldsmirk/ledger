@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { SliceSetter } from "./use-slice";
 
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
-import { startTransition, StrictMode, Suspense, useEffect, useState } from "react";
+import { startTransition, StrictMode, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useSlice } from "./use-slice";
@@ -22,6 +22,25 @@ const actEnvironmentFlag = (): unknown => Reflect.get(globalThis, ACT_ENVIRONMEN
 
 function setActEnvironmentFlag(enabled: unknown) {
   Reflect.set(globalThis, ACT_ENVIRONMENT, enabled);
+}
+
+/**
+ * Sets the slice from a layout effect of the very commit that answered the last request — the
+ * narrow window where the request has been answered but nothing has run to notice.
+ */
+function Bump({ armed, set }: { armed: boolean; set: SliceSetter<number> }) {
+  const fired = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!armed || fired.current) {
+      return;
+    }
+
+    fired.current = true;
+    set(previous => previous + 1);
+  });
+
+  return null;
 }
 
 function Slice({ value, onChange }: { value: number; onChange: (next: number) => void }) {
@@ -217,6 +236,48 @@ describe("useSlice", () => {
     // building on a request the owner turned down.
     expect(onChange.mock.calls.map(call => call[0])).toEqual([6, 6]);
     expect(screen.getByTestId("value").textContent).toBe("5");
+  });
+
+  it("resolves against a controlled value the owner normalized, not the one it was asked for", () => {
+    const onChange = vi.fn();
+
+    function Normalizing() {
+      const [value, setValue] = useState(5);
+      const [armed, setArmed] = useState(false);
+      const [current, set] = useSlice<number>({
+        value,
+        defaultValue: undefined,
+        onChange: next => {
+          onChange(next);
+          // The owner is the authority on a controlled slice, and it does not have to agree: it
+          // snaps what it was asked for to a value of its own, synchronously.
+          setValue(10);
+          setArmed(true);
+        },
+        fallback: 0
+      });
+
+      return (
+        <>
+          <span data-testid="value">{String(current)}</span>
+
+          <button type="button" onClick={() => set(previous => previous + 1)}>
+            increment
+          </button>
+
+          <Bump armed={armed} set={set} />
+        </>
+      );
+    }
+
+    render(<Normalizing />, { wrapper });
+
+    fireEvent.click(screen.getByRole("button", { name: "increment" }));
+
+    // 5 + 1 asked for, 10 answered — and the second updater departs from the answer. Departing
+    // from 6 would build on a number the owner has already overruled and nobody ever saw.
+    expect(screen.getByTestId("value").textContent).toBe("10");
+    expect(onChange.mock.calls.map(call => call[0])).toEqual([6, 11]);
   });
 
   it("keeps an uncontrolled base alive across a transition that has not committed", async () => {

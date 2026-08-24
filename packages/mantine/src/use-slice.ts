@@ -60,15 +60,30 @@ export function useSlice<T>({
   const requestedRef = useRef<{ value: T; controlled: boolean } | null>(null);
 
   useInsertionEffect(() => {
+    const previous = committedRef.current;
     committedRef.current = current;
 
-    // Only a commit that actually carries the value ends the request. React renders lanes it has
-    // not been asked to flush yet — an urgent update commits without the transition queued behind
-    // it — and an update still sitting in that queue is one React will apply, so it goes on
-    // counting until it does. A slice that has changed hands drops it either way: what the last
-    // owner asked for is nothing the new one agreed to.
-    if (requestedRef.current
-      && (requestedRef.current.controlled !== controlled || Object.is(current, requestedRef.current.value))) {
+    // What ends a request depends on who owns the state, because only one of them can answer one.
+    //
+    // Controlled: the owner is the authority, and `value` moving *is* it answering — to what was
+    // asked for, to a normalization of it, or to something else entirely. Any move ends the
+    // request, and the next updater departs from the answer. Only silence leaves one standing,
+    // because silence is a refusal and a deferral at once and nothing tells them apart; `set`
+    // bounds that with a microtask.
+    //
+    // Uncontrolled: the value is ours, so only a commit that actually carries it ends the
+    // request. React renders lanes it has not been asked to flush yet — an urgent update commits
+    // without the transition queued behind it — and an update still sitting in that queue is one
+    // React will apply, so it goes on counting until it does.
+    //
+    // A slice that has changed hands drops it either way: what the last owner asked for is
+    // nothing the new one agreed to.
+    const request = requestedRef.current;
+
+    if (request
+      && (request.controlled !== controlled
+        || Object.is(current, request.value)
+        || (controlled && !Object.is(current, previous)))) {
       requestedRef.current = null;
     }
 
