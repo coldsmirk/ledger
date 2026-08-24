@@ -85,6 +85,12 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const pendingCommitRef = useRef<Promise<boolean> | null>(null);
   const completedRef = useRef(false);
   const mountedRef = useRef(true);
+  /**
+   * Whether the gate closing has already been answered for this session. Only the automatic
+   * reconciliation below is idempotent — an explicit Escape or `stopEditing` is always a fresh
+   * request, because a controlled owner that ignored the last one has to be asked again.
+   */
+  const reconciledRef = useRef(false);
 
   const setValue = useEventCallback((value: unknown) => {
     draftRef.current = value;
@@ -113,6 +119,10 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
 
   const commit = useEventCallback<[], CommitResult>(() => {
     if (completedRef.current) {
+      // Nothing new to send. Still a request to leave, though: a controlled owner that ignored
+      // the first one keeps this editor on screen, and asking again is how it is closed.
+      clearIfCurrent();
+
       return true;
     }
 
@@ -216,6 +226,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
           // so on the strength of a commit whose editor was taken out from under it.
           if (!canEditCell(cell, cell.row)) {
             completedRef.current = true;
+            reconciledRef.current = true;
             clearIfCurrent();
 
             return false;
@@ -263,9 +274,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   }) as () => CommitResult;
 
   const cancel = useEventCallback(() => {
-    // Nothing to cancel while a request is out, and nothing left to cancel once this editor has
-    // settled — a second request would ask the application to close the same session twice.
-    if (pendingRef.current || completedRef.current) {
+    if (pendingRef.current) {
       return;
     }
 
@@ -287,12 +296,20 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const editable = canEditCell(cell, cell.row);
 
   useEffect(() => {
-    if (!editable) {
-      cancel();
+    if (editable) {
+      // A gate that reopens is a new eligibility, and closing it again cancels again.
+      reconciledRef.current = false;
+
+      return;
     }
+
     // `pending` is a dependency, not noise: `cancel()` refuses while a commit is in flight, so
     // an editor that lost eligibility mid-request would otherwise come back on rejection —
     // typable, under a switch that is off — and stay until the next commit attempt.
+    if (!pending && !reconciledRef.current) {
+      reconciledRef.current = true;
+      cancel();
+    }
   }, [editable, pending, cancel]);
 
   /**

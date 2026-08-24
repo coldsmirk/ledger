@@ -519,6 +519,41 @@ describe("inline editing", () => {
     expect(onEditingCellChange.mock.calls.filter(call => call[0] === null)).toHaveLength(1);
   });
 
+  it("can still be closed after a commit the controlled owner declined to act on", () => {
+    const onEditCommit = vi.fn();
+    const onEditingCellChange = vi.fn();
+
+    render(
+      <DataTable
+        columns={nameColumn()}
+        data={people}
+        editingCell={{ columnId: "name", rowId: "1" }}
+        getRowId={getRowId}
+        onEditCommit={onEditCommit}
+        onEditingCellChange={onEditingCellChange}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+
+    onEditingCellChange.mockClear();
+
+    // The owner ignored the first request, so the editor is still here. Escape is a new request
+    // to close it, not a repeat of one already answered.
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect(onEditingCellChange).toHaveBeenCalledWith(null);
+
+    onEditingCellChange.mockClear();
+
+    // And so is Enter — which has nothing new to send, so it sends nothing.
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(onEditingCellChange).toHaveBeenCalledWith(null);
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(
