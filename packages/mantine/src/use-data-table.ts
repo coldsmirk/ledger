@@ -710,6 +710,17 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
   }, []);
 
+  /**
+   * Only a row-level failure is projected onto whoever is on screen, so only that has to be
+   * redrawn when the registry changes; everything else an editor shows it already reads for
+   * itself as it renders.
+   */
+  const redrawRowLevelError = useCallback(() => {
+    if (rowPresentation.current.error?.columnId === null) {
+      redrawRowEditors();
+    }
+  }, [redrawRowEditors]);
+
   const setRowPending = (pending: boolean) => {
     rowPresentation.current.pending = pending;
     redrawRowEditors();
@@ -996,9 +1007,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
   const registerRowEditor = useCallback((columnId: string, editor: LedgerRowEditor) => {
     rowEditors.current.set(columnId, editor);
-    // Which editor shows a row-level failure depends on who is on screen, so the rest have to
-    // look again whenever that changes.
-    redrawRowEditors();
+    redrawRowLevelError();
 
     return () => {
       if (rowEditors.current.get(columnId) !== editor) {
@@ -1006,9 +1015,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       }
 
       rowEditors.current.delete(columnId);
-      redrawRowEditors();
+      redrawRowLevelError();
     };
-  }, [redrawRowEditors]);
+  }, [redrawRowLevelError]);
 
   /**
    * The store is what a row editor shows, rather than a value it copies at mount: what the row

@@ -378,10 +378,6 @@ export interface ActiveCellEditor {
 }
 
 /**
- * What a mounted row-mode editor hands the controller: enough to focus it, surface a
- * validation/commit error on it, and flag an in-flight async commit.
- */
-/**
  * What a mounted row-mode editor hands the controller. Only what is genuinely per-instance: the
  * editor holds no state of its own, so everything else it shows it reads back from the session.
  */
