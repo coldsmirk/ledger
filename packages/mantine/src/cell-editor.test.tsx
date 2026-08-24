@@ -970,6 +970,52 @@ describe("inline editing", () => {
     expect((input as HTMLInputElement).value).toBe("Carol");
   });
 
+  it("does not record a write the data moved out from under while it was in flight", async () => {
+    const inFlight = Promise.withResolvers<void>();
+    const committed: Array<{ previousValue: unknown; value: unknown }> = [];
+    const view = (rows: Person[]) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={customNameColumn}
+            data={rows}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            getRowId={getRowId}
+            onEditCommit={change => {
+              committed.push({ previousValue: change.previousValue, value: change.value });
+
+              return committed.length === 1 ? inFlight.promise : undefined;
+            }}
+            onEditingCellChange={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(namedPerson("Carol")));
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    // While the write is out, somebody else moves the row — and then moves it back. The data did
+    // move, even though where it landed is where the write departed from.
+    rerender(view(namedPerson("Caroline")));
+    rerender(view(namedPerson("Carol")));
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // So there is nothing for the write to still be true about: the data is what the cell holds.
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Carol");
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    expect(committed[1]).toEqual({ previousValue: "Carol", value: "Second" });
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

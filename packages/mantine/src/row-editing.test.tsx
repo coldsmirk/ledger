@@ -1662,6 +1662,62 @@ describe("row editing mode", () => {
     await expect(pending).resolves.toBe(false);
   });
 
+  it("does not record a row write the data moved out from under in flight", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const committed: Array<{ previousValues: Record<string, unknown>; values: Record<string, unknown> }> = [];
+    const named = (name: string): Person[] => [
+      {
+        age: 30,
+        id: "1",
+        name
+      },
+      people[1] as Person
+    ];
+
+    const view = (rows: Person[]) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={rows}
+            editingRowId="1"
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={vi.fn()}
+            onRowEditCommit={change => {
+              committed.push({ previousValues: change.previousValues, values: change.values });
+
+              return committed.length === 1 ? inFlight.promise : undefined;
+            }}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(named("Carol")));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "First" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    rerender(view(named("Caroline")));
+    rerender(view(named("Carol")));
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    await waitFor(() => expect((editorInputs()[0] as HTMLInputElement).value).toBe("Carol"));
+
+    fireEvent.change(editorInputs()[1] as HTMLInputElement, { target: { value: "31" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    expect(committed[1]?.previousValues).toEqual({ age: 30, name: "Carol" });
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

@@ -69,6 +69,12 @@ interface CellStore {
    * The automatic reconciliation has already answered this session's gate closing.
    */
   reconciled: boolean;
+  /**
+   * The write currently out, and whether the data has moved since it left. A record is only true
+   * while the data has not moved past it, and the moving can happen *during* the request —
+   * including out and back again, which comparing at settle time could never see.
+   */
+  writing: { source: unknown; moved: boolean } | null;
 }
 
 function closedStore(): CellStore {
@@ -80,6 +86,7 @@ function closedStore(): CellStore {
     reconciled: false,
     rowId: null,
     settled: false,
+    writing: null,
     written: null
   };
 }
@@ -386,6 +393,7 @@ export function useCellEditing<TData extends RowData>({
     }
 
     const session = sessionRef.current;
+    store.current.writing = { moved: false, source };
     setPending(true);
 
     // The in-flight slot is released inside the handlers rather than in a `finally`: the
@@ -402,7 +410,10 @@ export function useCellEditing<TData extends RowData>({
         // past it. What this write carried is what the next edit departs from; a value typed since
         // is one it never carried.
         const carried = !store.current.draft || Object.is(store.current.draft.value, value);
-        store.current.written = { source, value };
+        // Unless the data moved while the request was out — then what the application holds is
+        // its own, and this write has nothing left to be true about.
+        store.current.written = store.current.writing?.moved === true ? null : { source, value };
+        store.current.writing = null;
         store.current.settled = carried;
 
         if (carried) {
@@ -440,6 +451,7 @@ export function useCellEditing<TData extends RowData>({
         }
 
         pendingCommit.current = null;
+        store.current.writing = null;
         setPending(false);
         setError(editErrorMessage(error));
 
@@ -484,11 +496,18 @@ export function useCellEditing<TData extends RowData>({
         return;
       }
 
+      const source = cell.getValue();
       const record = store.current.written;
 
-      if (record && !Object.is(record.source, cell.getValue())) {
+      if (record && !Object.is(record.source, source)) {
         store.current.written = null;
         redraw();
+      }
+
+      // The same watch, for the write still out: it has no record to retire yet, so the movement
+      // has to be remembered until it does.
+      if (store.current.writing && !Object.is(store.current.writing.source, source)) {
+        store.current.writing.moved = true;
       }
 
       if (canEditCell(cell, cell.row)) {

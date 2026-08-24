@@ -268,12 +268,19 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
      * in-flight write settles is the *next* session's eligibility, not a reprieve for this one.
      */
     gateLost: boolean;
+    /**
+     * The write currently out, per column, and whether the data has moved since it left. A record
+     * is only true while the data has not moved past it, and the moving can happen *during* the
+     * request — including out and back again, which comparing at settle time could never see.
+     */
+    writing: Map<string, { source: unknown; moved: boolean }> | null;
   }>({
     rowId: null,
     values: new Map(),
     baseline: new Map(),
     committed: new Map(),
-    gateLost: false
+    gateLost: false,
+    writing: null
   });
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
   /**
@@ -372,7 +379,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       values: new Map(),
       baseline: rowId === null ? new Map() : snapshotEditableValues(rowId),
       committed: new Map(),
-      gateLost: false
+      gateLost: false,
+      writing: null
     };
     rowPresentation.current = { error: null, pending: false };
   };
@@ -426,9 +434,21 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return;
     }
 
+    const { writing } = rowDrafts.current;
+
     for (const [columnId, value] of Object.entries(values)) {
+      // A column whose data moved while the request was out has nothing for this write to still
+      // be true about: what the application holds there is its own.
+      if (writing?.get(columnId)?.moved === true) {
+        rowDrafts.current.committed.delete(columnId);
+
+        continue;
+      }
+
       rowDrafts.current.committed.set(columnId, { value, source: sources.get(columnId) });
     }
+
+    rowDrafts.current.writing = null;
   };
 
   /**
@@ -612,10 +632,19 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
     for (const cell of erasedRow.getAllCells()) {
       const columnId = cell.column.id;
+      const source = cell.getValue();
       const written = rowDrafts.current.committed.get(columnId);
 
-      if (written && !Object.is(written.source, cell.getValue())) {
+      if (written && !Object.is(written.source, source)) {
         rowDrafts.current.committed.delete(columnId);
+      }
+
+      // The same watch, for a write still out: it has no record to retire yet, so the movement
+      // has to be remembered until it does.
+      const writing = rowDrafts.current.writing?.get(columnId);
+
+      if (writing && !Object.is(writing.source, source)) {
+        writing.moved = true;
       }
 
       if (canEditCell(cell, erasedRow)) {
@@ -879,6 +908,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
     if (result && typeof result.then === "function") {
       const session = rowSessionRef.current;
+      rowDrafts.current.writing = new Map(
+        [...sources].map(([columnId, source]) => [columnId, { moved: false, source }])
+      );
       setRowPending(true);
 
       const pending = Promise.resolve(result).then(
@@ -921,6 +953,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           }
 
           rowPendingCommit.current = null;
+          rowDrafts.current.writing = null;
           setRowPending(false);
           reportRowError(rowId, null, editErrorMessage(error));
           reconcileRowEligibility();
