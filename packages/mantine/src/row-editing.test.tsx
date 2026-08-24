@@ -354,12 +354,14 @@ describe("row editing mode", () => {
     const handle = createRef<DataTableHandle<Person>>();
     const inFlight = Promise.withResolvers<void>();
     const blocker = Promise.withResolvers<void>();
+    let unblocked = false;
     const onRowEditCommit = vi.fn(() => inFlight.promise);
 
     function Blocker({ blocked }: { blocked: boolean }) {
-      if (blocked) {
+      if (blocked && !unblocked) {
         // Suspends the transition's render, so React throws that tree away and keeps the one
-        // already on screen — the row the user is still editing.
+        // already on screen — the row the user is still editing. One-shot: the retry after the
+        // release has to get through, or the test would leave React suspended for good.
         throw blocker.promise;
       }
 
@@ -423,7 +425,12 @@ describe("row editing mode", () => {
     expect(editorInputs()).toHaveLength(0);
     expect(document.querySelector("[data-pending]")).toBeNull();
 
-    blocker.resolve();
+    // Let the abandoned transition finish rather than leaving React work behind the test.
+    await act(async () => {
+      unblocked = true;
+      blocker.resolve();
+      await blocker.promise;
+    });
   });
 
   it("keeps editing the row on screen when the controller declines the switch", async () => {
