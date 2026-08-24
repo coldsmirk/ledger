@@ -98,11 +98,14 @@ function filterColumns<TData extends RowData>(
 export function useResponsiveColumns<TData extends RowData>(
   columns: Array<ColumnDef<TData, any>>
 ): Array<ColumnDef<TData, any>> {
+  // Serialized, not joined: a breakpoint is any CSS length the author writes, and the ones with
+  // commas in them are ordinary (`clamp(30em, 50vw, 60em)`). A separator inside a value would
+  // split one breakpoint into several nonsense media queries, none of which ever match.
   const breakpointsKey = useMemo(() => {
     const used = new Set<string>();
     collectBreakpoints(columns, used);
 
-    return [...used].toSorted().join(",");
+    return used.size === 0 ? "" : JSON.stringify([...used].toSorted());
   }, [columns]);
 
   const [matches, setMatches] = useState<Record<string, boolean>>({});
@@ -114,7 +117,7 @@ export function useResponsiveColumns<TData extends RowData>(
       return;
     }
 
-    const queries = breakpointsKey.split(",").map(breakpoint => {
+    const queries = (JSON.parse(breakpointsKey) as string[]).map(breakpoint => {
       const query = matchMedia(`(min-width: ${breakpointValue(breakpoint)})`);
       const apply = () => setMatches(previous => previous[breakpoint] === query.matches
         ? previous

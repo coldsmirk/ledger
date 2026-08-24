@@ -123,4 +123,38 @@ describe("useResponsiveColumns", () => {
 
     expect(result.current).toHaveLength(3);
   });
+
+  it("keeps a breakpoint value that contains commas in one piece", () => {
+    // A breakpoint is any CSS length the author writes, and clamp() carries commas.
+    const clamped = "clamp(30em, 50vw, 60em)";
+    const custom: Array<ColumnDef<Person, any>> = [
+      { accessorKey: "name", header: "Name" },
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { hiddenFrom: clamped }
+      }
+    ];
+    const queries: string[] = [];
+
+    vi.stubGlobal("matchMedia", (query: string) => {
+      queries.push(query);
+
+      return {
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(() => false)
+      };
+    });
+
+    const { result } = renderHook(() => useResponsiveColumns(custom));
+
+    expect(queries).toContain(`(min-width: ${clamped})`);
+    // One breakpoint, one query — and the column it names is hidden at and above it.
+    expect(queries.filter(query => query.includes("30em"))).toHaveLength(1);
+    expect(result.current.map(column => column.header)).toEqual(["Name"]);
+  });
 });
