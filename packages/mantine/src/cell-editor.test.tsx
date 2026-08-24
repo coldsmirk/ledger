@@ -1329,6 +1329,46 @@ describe("inline editing", () => {
     expect(onEditingCellChange.mock.calls).toEqual([[null]]);
   });
 
+  it("commits through the handler as it is now, not as the row last saw it", () => {
+    const seen: number[] = [];
+
+    function Host() {
+      const [tick, setTick] = useState(0);
+
+      return (
+        <>
+          <button type="button" onClick={() => setTick(value => value + 1)}>
+            tick
+          </button>
+
+          <DataTable
+            columns={nameColumn()}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            getRowId={getRowId}
+            onEditCommit={() => {
+              seen.push(tick);
+            }}
+            onEditingCellChange={vi.fn()}
+          />
+        </>
+      );
+    }
+
+    render(<Host />, { wrapper });
+
+    // A handler written inline is a new function on every render, and the rows deliberately do
+    // not re-render for that — the memo token reads presence, not identity. So nothing in the
+    // row may be holding the handler: the write goes through the session, whose event callbacks
+    // always reach the latest.
+    fireEvent.click(screen.getByRole("button", { name: "tick" }));
+    fireEvent.click(screen.getByRole("button", { name: "tick" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    expect(seen).toEqual([2]);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

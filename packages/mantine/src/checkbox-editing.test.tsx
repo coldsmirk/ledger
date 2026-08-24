@@ -59,6 +59,21 @@ function wrapper({ children }: { children: ReactNode }) {
 const boxes = (label: string) => screen.getAllByLabelText(label) as HTMLInputElement[];
 const box = (label: string, index = 0) => boxes(label)[index] as HTMLInputElement;
 
+function handlerView(withHandler: boolean) {
+  return (
+    <StrictMode>
+      <MantineProvider>
+        <DataTable
+          columns={columns}
+          data={items}
+          getRowId={getRowId}
+          onEditCommit={withHandler ? vi.fn() : undefined}
+        />
+      </MantineProvider>
+    </StrictMode>
+  );
+}
+
 function SwappableTable() {
   const [second, setSecond] = useState(false);
   const options = {
@@ -345,6 +360,107 @@ describe("checkbox transient editing", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(box("Edit On sale").disabled).toBe(false);
     expect(box("Edit On sale").checked).toBe(true);
+  });
+
+  it("does not re-render every row because the commit handler was written inline", () => {
+    const renders: string[] = [];
+    // A cell renderer is the only place a row's re-render is observable from outside: DataRow is
+    // memoized, and a cell only runs again when its row does.
+    const counted: Array<ColumnDef<Item, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: info => {
+          renders.push(info.row.id);
+
+          return info.getValue() as string;
+        }
+      },
+      {
+        accessorKey: "onSale",
+        header: "On sale",
+        meta: { edit: "checkbox" }
+      }
+    ];
+
+    function Host() {
+      const [tick, setTick] = useState(0);
+
+      return (
+        <>
+          <button type="button" onClick={() => setTick(value => value + 1)}>
+            tick
+          </button>
+
+          <DataTable
+            columns={counted}
+            data={items}
+            getRowId={getRowId}
+            // Written inline, the ordinary way: a new function on every render of this component.
+            onEditCommit={() => {
+              expect(tick).toBeGreaterThanOrEqual(0);
+            }}
+          />
+        </>
+      );
+    }
+
+    render(<Host />, { wrapper });
+    renders.length = 0;
+
+    fireEvent.click(screen.getByRole("button", { name: "tick" }));
+
+    // Nothing about the rows changed — only the identity of a handler whose *presence* is all
+    // they read.
+    expect(renders).toEqual([]);
+  });
+
+  it("commits through the handler as it is now, not as the row last saw it", () => {
+    const seen: number[] = [];
+
+    function Host() {
+      const [tick, setTick] = useState(0);
+
+      return (
+        <>
+          <button type="button" onClick={() => setTick(value => value + 1)}>
+            tick
+          </button>
+
+          <DataTable
+            columns={columns}
+            data={items}
+            getRowId={getRowId}
+            onEditCommit={() => {
+              seen.push(tick);
+            }}
+          />
+        </>
+      );
+    }
+
+    render(<Host />, { wrapper });
+
+    // The rows deliberately do not re-render for this, so nothing in them may be holding the
+    // handler: the write goes through the controller, which always reaches the latest one.
+    fireEvent.click(screen.getByRole("button", { name: "tick" }));
+    fireEvent.click(screen.getByRole("button", { name: "tick" }));
+    fireEvent.click(box("Edit On sale"));
+
+    expect(seen).toEqual([2]);
+  });
+
+  it("re-renders a row when the commit handler appears or disappears", () => {
+    const { rerender } = render(handlerView(true));
+    expect(boxes("Edit On sale")).toHaveLength(2);
+
+    // Presence is part of the gate: with nowhere for an edit to go the cells are read-only, and
+    // the rows have to be told.
+    rerender(handlerView(false));
+    expect(screen.queryByLabelText("Edit On sale")).toBeNull();
+
+    rerender(handlerView(true));
+    expect(boxes("Edit On sale")).toHaveLength(2);
   });
 
   it("re-registers its controls when the table they belong to is replaced", () => {

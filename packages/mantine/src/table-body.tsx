@@ -712,6 +712,14 @@ export function TableBody({
 
   const leafColumnCount = table.getVisibleLeafColumns().length;
   const totalDisplayRowCount = topDisplayRows.length + centerDisplayRows.length + bottomDisplayRows.length;
+  // Presence, never identity: what a row's cells read from the commit handlers is whether the
+  // live mode has one at all — that is the whole of their part in `canEditCell`, and the write
+  // itself goes through the controllers, whose event callbacks always reach the latest. An
+  // application that writes its handler inline (the ordinary way to write one) hands `meta` a new
+  // function on every render, and taking its identity here would put a new token on every row and
+  // leave nothing memoized at all.
+  const canCommitCell = Boolean(ledger?.onEditCommit);
+  const canCommitRow = Boolean(ledger?.onRowEditCommit);
   const renderVersion = useMemo(
     () => {
       return {
@@ -721,11 +729,11 @@ export function TableBody({
         editTrigger: ledger?.editTrigger,
         editMode: ledger?.editing.mode,
         enableEditing: ledger?.enableEditing,
-        onEditCommit: ledger?.onEditCommit,
-        onRowEditCommit: ledger?.onRowEditCommit
+        canCommitCell,
+        canCommitRow
       };
     },
-    [ledger?.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.editing.mode, ledger?.onEditCommit, ledger?.onRowEditCommit]
+    [ledger?.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.editing.mode, canCommitCell, canCommitRow]
   );
 
   if (loading && totalDisplayRowCount === 0) {
