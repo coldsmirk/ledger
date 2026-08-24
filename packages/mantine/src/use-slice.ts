@@ -61,7 +61,15 @@ export function useSlice<T>({
 
   useInsertionEffect(() => {
     committedRef.current = current;
-    requestedRef.current = null;
+
+    // Only a commit that actually carries the value ends the request. React renders lanes it has
+    // not been asked to flush yet — an urgent update commits without the transition queued behind
+    // it — and an update still sitting in that queue is one React will apply, so it goes on
+    // counting until it does.
+    if (requestedRef.current && Object.is(current, requestedRef.current.value)) {
+      requestedRef.current = null;
+    }
+
     setCurrentRef.current = setCurrent;
     onSetRef.current = onSet;
     controlledRef.current = controlled;

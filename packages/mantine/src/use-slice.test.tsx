@@ -258,4 +258,74 @@ describe("useSlice", () => {
       setActEnvironmentFlag(actEnvironment);
     }
   });
+
+  it("keeps an uncontrolled base alive across a commit that did not carry it", () => {
+    const blocker = Promise.withResolvers<void>();
+    const unblocked = false;
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked && !unblocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [current, set] = useSlice<number>({
+        value: undefined,
+        defaultValue: 0,
+        onChange: undefined,
+        fallback: 0
+      });
+      const [blocked, setBlocked] = useState(false);
+      const [tick, setTick] = useState(0);
+
+      return (
+        <>
+          <span data-testid="value">{String(current)}</span>
+          <span data-testid="tick">{String(tick)}</span>
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              set(previous => previous + 1);
+              setBlocked(true);
+            })}
+          >
+            defer
+          </button>
+
+          <button type="button" onClick={() => setTick(previous => previous + 1)}>
+            tick
+          </button>
+
+          <button type="button" onClick={() => set(previous => previous + 1)}>
+            increment
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    // The transition suspends, so its increment is queued and nothing of it reaches the screen.
+    fireEvent.click(screen.getByRole("button", { name: "defer" }));
+    expect(screen.getByTestId("value").textContent).toBe("0");
+
+    // An urgent update elsewhere commits the tree — carrying its own lane, not the one the slice
+    // increment is waiting in. That commit says nothing about the increment.
+    fireEvent.click(screen.getByRole("button", { name: "tick" }));
+    expect(screen.getByTestId("tick").textContent).toBe("1");
+    expect(screen.getByTestId("value").textContent).toBe("0");
+
+    fireEvent.click(screen.getByRole("button", { name: "increment" }));
+
+    // Two increments were asked for and React still holds both.
+    expect(screen.getByTestId("value").textContent).toBe("2");
+  });
 });
