@@ -276,6 +276,13 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   });
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
   /**
+   * Bumped whenever a row session starts or ends without the slice moving — a gate shutting under
+   * a controlled application that declines to close it, or an explicit start on the row already
+   * named. Whether an editor may be on screen is part of the render output, so a change in it has
+   * to be a change in state; a ref would leave the last render standing.
+   */
+  const [rowSessionEpoch, setRowSessionEpoch] = useState(0);
+  /**
    * What the row's editors show that is not a value: a write still out, and the reason the last
    * one failed. Session state, not editor state — an editor is unmounted by a hidden column or a
    * virtual scroll at any moment, and one that came back knowing neither would take input during
@@ -536,23 +543,65 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * was editing and none is left editable. A row the table does not hold yet has not arrived,
    * which is not the same as a row that may not be edited.
    *
-   * Returns whether it ended the row. A session that stops because the gate shut was cancelled,
-   * not finished, so nothing waiting on a commit may move on the strength of it.
    */
-  const reconcileRowEligibility = useEventCallback((): boolean => {
-    const rowId = editingRowRef.current;
-    const tableInstance = tableRef.current;
+  const markRowGateLost = () => {
+    if (rowDrafts.current.gateLost) {
+      return;
+    }
 
-    if (rowId === null || !tableInstance) {
+    rowDrafts.current.gateLost = true;
+    setRowSessionEpoch(epoch => epoch + 1);
+  };
+
+  /**
+   * Ends a session whose eligibility is gone, once nothing is still out on its behalf. Returns
+   * whether it ended the row: a session that stops because the gate shut was cancelled, not
+   * finished, so nothing waiting on a commit may move on the strength of it.
+   */
+  const endLostRowSession = (rowId: string): boolean => {
+    if (!rowDrafts.current.gateLost) {
       return false;
     }
 
+    // The write already out passed the gate before it shut; its settlement calls this again and
+    // completes the cancel. The loss is recorded either way, so a gate reopening cannot undo it.
+    if (rowPendingCommit.current) {
+      return false;
+    }
+
+    discardRowEdits(rowId);
+    finishRowEditing();
+
+    return true;
+  };
+
+  const reconcileRowEligibility = useEventCallback((): boolean => {
+    const rowId = editingRowRef.current;
+
+    if (rowId === null) {
+      return false;
+    }
+
+    // The table switch is answered before the row is even looked for. A session opened on a row
+    // whose data has not arrived would otherwise survive the switch closing, and a switch that
+    // reopened before the data landed would find the old session waiting.
+    if (!enableEditing) {
+      markRowGateLost();
+    }
+
+    const tableInstance = tableRef.current;
     let row: Row<TData> | undefined;
 
     try {
-      row = tableInstance.getRow(rowId, true);
+      row = tableInstance?.getRow(rowId, true);
     } catch {
-      return false;
+      row = undefined;
+    }
+
+    if (!row) {
+      // Not in the table: a row that has not arrived, or one the data no longer holds. Neither is
+      // a gate closing, so the session stands — but a switch that shut above still ends it.
+      return endLostRowSession(rowId);
     }
 
     const erasedRow = row as Row<any>;
@@ -583,25 +632,15 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       }
     }
 
-    if (!enableEditing || (!editable && gateShut)) {
-      rowDrafts.current.gateLost = true;
+    // What keeps a row editing: a cell it can edit now, or values it still owes a commit for a
+    // column whose *definition* left — a breakpoint crossing, which shut no gate. A gate really
+    // shutting on a column this session was editing ends it, and so does a session that never had
+    // anything to edit at all (no `meta.edit`, or no handler for the mode).
+    if (!(editable || (!gateShut && (baseline?.size ?? 0) > 0))) {
+      markRowGateLost();
     }
 
-    if (!rowDrafts.current.gateLost) {
-      return false;
-    }
-
-    // The write already out passed the gate before it shut; its settlement calls this again and
-    // completes the cancel. The loss is recorded now either way, so a gate that reopens in the
-    // meantime cannot undo it.
-    if (rowPendingCommit.current) {
-      return false;
-    }
-
-    discardRowEdits(rowId);
-    finishRowEditing();
-
-    return true;
+    return endLostRowSession(rowId);
   });
 
   /**
@@ -904,9 +943,35 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     return true;
   });
 
+  /**
+   * Focuses a mounted editor of the row being edited. A column not yet on screen — hidden, or
+   * scrolled out of the virtual window — is left to `shouldFocus` when its editor mounts.
+   */
+  const focusRowColumn = (columnId: string | undefined) => {
+    if (columnId !== undefined) {
+      rowEditors.current.get(columnId)?.focus();
+    }
+  };
+
   const startRowEditing = useEventCallback((rowId: string, startOptions?: { focusColumnId?: string }) => {
     if (editingRowRef.current === rowId) {
       rowFocusColumn.current = startOptions?.focusColumnId ?? rowFocusColumn.current;
+
+      if (rowDrafts.current.gateLost) {
+        // The session on this row is over — its gate shut, and a controlled application declined
+        // to close it. An explicit start is not that session coming back: it is the next one, so
+        // it gets a new token and a fresh baseline, and nothing the old one held survives. The
+        // slice already names this row, so no render would arrive to do it for us.
+        endRowSession();
+        openRowDrafts(rowId);
+        setRowSessionEpoch(epoch => epoch + 1);
+      }
+
+      // A live session focuses the column asked for: the editors are already mounted, and the
+      // slice is not moving, so nothing else would.
+      redrawRowEditors();
+      focusRowColumn(startOptions?.focusColumnId);
+
       return;
     }
 
@@ -953,6 +1018,23 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   });
 
   const shouldFocusRowColumn = useCallback((columnId: string) => rowFocusColumn.current === columnId, []);
+
+  /**
+   * Whether this row has a live editing session. The slice naming a row is not enough: its gate
+   * may have shut while a controlled application declined to close it, and a session whose
+   * eligibility is gone must not put an interactive editor back on screen when the gate reopens.
+   */
+  const rowSessionActive = useCallback(
+    // Asked during render, so it cannot consult the committed mirror — that still names the row
+    // this one is replacing. A row the store has not been keyed to yet is a session about to
+    // open, which is live by definition; only the one being tracked can have lost its gate.
+    //
+    // Keyed to the epoch: the answer lives in a ref, so this identity changing is what carries a
+    // session starting or ending into the render layer's memo.
+    (rowId: string) => rowDrafts.current.rowId === rowId ? !rowDrafts.current.gateLost : true,
+    // eslint-disable-next-line @eslint-react/exhaustive-deps -- the epoch is the point: see above
+    [rowSessionEpoch]
+  );
 
   const registerRowEditor = useCallback((columnId: string, editor: LedgerRowEditor) => {
     rowEditors.current.set(columnId, editor);
@@ -1073,6 +1155,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           register: cellSession.register,
           row: {
             id: editingRowId,
+            active: rowSessionActive,
             start: startRowEditing,
             stop: stopRowEditing,
             shouldFocus: shouldFocusRowColumn,
@@ -1109,6 +1192,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       startRowEditing,
       stopRowEditing,
       shouldFocusRowColumn,
+      rowSessionActive,
       rowDraftsApi,
       registerRowEditor,
       subscribeColumnFilters,

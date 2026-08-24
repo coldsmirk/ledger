@@ -276,6 +276,9 @@ function DataCell({
   const aggregated = cell.getIsAggregated() && row.getIsGrouped();
   const placeholder = cell.getIsPlaceholder();
   const editable = !editing && !grouped && !aggregated && !placeholder && canEditCell(cell, row);
+  // `rowEditing` already means a live session, not merely a slice that names the row — a gate
+  // that shut ends the session even when a controlled application declines to close it, and the
+  // row must not become interactive again if that gate reopens (docs/architecture.md).
   const rowEditorActive = rowEditing && !grouped && !aggregated && !placeholder && canEditCell(cell, row);
   const checkboxVariant = meta?.edit === "checkbox" || (typeof meta?.edit === "object" && meta.edit.variant === "checkbox");
 
@@ -825,7 +828,7 @@ export function TableBody({
         dataIndex={options.pinnedPosition ? -1 : dataIndex}
         depth={row.depth}
         editingColumnId={editingCell?.rowId === row.id ? editingCell.columnId : null}
-        editingRow={editingRowId === row.id}
+        editingRow={editingRowId === row.id && (ledger?.editing.row.active(row.id) ?? false)}
         expanded={row.getIsExpanded()}
         measureRef={options.measureRef}
         pinKey={pinKey}

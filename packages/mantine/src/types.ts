@@ -398,6 +398,12 @@ export interface LedgerRowEditor {
 export interface LedgerRowEditingController {
   id: string | null;
   /**
+   * Whether this row has a live editing session. The slice naming a row is not enough — its gate
+   * may have shut while the application declined to close it — and the render layer asks this
+   * before putting an interactive editor on screen.
+   */
+  active: (rowId: string) => boolean;
+  /**
    * Starts editing the row; an already-editing other row is committed first (commit, never
    * discard), and the start only proceeds if that commit succeeds. `focusColumnId` marks
    * which cell's editor autofocuses.

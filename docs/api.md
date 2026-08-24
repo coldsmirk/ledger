@@ -326,6 +326,7 @@ interface LedgerCellEditor {
 
 interface LedgerRowEditingController {
   id: string | null;                                       // the row being edited
+  active: (rowId: string) => boolean;                      // and its session is still live
   start: (rowId: string, options?: { focusColumnId?: string }) => void;
   stop: (options?: { commit?: boolean }) => void;           // commits or cancels the row atomically
   shouldFocus: (columnId: string) => boolean;

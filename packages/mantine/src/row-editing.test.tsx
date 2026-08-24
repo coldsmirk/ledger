@@ -1044,10 +1044,12 @@ describe("row editing mode", () => {
     fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
     act(() => handle.current?.stopEditing({ commit: true }));
 
-    // The gate shuts while the write is out. Every editor unmounts with it, so nothing is left
-    // whose state change could bring the session round again — the settlement has to do it.
+    // The gate shuts while the write is out. The row stops presenting as editing at once, and
+    // every editor unmounts with it — so nothing is left whose state change could bring the
+    // session round again, and the settlement has to end it.
     rerender(view(false));
-    expect(document.querySelector("[data-editing-row]")).toBeTruthy();
+    expect(document.querySelector("[data-editing-row]")).toBeNull();
+    expect(editorInputs()).toHaveLength(0);
 
     await act(async () => {
       inFlight.reject(new Error("nope"));
@@ -1489,6 +1491,68 @@ describe("row editing mode", () => {
 
     // Losing eligibility ended that session; reopening is the next one's eligibility.
     expect(onEditingRowIdChange).not.toHaveBeenCalledWith("2");
+  });
+
+  it("is read-only when row mode has no commit handler", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+
+    // Row mode commits through `onRowEditCommit`; without it the row has nothing to open for.
+    expect(editorInputs()).toHaveLength(0);
+    expect(document.querySelector("[data-editing-row]")).toBeNull();
+  });
+
+  it("does not revive a row whose gate shut before its data arrived", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+
+    const view = (rows: Person[], enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={rows}
+            editingRowId="1"
+            editMode="row"
+            enableEditing={enableEditing}
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    // The row is named for editing before the fetch carrying it lands.
+    const { rerender } = render(view([], true));
+    expect(editorInputs()).toHaveLength(0);
+
+    // The table switch shuts and reopens while the row is still not there. The switch is not a
+    // question about the row, so it has to be answered without one.
+    rerender(view([], false));
+    rerender(view([], true));
+
+    rerender(view(people, true));
+
+    // The session that was open when the switch shut is over. Nothing opens by itself.
+    expect(editorInputs()).toHaveLength(0);
+    expect(document.querySelector("[data-editing-row]")).toBeNull();
+
+    // An explicit start is a new session, and it works.
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
   });
 
   it("commits a draft whose column was hidden mid-edit", async () => {
