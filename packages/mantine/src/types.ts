@@ -410,9 +410,15 @@ export interface LedgerRowEditingController {
    */
   start: (rowId: string, options?: { focusColumnId?: string }) => void;
   /**
-   * Commits (default) or cancels the whole row atomically.
+   * Commits (default) or cancels the whole row atomically. Imperative: use `commit` when the
+   * answer matters.
    */
   stop: (options?: { commit?: boolean }) => void;
+  /**
+   * Commits the whole row and reports whether it went through — validation and the application's
+   * handler both. What a custom editor's `commit` returns (docs/editing.md#custom-editors).
+   */
+  commit: () => boolean | Promise<boolean>;
   /**
    * Whether this column's editor should autofocus for the current session.
    */

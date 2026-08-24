@@ -215,11 +215,10 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
           column: cell.column,
           value: draft,
           setValue,
-          // Row mode: commit/cancel operate on the whole row, matching the keyboard map.
-          commit: () => {
-            editing.row.stop({ commit: true });
-            return true;
-          },
+          // Row mode: commit/cancel operate on the whole row, matching the keyboard map. The
+          // result is the row's real one — validation across every editable column, and the
+          // application's handler — not an acknowledgement that the request was made.
+          commit: () => editing.row.commit(),
           cancel: () => editing.row.stop({ commit: false }),
           error: editError
         })

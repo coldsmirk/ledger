@@ -1555,6 +1555,113 @@ describe("row editing mode", () => {
     await waitFor(() => expect(editorInputs()).toHaveLength(2));
   });
 
+  it("focuses the column an explicit start names on the row already open", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1", "name"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+
+    // The row is already open, so nothing moves — but the handle promises to focus the column it
+    // is given, and the editor for it is right there.
+    act(() => handle.current?.startEditing("1", "age"));
+
+    expect(document.activeElement).toBe(editorInputs()[1]);
+  });
+
+  it("hands a row custom editor the commit's real result", async () => {
+    const results: Array<boolean | Promise<boolean>> = [];
+    const inFlight = Promise.withResolvers<void>();
+    const custom: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: ({
+            value,
+            setValue,
+            commit
+          }) => (
+            <>
+              <input
+                aria-label="Edit Name"
+                value={value === null || value === undefined ? "" : String(value)}
+                onChange={event => setValue(event.currentTarget.value)}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  results.push(commit());
+                }}
+              >
+                commit
+              </button>
+            </>
+          )
+        }
+      },
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: {
+          edit: {
+            validate: value => Number(value) > 0 ? null : "Age must be positive",
+            variant: "number"
+          }
+        }
+      }
+    ];
+
+    const handle = createRef<DataTableHandle<Person>>();
+
+    render(
+      <DataTable
+        columns={custom}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={() => inFlight.promise}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+
+    // Another column of the row fails its own `validate`, so the row does not commit.
+    fireEvent.change(editorInputs()[1] as HTMLInputElement, { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: "commit" }));
+
+    expect(results).toEqual([false]);
+
+    // Now it validates, and the application's write rejects.
+    fireEvent.change(editorInputs()[1] as HTMLInputElement, { target: { value: "31" } });
+    fireEvent.click(screen.getByRole("button", { name: "commit" }));
+
+    const pending = results[1];
+    expect(typeof pending).not.toBe("boolean");
+
+    await act(async () => {
+      inFlight.reject(new Error("nope"));
+      await inFlight.promise.catch(() => undefined);
+    });
+
+    await expect(pending).resolves.toBe(false);
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

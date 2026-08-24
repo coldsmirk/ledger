@@ -329,6 +329,7 @@ interface LedgerRowEditingController {
   active: (rowId: string) => boolean;                      // and its session is still live
   start: (rowId: string, options?: { focusColumnId?: string }) => void;
   stop: (options?: { commit?: boolean }) => void;           // commits or cancels the row atomically
+  commit: () => boolean | Promise<boolean>;                 // the same, with the real result
   shouldFocus: (columnId: string) => boolean;
   drafts: {
     pending: (rowId: string) => boolean;                                   // a write for the row is still out

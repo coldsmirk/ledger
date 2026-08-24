@@ -954,6 +954,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
   };
 
+  /**
+   * `commitRow` through the stable wrapper, whose type admits the undefined a missing handler
+   * would give — there is no missing handler here.
+   */
+  const commitRowResult = useCallback((): boolean | Promise<boolean> => commitRow() ?? true, [commitRow]);
+
   const startRowEditing = useEventCallback((rowId: string, startOptions?: { focusColumnId?: string }) => {
     if (editingRowRef.current === rowId) {
       rowFocusColumn.current = startOptions?.focusColumnId ?? rowFocusColumn.current;
@@ -1160,6 +1166,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
             active: rowSessionActive,
             start: startRowEditing,
             stop: stopRowEditing,
+            commit: commitRowResult,
             shouldFocus: shouldFocusRowColumn,
             drafts: rowDraftsApi,
             register: registerRowEditor
@@ -1193,6 +1200,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       editingRowId,
       startRowEditing,
       stopRowEditing,
+      commitRowResult,
       shouldFocusRowColumn,
       rowSessionActive,
       rowDraftsApi,
