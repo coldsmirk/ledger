@@ -185,7 +185,12 @@ function TextFilter<TData extends RowData>({
   // own state, in renders the table root has no part in, and the instance it would reach for
   // then is whatever pass wrote it last (context.ts).
   const { labels, subscribeColumnFilters } = useDataTableContext();
-  const filterValue = (column.getFilterValue() as string | undefined) ?? "";
+  // Only a string is this control's value. A server-mode `select`/`multi-select` that degrades
+  // here (no options to build) inherits whatever filter was already set, and a multi-select's is
+  // an array — which a TextInput would render as its comma-joined form and then write back as
+  // one string.
+  const raw = column.getFilterValue();
+  const filterValue = typeof raw === "string" ? raw : "";
   const [value, setValue] = useState(filterValue);
   const apply = useDebouncedCallback(
     (next: string) => column.setFilterValue(next === "" ? undefined : next),

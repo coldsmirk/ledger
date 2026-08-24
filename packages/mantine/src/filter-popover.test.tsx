@@ -262,4 +262,32 @@ describe("filter popover", () => {
 
     expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(3);
   });
+
+  it("degrades a server-mode multi-select to text without carrying an array into the input", async () => {
+    const multi: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { filter: "multi-select" }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={multi}
+        data={people}
+        defaultColumnFilters={[{ id: "name", value: ["Carol", "Alice"] }]}
+        filterMode="server"
+        getRowId={person => person.id}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.click(screen.getByLabelText("Filter Name"));
+    await waitFor(() => expect(document.querySelector(".ledger-filter-popover")).toBeTruthy());
+
+    const input = document.querySelector(".ledger-filter-popover input") as HTMLInputElement;
+
+    expect(input.value).toBe("");
+  });
 });
