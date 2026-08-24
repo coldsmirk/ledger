@@ -1738,6 +1738,72 @@ describe("inline editing", () => {
     expect((input as HTMLInputElement).value).toBe("Carol");
   });
 
+  it("tabs to the neighbour on screen, not one a discarded render rearranged", () => {
+    const onEditingCellChange = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+    const single: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { edit: "text" }
+      }
+    ];
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [defs, setDefs] = useState<Array<ColumnDef<Person, any>>>(() => editableColumns);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={defs}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            getRowId={getRowId}
+            onEditCommit={vi.fn()}
+            onEditingCellChange={onEditingCellChange}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setDefs(single);
+              setBlocked(true);
+            })}
+          >
+            drop
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    // The transition drops the neighbouring column and is then thrown away. Two editable columns
+    // are still on screen.
+    fireEvent.click(screen.getByRole("button", { name: "drop" }));
+    onEditingCellChange.mockClear();
+
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Tab" });
+
+    // Tab moves to the row's next editable cell — the row as the screen has it, not as a render
+    // nobody saw left it. Stopping instead would strand the user at the edge of a table that has
+    // another column right there.
+    expect(onEditingCellChange).toHaveBeenLastCalledWith({ columnId: "id", rowId: "1" });
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

@@ -24,7 +24,7 @@ import type { Cell, Column, Row, TableInstance } from "./types";
  */
 import { useCallback, useMemo, useRef } from "react";
 
-import { canEditWith } from "./edit-meta";
+import { canEditWith, normalizeEdit } from "./edit-meta";
 
 type ColumnEdit = NonNullable<Cell<any, unknown>["column"]["columnDef"]["meta"]>["edit"];
 
@@ -53,10 +53,20 @@ export interface CommittedTable {
   has: (columnId: string) => boolean;
   /**
    * Every leaf column of the committed definitions, in their own order — the order
-   * `row.getAllCells()` walks.
+   * `row.getAllCells()` walks. Hidden ones included: a column the columns panel hid still holds a
+   * draft, and still commits it (docs/editing.md).
    */
   columnIds: () => string[];
+  /**
+   * The leaf columns that render, in display order — what a keyboard move steps through.
+   */
+  visibleColumnIds: () => string[];
   canEdit: (rowId: string, columnId: string) => boolean;
+  /**
+   * The committed definition's variant is `checkbox` — which the keyboard entry points need,
+   * because what a checkbox column *is* depends on the mode (docs/editing.md).
+   */
+  isCheckbox: (columnId: string) => boolean;
   /**
    * Whether editing is possible at all: the table switch is on *and* the live mode has a handler
    * to send an edit to. Both are table-level facts, so this is answered without a row — which is
@@ -71,6 +81,7 @@ export interface CommittedTable {
 }
 
 interface Snapshot {
+  visibleColumnIds: string[];
   rows: Record<string, Row<any>>;
   coreRows: Record<string, Row<any>>;
   columns: Map<string, Column<any, unknown>>;
@@ -80,6 +91,7 @@ interface Snapshot {
 }
 
 const EMPTY: Snapshot = {
+  visibleColumnIds: [],
   columnIds: [],
   columns: new Map(),
   coreRows: {},
@@ -107,6 +119,7 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
     }
 
     snapshot.current = {
+      visibleColumnIds: table.getVisibleLeafColumns().map(column => column.id),
       columnIds,
       columns,
       // The same two models `table_getRow(id, true)` consults, in the same order, read here where
@@ -123,7 +136,13 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
   const column = useCallback((columnId: string) => snapshot.current.columns.get(columnId) ?? null, []);
   const has = useCallback((columnId: string) => snapshot.current.columns.has(columnId), []);
   const columnIds = useCallback(() => snapshot.current.columnIds, []);
+  const visibleColumnIds = useCallback(() => snapshot.current.visibleColumnIds, []);
   const edit = useCallback((columnId: string) => snapshot.current.columns.get(columnId)?.columnDef.meta?.edit, []);
+  const isCheckbox = useCallback((columnId: string) => {
+    const normalized = normalizeEdit(snapshot.current.columns.get(columnId)?.columnDef.meta?.edit);
+
+    return normalized?.kind === "variant" && normalized.config.variant === "checkbox";
+  }, []);
   const tableGate = useCallback(() => snapshot.current.enableEditing && snapshot.current.hasCommitHandler, []);
 
   const value = useCallback((rowId: string, columnId: string) => {
@@ -157,12 +176,14 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
         columnIds,
         edit,
         has,
+        isCheckbox,
         row,
         tableGate,
-        value
+        value,
+        visibleColumnIds
       };
     },
-    [canEdit, column, columnIds, edit, has, row, tableGate, value]
+    [canEdit, column, columnIds, edit, has, isCheckbox, row, tableGate, value, visibleColumnIds]
   );
 
   return [committed, capture] as const;

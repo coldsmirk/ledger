@@ -46,7 +46,7 @@ export interface EditGate {
 /**
  * The gate itself, over values the caller supplies: the switch and handler of one render, the
  * column's `meta.edit` as that render defined it, and the row it resolved. Every caller decides
- * which* render that is — the one being drawn, or the one that reached the screen — because the
+ * which render that is — the one being drawn, or the one that reached the screen — because the
  * core they would otherwise read it from carries whichever pass ran last, committed or not
  * (see `use-committed-table.ts`).
  */
@@ -79,10 +79,4 @@ export function canEditCell(cell: Cell<any, unknown>, row: Row<any>): boolean {
     enableEditing: ledger?.enableEditing ?? false,
     hasCommitHandler: Boolean(ledger && (ledger.editing.mode === "row" ? ledger.onRowEditCommit : ledger.onEditCommit))
   });
-}
-
-export function isCheckboxEdit(cell: Cell<any, unknown>): boolean {
-  const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
-
-  return normalized?.kind === "variant" && normalized.config.variant === "checkbox";
 }

@@ -50,7 +50,6 @@ import {
 import { useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 import { isInternalColumn } from "./build-columns";
-import { canEditCell, isCheckboxEdit } from "./cell-editor";
 import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
 import { mergeElementProps } from "./element-props";
@@ -1117,24 +1116,25 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         // entry point: in cell mode it commits on toggle and never hosts an editor, so there is
         // nothing for F2 to open; in row mode it is a draft-bound editor like any other, and a
         // row whose only editable column is one would otherwise never open at all.
-        // v9's `in out` generics make Cell/Row invariant in TData; the editing predicates take
-        // the erased shape, the same boundary the row-editing controller crosses.
-        const erasedRow = row as Row<any>;
+        // The gate and the variant come from the controller, which answers for the render that
+        // reached the screen — asking the row's own cells would ask the shared core, and that
+        // carries whichever pass ran last (docs/architecture.md).
         const rowMode = editing.mode === "row";
-        const target = erasedRow
+        const target = row
           .getVisibleCells()
-          .find(cell => canEditCell(cell, erasedRow) && (rowMode || !isCheckboxEdit(cell)));
+          .map(cell => cell.column.id)
+          .find(columnId => editing.eligible(row.id, columnId) && (rowMode || !editing.isCheckbox(columnId)));
 
-        if (!target) {
+        if (target === undefined) {
           break;
         }
 
         event.preventDefault();
 
         if (rowMode) {
-          editing.row.start(row.id, { focusColumnId: target.column.id });
+          editing.row.start(row.id, { focusColumnId: target });
         } else {
-          editing.start({ rowId: row.id, columnId: target.column.id });
+          editing.start({ rowId: row.id, columnId: target });
         }
 
         break;

@@ -14,6 +14,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `table-header.tsx` / `table-body.tsx` / `table-footer.tsx` | Renderers: header (sort/actions/resize/reorder), body (display rows, virtualization, pinned rows, group cells, skeletons), footer |
 | `use-cell-editing.ts` | The cell editing session: draft, write record, pending, error, commit, gate, editor registry, deferred unmount-commit |
 | `use-checkbox-editing.ts` | The checkbox variant's transient edits: per-target write record, in-flight request, error, editor registry |
+| `use-committed-table.ts` | What the last committed render resolved — rows, columns, definitions, the table-level gate — so no editing path has to ask the shared core |
 | `edit-meta.ts` | The editing gate as the predicates every path shares: `meta.edit` normalization, `canEditCell` (re-asked, never cached — it calls the application's `edit.enabled`), error messages |
 | `cell-editor.tsx` | The editor hosts — views of their session, plus the keyboard map |
 | `filter-popover.tsx` | The header's filter dropdown surface |
@@ -42,6 +43,15 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 **Option partition with compile-time exhaustiveness.** Sugar mode splits props into behavior options vs presentation by the `OPTION_KEYS` list; `AssertNever<MissingOptionKeys>` makes *forgetting to list a new `UseDataTableOptions` key* a type error at the `Set` construction site. Add an option → add it to `OPTION_KEYS` or the build fails.
 
 **One erasure boundary.** `context.ts` erases `TData` (`TableInstance<any>`) for table-wide plumbing (styles getter, labels, row handlers), and since the v9 migration the internal render layer below it is `any`-bound as well — TanStack v9's `in out` (invariant) generics make cross-instantiation unification of generic internals a fight with no type-safety payoff, so the erasure happens once at `DataTableCore` and the public surface stays strongly typed. Any new cast belongs *at that boundary*, not scattered through the tree.
+
+**Ledger never lets a render nobody saw decide anything.** TanStack v9's `useTable` calls `table_setOptions` *during render*, so the one shared core instance carries whatever pass ran last — including a pass React threw away, which is what happens whenever a transition renders and a sibling suspends. Everything the core derives follows: `getRow` and the row models, `getAllLeafColumns` and the `columnDef` on each, and `options.meta.ledger`. The wrapper `useTable` returns is safe — its `options` is that render's own object — but its *methods* delegate to the core, so reaching through one at event time reaches the last render rather than the last commit.
+
+`use-committed-table.ts` is the answer: a snapshot taken in an **insertion effect** (the commit phase, before every layout effect) of the rows, the leaf columns and their definitions, the visible order, and the table-level gate — the switch and the live mode's commit handler together. Two rules follow, and both are load-bearing:
+
+- **Event time reads the commit.** Every editing decision — the gate, `previousValue`, `validate`, which column Tab moves to, whether a row is even there — resolves from the snapshot. Values go through the *committed column's* `accessorFn` over the committed `row.original`, never `row.getValue`, which resolves its column through the core (upstream caches a row's values after the first read, so the two usually agree; depending on that is depending on having read the value already).
+- **Render time reads the render.** `canEditCell` in `table-body.tsx` reads the definitions and switches through the cell's own table, which is correct while a render is in progress — that *is* the render being drawn. The same goes for the value a host hands `drafts.read`: an editor redraws only after it has rendered, so what it holds came from a render, never from a discarded pass.
+
+What this does **not** claim: the upstream mutation is untouched, and the TanStack `row` / `column` handed to an application in a commit payload are the objects that render resolved, not reconstructions — a `Row` method the application calls itself (`row.getValue`) still goes to the core.
 
 **State reads inside the library go through `table.atoms.<slice>.get()`**, never `table.state`: `.state` exists only on the wrapper `useTable` returns, while a component hosted in a header renderer (the columns panel behind a cog) receives the core instance — atoms live on both, and they are also the correct event-time snapshot.
 

@@ -14,10 +14,10 @@ import { useLayoutEffect, useReducer, useRef } from "react";
 
 import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
-import { canEditCell, isCheckboxEdit, normalizeEdit } from "./edit-meta";
-import { isPromiseLike, useEventCallback } from "./utils";
+import { normalizeEdit } from "./edit-meta";
+import { useEventCallback } from "./utils";
 
-export { canEditCell, editErrorMessage, isCheckboxEdit, normalizeEdit } from "./edit-meta";
+export { canEditCell } from "./edit-meta";
 
 type CommitResult = boolean | Promise<boolean>;
 
@@ -76,17 +76,9 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
 
       case "Tab": {
         event.preventDefault();
-        const result = editing.commit();
-
-        if (isPromiseLike(result)) {
-          void Promise.resolve(result).then(succeeded => {
-            if (succeeded) {
-              moveToAdjacentEditableCell(cell, event.shiftKey);
-            }
-          });
-        } else if (result) {
-          moveToAdjacentEditableCell(cell, event.shiftKey);
-        }
+        // The session owns the move: where the caret goes next depends on the row as the screen
+        // has it, and this editor could only ask the shared core (docs/architecture.md).
+        editing.moveTo(event.shiftKey);
 
         break;
       }
@@ -366,35 +358,4 @@ function VariantEditor({
       return null;
     }
   }
-}
-
-/**
- * Tab / Shift+Tab: commit-and-move to the row's adjacent editable cell (docs/editing.md keyboard map).
- */
-function moveToAdjacentEditableCell(cell: Cell<any, unknown>, backwards: boolean): void {
-  const { table } = cell.getContext();
-  const editing = table.options.meta?.ledger?.editing;
-
-  if (!editing) {
-    return;
-  }
-
-  const cells = cell.row.getVisibleCells();
-  const currentIndex = cells.findIndex(candidate => candidate.id === cell.id);
-  const step = backwards ? -1 : 1;
-
-  for (let index = currentIndex + step; index >= 0 && index < cells.length; index += step) {
-    const candidate = cells[index];
-
-    if (
-      candidate
-      && canEditCell(candidate, candidate.row)
-      && !isCheckboxEdit(candidate)
-    ) {
-      editing.start({ rowId: candidate.row.id, columnId: candidate.column.id });
-      return;
-    }
-  }
-
-  editing.stop({ commit: true });
 }

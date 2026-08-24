@@ -38,6 +38,11 @@ export interface CellEditingSession {
   commit: () => boolean | Promise<boolean>;
   cancel: () => void;
   read: (rowId: string, columnId: string, source: unknown) => unknown;
+  /**
+   * Commits and moves to the row's next (or previous) editable cell — the row as the screen has
+   * it. Answered here rather than by the editor, which would have to walk the shared core.
+   */
+  moveTo: (backwards: boolean) => void;
   write: (rowId: string, columnId: string, value: unknown) => void;
   pending: (rowId: string, columnId: string) => boolean;
   error: (rowId: string, columnId: string) => string | null;
@@ -701,6 +706,9 @@ export function useCellEditing<TData extends RowData>({
   // Stable identities all the way out: this surface goes into `meta.ledger`, which the render
   // layer memoizes against — a fresh object or a fresh arrow here would re-render every cell in
   // the table on every render. Each of these reads nothing but refs.
+  // `source` comes from the caller — the cell of the render doing the drawing, which is the right
+  // one for a render and cannot be a discarded pass's: an editor redraws only after it has
+  // rendered, and that render is what resolved the value it is holding.
   const read = useCallback((rowId: string, columnId: string, source: unknown) => {
     if (!isSessionRef.current(rowId, columnId)) {
       return source;
@@ -735,6 +743,36 @@ export function useCellEditing<TData extends RowData>({
   );
   const error = useCallback((rowId: string, columnId: string) => isSessionRef.current(rowId, columnId) ? store.current.error : null, []);
 
+  /**
+   * Tab / Shift+Tab: commit-and-move to the row's adjacent editable cell (docs/editing.md keyboard
+   * map). Every candidate comes from the render that reached the screen — the visible order, the
+   * gate, and what each column's variant is — so a render nobody saw cannot decide where the
+   * caret goes, or that there is nowhere left to go.
+   */
+  const moveTo = useEventCallback((backwards: boolean) => {
+    const { rowId, columnId } = store.current;
+
+    if (rowId === null || columnId === null) {
+      return;
+    }
+
+    const order = committed.visibleColumnIds();
+    const from = order.indexOf(columnId);
+    const step = backwards ? -1 : 1;
+
+    for (let index = from + step; index >= 0 && index < order.length; index += step) {
+      const candidate = order[index];
+
+      if (candidate !== undefined && committed.canEdit(rowId, candidate) && !committed.isCheckbox(candidate)) {
+        start({ columnId: candidate, rowId });
+
+        return;
+      }
+    }
+
+    stop({ commit: true });
+  });
+
   return useMemo(
     () => {
       return {
@@ -743,6 +781,7 @@ export function useCellEditing<TData extends RowData>({
         clear,
         commit,
         error,
+        moveTo,
         pending,
         read,
         register,
@@ -751,6 +790,6 @@ export function useCellEditing<TData extends RowData>({
         write
       };
     },
-    [active, cancel, clear, commit, error, pending, read, register, start, stop, write]
+    [active, cancel, clear, commit, error, moveTo, pending, read, register, start, stop, write]
   );
 }

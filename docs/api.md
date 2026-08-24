@@ -318,7 +318,10 @@ interface LedgerEditingController {
     read: (rowId: string, columnId: string, source: unknown) => unknown;
     write: (rowId: string, columnId: string, value: unknown) => void;
   };
+  moveTo: (backwards: boolean) => void;                    // Tab / Shift+Tab: commit, then move
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
+  eligible: (rowId: string, columnId: string) => boolean;  // the gate, as the committed render left it
+  isCheckbox: (columnId: string) => boolean;               // that render's variant for a column
   checkbox: LedgerCheckboxEditingController;               // the checkbox variant's transient edits
   row: LedgerRowEditingController;                         // inert while mode is "cell"
 }
@@ -358,5 +361,7 @@ interface LedgerRowEditor {
 ```
 
 `editing.checkbox` is not a session — the checkbox variant commits on toggle, so there is nothing to open or close. What it holds is per *target* and any number can be live at once: the write still out, the failure it came back with, and the value the application now holds. It is addressed by row and column for the same reason the stores above are, and for one more: hiding the column, a breakpoint removing it, or a virtual scroll takes the control off the screen, and none of those are the write landing ([editing.md](editing.md#the-checkbox-variant)).
+
+`eligible`, `isCheckbox` and `moveTo` answer for the render that reached the screen rather than for the shared TanStack core, which v9 rewrites on every render pass — a discarded one included ([architecture.md](architecture.md#load-bearing-internals)). The keyboard entry points use them so that a transition React threw away cannot decide where the caret goes, or that a cell is read-only.
 
 The row-mode store is addressed by row and not by column alone: two rows' editors can be mounted at once while React reconciles a switch, and each must read its own pending values or none. `read`, `pending` and `error` are what an editor renders — it holds no copy of any of them, because an editor is unmounted by a hidden column or a virtual scroll at any moment while the session is not (see [architecture.md](architecture.md#load-bearing-internals)). `id` is the row that actually rendered — `start` and `stop` request a change of the controlled `editingRowId` slice, and an application may answer with a different row or with none ([editing.md](editing.md#row-mode)).

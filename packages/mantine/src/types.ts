@@ -449,7 +449,9 @@ export interface LedgerRowEditingController {
     error: (rowId: string, columnId: string) => string | null;
     /**
      * What the editor should show: the pending value if there is one, else what this session has
-     * already written, else `source` — the cell's own value.
+     * already written, else `source` — the cell's own value, supplied by the render doing the
+     * drawing. That render is the authority on what it is drawing; the event-time paths resolve
+     * their own values from the committed snapshot instead (docs/architecture.md).
      */
     read: (rowId: string, columnId: string, source: unknown) => unknown;
     write: (rowId: string, columnId: string, value: unknown) => void;
@@ -483,6 +485,12 @@ export interface LedgerEditingController {
   commit: () => boolean | Promise<boolean>;
   cancel: () => void;
   /**
+   * Commits and moves to the row's next (or previous) editable cell — Tab and Shift+Tab. The
+   * session answers it, because where the caret goes next depends on the row as the render that
+   * reached the screen had it, and an editor could only ask the shared core.
+   */
+  moveTo: (backwards: boolean) => void;
+  /**
    * The cell session's editing store, addressed by cell for the same reason row mode's is
    * addressed by row: two editors for one cell can exist at once while React reconciles a
    * remount, and a settled write must not act on the instance that replaced the one that sent it.
@@ -492,7 +500,9 @@ export interface LedgerEditingController {
     error: (rowId: string, columnId: string) => string | null;
     /**
      * What the editor should show: the pending value if there is one, else what this session has
-     * already written, else `source` — the cell's own value.
+     * already written, else `source` — the cell's own value, supplied by the render doing the
+     * drawing. That render is the authority on what it is drawing; the event-time paths resolve
+     * their own values from the committed snapshot instead (docs/architecture.md).
      */
     read: (rowId: string, columnId: string, source: unknown) => unknown;
     write: (rowId: string, columnId: string, value: unknown) => void;
@@ -501,6 +511,18 @@ export interface LedgerEditingController {
    * A mounted editor registers while it is on screen; its departure arms the unmount commit.
    */
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
+  /**
+   * The editing gate as the render that reached the screen left it — switches, handlers, column
+   * definitions and rows alike. The keyboard entry points ask this rather than the cell's own
+   * table, which is the shared core and carries whatever render pass ran last, committed or not
+   * (docs/architecture.md).
+   */
+  eligible: (rowId: string, columnId: string) => boolean;
+  /**
+   * That render's variant for a column: what a checkbox column *is* depends on the mode, so the
+   * entry points need to know before they pick a target.
+   */
+  isCheckbox: (columnId: string) => boolean;
   /**
    * The checkbox variant's transient edits. Not a session: toggling *is* the commit, so there is
    * nothing to open or close — but the write still out, the failure it came back with and the
