@@ -94,6 +94,19 @@ function fixedCellView(rows: Person[]) {
   );
 }
 
+const editableColumns: Array<ColumnDef<Person, any>> = [
+  {
+    accessorKey: "name",
+    header: "Name",
+    meta: { edit: "text" }
+  },
+  {
+    accessorKey: "id",
+    header: "Id",
+    meta: { edit: "text" }
+  }
+];
+
 const customNameColumn: Array<ColumnDef<Person, any>> = [
   {
     accessorKey: "name",
@@ -760,6 +773,89 @@ describe("inline editing", () => {
     // the value that failed is still there to fix.
     expect(await screen.findByText("Server said no")).toBeTruthy();
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("First");
+  });
+
+  it("does not un-cancel a session when the gate reopens before its write lands", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={nameColumn()}
+            data={people}
+            enableEditing={enableEditing}
+            getRowId={getRowId}
+            handleRef={handle}
+            onEditCommit={() => inFlight.promise}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+
+    // Asking for Alice's cell commits this one first and waits on the write.
+    act(() => handle.current?.startEditing("2", "name"));
+
+    // The gate shuts while the write is out, and reopens before it lands.
+    rerender(view(false));
+    rerender(view(true));
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // Losing eligibility ended that session. A gate reopening is the next session's eligibility,
+    // not a reprieve for the one that was cancelled — so nothing opens on its behalf.
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("does not let a departing cell's tick commit the one that replaced it", () => {
+    vi.useFakeTimers();
+
+    try {
+      const handle = createRef<DataTableHandle<Person>>();
+      const onEditCommit = vi.fn();
+
+      render(
+        <DataTable
+          columns={editableColumns}
+          data={people}
+          getRowId={getRowId}
+          handleRef={handle}
+          onEditCommit={onEditCommit}
+        />,
+        { wrapper }
+      );
+
+      fireEvent.doubleClick(screen.getByText("Carol"));
+      fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+
+      // Moving to Alice's cell commits Carol's and opens Alice's in the same commit, so Carol's
+      // editor departs with the slice already pointing elsewhere.
+      act(() => handle.current?.startEditing("2", "name"));
+      expect(onEditCommit).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("textbox")).toBeTruthy();
+
+      // A second switch in the same breath: now two departures are outstanding at once.
+      fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+      act(() => handle.current?.startEditing("1", "id"));
+      expect(onEditCommit).toHaveBeenCalledTimes(2);
+
+      // Both departure ticks land afterwards. Each belongs to a session that is over.
+      act(() => vi.advanceTimersByTime(1));
+
+      expect(screen.getAllByRole("textbox")).toHaveLength(1);
+      expect(onEditCommit).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a validation message blocks the commit and stays in editing", () => {

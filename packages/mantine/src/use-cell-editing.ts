@@ -108,9 +108,27 @@ export function useCellEditing<TData extends RowData>({
    */
   const renderedRef = useRef(editingCell);
   /**
-   * The armed unmount commit, and the cell whose departure armed it.
+   * The armed unmount commit, with the session and cell whose departure armed it.
    */
-  const unmountCommit = useRef<{ target: DataTableEditingCell; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const unmountCommit = useRef<{
+    session: number;
+    target: DataTableEditingCell;
+    timer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
+
+  const disarmUnmountCommit = () => {
+    const armed = unmountCommit.current;
+
+    if (armed === null) {
+      return;
+    }
+
+    unmountCommit.current = null;
+
+    if (armed.timer !== null) {
+      clearTimeout(armed.timer);
+    }
+  };
 
   const redraw = useCallback(() => {
     for (const editor of editors.current.keys()) {
@@ -199,6 +217,9 @@ export function useCellEditing<TData extends RowData>({
       return;
     }
 
+    // A departure that has not fired yet belongs to the session ending here, not to the one
+    // starting.
+    disarmUnmountCommit();
     sessionRef.current += 1;
     pendingCommit.current = null;
     pendingRef.current = false;
@@ -505,9 +526,8 @@ export function useCellEditing<TData extends RowData>({
     const target = { columnId, rowId };
     const armed = unmountCommit.current;
 
-    if (armed && armed.target.rowId === rowId && armed.target.columnId === columnId) {
-      clearTimeout(armed.timer);
-      unmountCommit.current = null;
+    if (armed && armed.session === sessionRef.current && armed.target.rowId === rowId && armed.target.columnId === columnId) {
+      disarmUnmountCommit();
     }
 
     editors.current.set(editor, target);
@@ -525,9 +545,28 @@ export function useCellEditing<TData extends RowData>({
         return;
       }
 
-      const timer = setTimeout(() => {
-        unmountCommit.current = null;
-        const session = sessionRef.current;
+      // The record identifies itself, so a tick that fires late can only retire its own: two
+      // departures in one tick would otherwise have the first one clear the second's record and
+      // leave a live timer nothing can cancel.
+      const record: { session: number; target: DataTableEditingCell; timer: ReturnType<typeof setTimeout> | null } = {
+        session: sessionRef.current,
+        target,
+        timer: null
+      };
+      const { session } = record;
+
+      record.timer = setTimeout(() => {
+        if (unmountCommit.current === record) {
+          unmountCommit.current = null;
+        }
+
+        // The tick waited, and the session may have moved on: a switch commits the cell being
+        // left and opens the next one in the same render, so this departure can find a different
+        // cell in its place. Read the owner *before* reaching for a commit, which always speaks
+        // for whatever session is current — otherwise this closes the cell that replaced it.
+        if (session !== sessionRef.current || store.current.rowId !== rowId || store.current.columnId !== columnId) {
+          return;
+        }
 
         const settle = () => {
           // Only if this is still the session that departed, and nothing has taken the cell back
@@ -556,7 +595,7 @@ export function useCellEditing<TData extends RowData>({
         }
       }, 0);
 
-      unmountCommit.current = { target, timer };
+      unmountCommit.current = record;
     };
   }, [commit, clear]);
 
