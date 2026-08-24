@@ -858,6 +858,43 @@ describe("inline editing", () => {
     }
   });
 
+  it("is read-only when the mode has no commit handler", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const checkboxColumns: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { edit: "text" }
+      },
+      {
+        accessorKey: "active",
+        header: "Active",
+        meta: { edit: "checkbox" }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={checkboxColumns}
+        data={people}
+        getRowId={getRowId}
+        handleRef={handle}
+      />,
+      { wrapper }
+    );
+
+    // The commit belongs to the application. With no `onEditCommit` there is nowhere for an edit
+    // to go, so the cells are read-only rather than editable-and-then-silently-lost.
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    act(() => handle.current?.startEditing("1", "name"));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    // The checkbox variant is a live control, and it went the same way.
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

@@ -426,7 +426,8 @@ describe("useDataTable", () => {
     const { result } = renderHook(() => useDataTable({
       data: people,
       columns: validatedColumns,
-      getRowId
+      getRowId,
+      onEditCommit: vi.fn()
     }));
     const editing = () => result.current.options.meta?.ledger?.editing;
 

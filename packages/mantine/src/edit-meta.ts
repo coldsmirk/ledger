@@ -40,6 +40,13 @@ export function canEditCell(cell: Cell<any, unknown>, row: Row<any>): boolean {
     return false;
   }
 
+  // The commit belongs to the application (docs/editing.md), so the handler for the live mode is
+  // part of the gate: without it an edit has nowhere to go, and offering one anyway means opening
+  // an editor, validating it, closing it "successfully", and writing nothing.
+  if (!(ledger.editing.mode === "row" ? ledger.onRowEditCommit : ledger.onEditCommit)) {
+    return false;
+  }
+
   const edit = cell.column.columnDef.meta?.edit;
 
   if (!edit) {

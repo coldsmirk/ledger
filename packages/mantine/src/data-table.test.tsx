@@ -397,6 +397,7 @@ describe("DataTable", () => {
         columns={named}
         data={people}
         getRowId={getRowId}
+        onEditCommit={vi.fn()}
       />,
       { wrapper }
     );
