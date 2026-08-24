@@ -13,18 +13,24 @@ interface Person {
   id: string;
   name: string;
   age: number;
+  /**
+   * Never in the shared `columns` — it is here for the tests that need a checkbox column.
+   */
+  active?: boolean;
 }
 
 const people: Person[] = [
   {
     id: "1",
     name: "Carol",
-    age: 30
+    age: 30,
+    active: true
   },
   {
     id: "2",
     name: "Alice",
-    age: 25
+    age: 25,
+    active: false
   }
 ];
 
@@ -116,6 +122,68 @@ describe("keyboard entry into editing", () => {
     // F2 places focus in an input — landing on the editors without the caret would leave the
     // keyboard user stranded on the viewport.
     await waitFor(() => expect(document.activeElement).toBe(editorInputs()[0]));
+  });
+
+  it("opens a row whose only editable column is a checkbox on F2", async () => {
+    Element.prototype.scrollIntoView ??= () => undefined;
+    // What a checkbox column *is* depends on the mode: in cell mode it commits on toggle and has
+    // no editor for F2 to open, but in row mode it is a draft-bound editor like any other.
+    const checkboxOnly: Array<ColumnDef<Person, any>> = [
+      { accessorKey: "name", header: "Name" },
+      {
+        accessorKey: "active",
+        header: "Active",
+        meta: { edit: "checkbox" }
+      }
+    ];
+
+    render(
+      <DataTable
+        enableActiveRow
+        columns={checkboxOnly}
+        data={people}
+        defaultActiveRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        onRowEditCommit={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.keyDown(viewport(), { key: "F2" });
+
+    await waitFor(() => expect(document.querySelector("[data-row-id=\"1\"][data-editing-row]")).toBeTruthy());
+    expect(document.querySelectorAll(".ledger-cell-editor input[type=\"checkbox\"]")).toHaveLength(1);
+  });
+
+  it("does not open a cell-mode checkbox on F2", () => {
+    Element.prototype.scrollIntoView ??= () => undefined;
+    const checkboxOnly: Array<ColumnDef<Person, any>> = [
+      { accessorKey: "name", header: "Name" },
+      {
+        accessorKey: "active",
+        header: "Active",
+        meta: { edit: "checkbox" }
+      }
+    ];
+
+    render(
+      <DataTable
+        enableActiveRow
+        columns={checkboxOnly}
+        data={people}
+        defaultActiveRowId="1"
+        getRowId={person => person.id}
+        onEditCommit={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.keyDown(viewport(), { key: "F2" });
+
+    // Toggling is the commit, so there is no editor to place a caret in — F2 has nowhere to go.
+    expect(editorInputs()).toHaveLength(0);
+    expect(document.querySelector("[data-editing]")).toBeNull();
   });
 });
 

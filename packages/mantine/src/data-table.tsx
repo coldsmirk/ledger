@@ -1117,13 +1117,18 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
         // There is no cell cursor, so the row's first editable cell is the entry point — the
         // cell to edit in cell mode, the cell to focus in row mode. The pattern defines F2 as
         // placing focus in an input, so both modes land the caret somewhere.
-        // Checkbox columns are skipped: they commit on toggle and never host an editor.
+        //
+        // What a checkbox column is depends on the mode, and so does whether it can be that
+        // entry point: in cell mode it commits on toggle and never hosts an editor, so there is
+        // nothing for F2 to open; in row mode it is a draft-bound editor like any other, and a
+        // row whose only editable column is one would otherwise never open at all.
         // v9's `in out` generics make Cell/Row invariant in TData; the editing predicates take
         // the erased shape, the same boundary the row-editing controller crosses.
         const erasedRow = row as Row<any>;
+        const rowMode = editing.mode === "row";
         const target = erasedRow
           .getVisibleCells()
-          .find(cell => canEditCell(cell, erasedRow) && !isCheckboxEdit(cell));
+          .find(cell => canEditCell(cell, erasedRow) && (rowMode || !isCheckboxEdit(cell)));
 
         if (!target) {
           break;
@@ -1131,7 +1136,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
 
         event.preventDefault();
 
-        if (editing.mode === "row") {
+        if (rowMode) {
           editing.row.start(row.id, { focusColumnId: target.column.id });
         } else {
           editing.start({ rowId: row.id, columnId: target.column.id });
