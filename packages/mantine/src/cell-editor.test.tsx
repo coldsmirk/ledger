@@ -1369,6 +1369,238 @@ describe("inline editing", () => {
     expect(seen).toEqual([2]);
   });
 
+  it("does not let a render nobody saw shut the gate on the editor on screen", () => {
+    const onEditCommit = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [editingEnabled, setEditingEnabled] = useState(true);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={nameColumn()}
+            data={people}
+            enableEditing={editingEnabled}
+            getRowId={getRowId}
+            onEditCommit={onEditCommit}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setEditingEnabled(false);
+              setBlocked(true);
+            })}
+          >
+            shut
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+
+    // The transition renders the table with editing switched off and is then thrown away,
+    // because a sibling suspends. Nothing of it reached the screen.
+    fireEvent.click(screen.getByRole("button", { name: "shut" }));
+    expect(screen.getByRole("textbox")).toBeTruthy();
+
+    // So the gate is still open, and Enter commits. A render nobody saw may not decide that this
+    // draft was written behind a closed gate and throw it away.
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+    expect(onEditCommit.mock.calls[0]?.[0]).toMatchObject({ previousValue: "Carol", value: "Drafted" });
+  });
+
+  it("commits against the row on screen, not one a discarded render replaced", () => {
+    const onEditCommit = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness({ next }: { next: Person[] }) {
+      const [rows, setRows] = useState(people);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={nameColumn()}
+            data={rows}
+            getRowId={getRowId}
+            onEditCommit={onEditCommit}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setRows(next);
+              setBlocked(true);
+            })}
+          >
+            swap
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness next={namedPerson("Moved")} />, { wrapper });
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+
+    // The transition renders the row holding a different value and is then thrown away.
+    fireEvent.click(screen.getByRole("button", { name: "swap" }));
+    expect(screen.getByRole("textbox")).toBeTruthy();
+
+    // What the row is editing away from is what the application last knew — and it never knew
+    // "Moved", because no render carrying it ever reached the screen.
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(onEditCommit.mock.calls[0]?.[0]).toMatchObject({ previousValue: "Carol", value: "Drafted" });
+  });
+
+  it("commits a draft whose row a discarded render removed", () => {
+    const onEditCommit = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [rows, setRows] = useState(people);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={nameColumn()}
+            data={rows}
+            getRowId={getRowId}
+            onEditCommit={onEditCommit}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setRows([]);
+              setBlocked(true);
+            })}
+          >
+            empty
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+
+    // The transition renders an empty table and is thrown away. The row is still on screen, so
+    // "the row is not in the table" is not something this commit may conclude — and concluding it
+    // would report success while dropping the draft, which is the worst of both.
+    fireEvent.click(screen.getByRole("button", { name: "empty" }));
+    expect(screen.getByRole("textbox")).toBeTruthy();
+
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+    expect(onEditCommit.mock.calls[0]?.[0]).toMatchObject({ previousValue: "Carol", value: "Drafted" });
+  });
+
+  it("does not let a render nobody saw strip the column's edit meta", () => {
+    const onEditCommit = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+    const readOnly: Array<ColumnDef<Person, any>> = [{ accessorKey: "name", header: "Name" }];
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [defs, setDefs] = useState(() => nameColumn());
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={defs}
+            data={people}
+            getRowId={getRowId}
+            onEditCommit={onEditCommit}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setDefs(readOnly);
+              setBlocked(true);
+            })}
+          >
+            strip
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+
+    // Same gate, reached through the column definitions rather than the switch.
+    fireEvent.click(screen.getByRole("button", { name: "strip" }));
+    expect(screen.getByRole("textbox")).toBeTruthy();
+
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

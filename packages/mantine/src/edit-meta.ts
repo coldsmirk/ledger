@@ -33,31 +33,52 @@ export function normalizeEdit(
   return { kind: "variant", config: typeof edit === "string" ? { variant: edit } : edit };
 }
 
+export interface EditGate {
+  enableEditing: boolean;
+  /**
+   * The commit belongs to the application (docs/editing.md), so the handler for the live mode is
+   * part of the gate: without it an edit has nowhere to go, and offering one anyway means opening
+   * an editor, validating it, closing it "successfully", and writing nothing.
+   */
+  hasCommitHandler: boolean;
+}
+
 /**
- * Whether this cell is editable right now (column meta + table switch + per-row gate).
+ * The gate itself, over values the caller supplies: the switch and handler of one render, the
+ * column's `meta.edit` as that render defined it, and the row it resolved. Every caller decides
+ * which* render that is — the one being drawn, or the one that reached the screen — because the
+ * core they would otherwise read it from carries whichever pass ran last, committed or not
+ * (see `use-committed-table.ts`).
  */
-export function canEditCell(cell: Cell<any, unknown>, row: Row<any>): boolean {
-  const { table } = cell.getContext();
-  const ledger = table.options.meta?.ledger;
-
-  if (!ledger?.enableEditing) {
+export function canEditWith(
+  row: Row<any>,
+  edit: NonNullable<Cell<any, unknown>["column"]["columnDef"]["meta"]>["edit"],
+  gate: EditGate
+): boolean {
+  if (!gate.enableEditing || !gate.hasCommitHandler) {
     return false;
   }
-
-  // The commit belongs to the application (docs/editing.md), so the handler for the live mode is
-  // part of the gate: without it an edit has nowhere to go, and offering one anyway means opening
-  // an editor, validating it, closing it "successfully", and writing nothing.
-  if (!(ledger.editing.mode === "row" ? ledger.onRowEditCommit : ledger.onEditCommit)) {
-    return false;
-  }
-
-  const edit = cell.column.columnDef.meta?.edit;
 
   if (!edit) {
     return false;
   }
 
   return !(typeof edit === "object" && edit.enabled && !edit.enabled(row));
+}
+
+/**
+ * Whether this cell is editable in the render being drawn. Render-phase only: it reads the
+ * definitions and switches through the cell's own table, which is the core — correct while a
+ * render is in progress, and a trap at event time.
+ */
+export function canEditCell(cell: Cell<any, unknown>, row: Row<any>): boolean {
+  const { table } = cell.getContext();
+  const ledger = table.options.meta?.ledger;
+
+  return canEditWith(row, cell.column.columnDef.meta?.edit, {
+    enableEditing: ledger?.enableEditing ?? false,
+    hasCommitHandler: Boolean(ledger && (ledger.editing.mode === "row" ? ledger.onRowEditCommit : ledger.onEditCommit))
+  });
 }
 
 export function isCheckboxEdit(cell: Cell<any, unknown>): boolean {

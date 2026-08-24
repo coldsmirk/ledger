@@ -1,14 +1,11 @@
 import type { RowData } from "@tanstack/react-table";
-import type { RefObject } from "react";
 
 import type {
-  Cell,
   DataTableEditCommit,
   DataTableEditingCell,
-  LedgerCellEditor,
-  Row,
-  TableInstance
+  LedgerCellEditor
 } from "./types";
+import type { CommittedTable } from "./use-committed-table";
 
 /**
  * The cell-mode editing session (docs/architecture.md — "Editing sessions live in the controller,
@@ -18,14 +15,18 @@ import type {
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { canEditCell, editErrorMessage, normalizeEdit } from "./edit-meta";
+import { editErrorMessage, normalizeEdit } from "./edit-meta";
 import { isPromiseLike, useEventCallback } from "./utils";
 
 export interface UseCellEditingInput<TData extends RowData> {
   editingCell: DataTableEditingCell | null;
-  enableEditing: boolean;
   setEditingCell: (cell: DataTableEditingCell | null) => void;
-  tableRef: RefObject<TableInstance<TData> | null>;
+  /**
+   * Rows, definitions and the gate as the render that reached the screen left them. Everything a
+   * commit decides with comes from here rather than from the cell's own table, which is the shared
+   * core and carries whatever pass ran last (see `use-committed-table.ts`).
+   */
+  committed: CommittedTable;
   onEditCommit: ((change: DataTableEditCommit<TData>) => void | Promise<void>) | undefined;
 }
 
@@ -93,9 +94,8 @@ function closedStore(): CellStore {
 
 export function useCellEditing<TData extends RowData>({
   editingCell,
-  enableEditing,
   setEditingCell,
-  tableRef,
+  committed,
   onEditCommit
 }: UseCellEditingInput<TData>): CellEditingSession {
   const store = useRef<CellStore>(closedStore());
@@ -171,22 +171,6 @@ export function useCellEditing<TData extends RowData>({
   const isSession = (rowId: string, columnId: string) => store.current.rowId === rowId && store.current.columnId === columnId;
   const isSessionRef = useRef(isSession);
 
-  const cellFor = (rowId: string, columnId: string): Cell<any, unknown> | null => {
-    const tableInstance = tableRef.current;
-
-    if (!tableInstance) {
-      return null;
-    }
-
-    try {
-      const erasedRow = tableInstance.getRow(rowId, true) as Row<any>;
-
-      return erasedRow.getAllCells().find(candidate => candidate.column.id === columnId) ?? null;
-    } catch {
-      return null;
-    }
-  };
-
   /**
    * What the cell holds as far as the application is concerned: the value this session wrote while
    * the data has not moved past it, otherwise the data itself.
@@ -200,13 +184,9 @@ export function useCellEditing<TData extends RowData>({
   const settledValueRef = useRef(settledValue);
 
   /**
-   * Whether the cell may still be edited right now — the gate, re-read.
+   * Whether the cell may still be edited right now — the gate, re-read against the commit.
    */
-  const stillEditable = (rowId: string, columnId: string): boolean => {
-    const cell = cellFor(rowId, columnId);
-
-    return cell !== null && canEditCell(cell, cell.row);
-  };
+  const stillEditable = (rowId: string, columnId: string): boolean => committed.canEdit(rowId, columnId);
 
   /**
    * Asks for the session to close. Deliberately not a navigation request: a commit closing the
@@ -348,9 +328,9 @@ export function useCellEditing<TData extends RowData>({
       return true;
     }
 
-    const cell = cellFor(rowId, columnId);
+    const row = committed.row(rowId);
 
-    if (!cell) {
+    if (!row) {
       // The row is not in the table — a target that has not arrived, or one the data no longer
       // holds. Nothing about that is a gate closing, so the session is not cancelled and nothing
       // it holds is discarded; but there is nothing to write either, and an explicit stop still
@@ -366,7 +346,7 @@ export function useCellEditing<TData extends RowData>({
     // Committing then would push a value through a gate the application has just shut — and
     // unvalidated, since a closed gate is exactly what `validate` no longer guards. The session
     // is cancelled, which is not the same as finished: nothing waiting to move may do so on it.
-    if (!canEditCell(cell, cell.row)) {
+    if (!committed.canEdit(rowId, columnId)) {
       markGateLost();
 
       if (!closeLostSession()) {
@@ -376,7 +356,7 @@ export function useCellEditing<TData extends RowData>({
       return false;
     }
 
-    const source = cell.getValue();
+    const source = committed.value(rowId, columnId);
     const previousValue = settledValue(source);
     const value = store.current.draft ? store.current.draft.value : previousValue;
 
@@ -387,11 +367,11 @@ export function useCellEditing<TData extends RowData>({
       return true;
     }
 
-    const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
+    const normalized = normalizeEdit(committed.edit(columnId));
 
     try {
       if (normalized?.kind === "variant" && normalized.config.validate) {
-        const validationError = normalized.config.validate(value, cell.row);
+        const validationError = normalized.config.validate(value, row);
 
         if (validationError !== null) {
           setError(validationError);
@@ -409,9 +389,9 @@ export function useCellEditing<TData extends RowData>({
 
     try {
       result = onEditCommit?.({
-        column: cell.column,
+        column: committed.column(columnId),
         previousValue,
-        row: cell.row,
+        row,
         value
       } as DataTableEditCommit<TData>);
     } catch (error) {
@@ -521,19 +501,17 @@ export function useCellEditing<TData extends RowData>({
       return;
     }
 
-    // The table switch is answered first, and without a cell: a session whose row has not arrived
+    // The table switch is answered first, and without a row: a session whose row has not arrived
     // still loses its gate when editing is switched off, and must not be found waiting when it is
     // switched back on.
-    if (enableEditing) {
-      const cell = cellFor(rowId, columnId);
-
-      if (cell === null) {
+    if (committed.enableEditing()) {
+      if (committed.row(rowId) === null) {
         // The row is not in the table: a target that has not arrived, or one the data no longer
         // holds. Neither is an application closing a gate, so the session waits for it.
         return;
       }
 
-      const source = cell.getValue();
+      const source = committed.value(rowId, columnId);
       const record = store.current.written;
 
       if (record && !Object.is(record.source, source)) {
@@ -547,7 +525,7 @@ export function useCellEditing<TData extends RowData>({
         store.current.writing.moved = true;
       }
 
-      if (canEditCell(cell, cell.row)) {
+      if (committed.canEdit(rowId, columnId)) {
         return;
       }
     }

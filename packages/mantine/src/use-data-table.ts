@@ -43,6 +43,7 @@ import { buildLedgerFeatures } from "./ledger-features";
 import { readPersistedState, usePersistWriter } from "./persist";
 import { useCellEditing } from "./use-cell-editing";
 import { useCheckboxEditing } from "./use-checkbox-editing";
+import { useCommittedTable } from "./use-committed-table";
 import { useResponsiveColumns } from "./use-responsive-columns";
 import { useSlice } from "./use-slice";
 import { useEventCallback } from "./utils";
@@ -236,16 +237,19 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   /* ---- editing controller (docs/editing.md) ---- */
   // Both sessions need the live instance; the hook's table is created further down.
   const tableRef = useRef<TableInstance<TData> | null>(null);
+  // Rows, definitions and the gate as the render that reached the screen left them: everything the
+  // editing paths decide with is resolved from here, never from the shared core, which carries
+  // whatever pass ran last — a discarded one included (see `use-committed-table.ts`).
+  const [committed, captureCommitted] = useCommittedTable<TData>();
 
   // The cell session lives in its own module: everything an editor shows, and everything its
   // commit decides with, has to outlive an editor that a hidden column or a virtual scroll can
   // unmount at any moment (docs/architecture.md).
   const cellSession = useCellEditing<TData>({
+    committed,
     editingCell,
-    enableEditing,
     onEditCommit,
-    setEditingCell,
-    tableRef
+    setEditingCell
   });
 
   // The checkbox variant commits on toggle instead of opening an editor, but what a toggle
@@ -1509,6 +1513,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    */
   useInsertionEffect(() => {
     tableRef.current = table;
+    // Taken here rather than during render for the same reason, and in the same phase: a render
+    // React throws away never reaches a commit, so it never gets to say what the editing paths saw.
+    captureCommitted(table, {
+      enableEditing,
+      hasCommitHandler: Boolean(editMode === "row" ? onRowEditCommit : onEditCommit)
+    });
   });
 
   usePersistWriter(persistState, {
