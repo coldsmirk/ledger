@@ -39,8 +39,6 @@ import type { ReactNode } from "react";
 
 import type { DataTableElementProps } from "./element-props";
 import type { LedgerFeatures } from "./ledger-features";
-import type { SortToggleSpec } from "./toggle-fns";
-import type { LedgerExpansionController, LedgerSelectionController } from "./use-row-commands";
 
 /**
  * TanStack's table instance (the enriched React shape: `state`, `Subscribe`, `FlexRender`),
@@ -551,13 +549,6 @@ export interface LedgerCheckboxEditingController {
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
 }
 
-/**
- * What a sort click applies, resolved by the render that drew the header (`toggle-fns.ts`).
- */
-export interface LedgerSortingController {
-  toggle: (spec: SortToggleSpec, multi: boolean) => void;
-}
-
 export interface LedgerMeta<TData extends RowData> {
   /**
    * The stable processed column definitions — the render layer's memo token. TanStack v9
@@ -566,14 +557,6 @@ export interface LedgerMeta<TData extends RowData> {
    */
   columns: Array<ColumnDef<TData, any>>;
   editing: LedgerEditingController;
-  /**
-   * The row-state toggles. Each carries the spec of the render that drew its control and writes
-   * through the stable slice setter, so a render nobody saw cannot decide what a click does
-   * (docs/architecture.md).
-   */
-  sorting: LedgerSortingController;
-  selection: LedgerSelectionController;
-  expansion: LedgerExpansionController;
   filtering: {
     subscribeColumnFilters: (listener: (value: ColumnFiltersState) => void) => () => void;
     subscribeGlobalFilter: (listener: (value: string) => void) => () => void;

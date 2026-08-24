@@ -57,6 +57,7 @@ import { mergeElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { IconAlertTriangle, IconInbox, IconRefresh, IconSearch } from "./icons";
 import { resolveLabels } from "./labels";
+import { ledgerCommands } from "./ledger-commands";
 import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from "./pagination-bar";
 import { DataTableSearch } from "./search";
 import { DataTableSelectionBar } from "./selection-bar";
@@ -698,8 +699,9 @@ function DataTableCore<TData extends RowData>({
   const activeRowId = ledger?.activeRow.id ?? null;
   const setActiveRow = ledger?.activeRow.set;
   const subscribeColumnFilters = ledger?.filtering.subscribeColumnFilters;
-  const selectionCommands = ledger?.selection;
-  const expansionCommands = ledger?.expansion;
+  const commands = ledgerCommands(ledger);
+  const selectionCommands = commands?.selection;
+  const expansionCommands = commands?.expansion;
 
   const instanceId = useId();
 

@@ -15,12 +15,11 @@ import type {
   Updater
 } from "@tanstack/react-table";
 
+import type { LedgerInternalMeta, LedgerSortingController } from "./ledger-commands";
 import type { LedgerFeatures } from "./ledger-features";
 import type {
   DataTableEditingCell,
-  LedgerMeta,
   LedgerRowEditor,
-  LedgerSortingController,
   Row,
   TableInstance,
   UseDataTableOptions
@@ -1196,7 +1195,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     [responsiveColumns, enableRowSelection, withExpander, selectionColumn, expanderColumn]
   );
 
-  const ledger: LedgerMeta<TData> = useMemo(
+  const ledger: LedgerInternalMeta<TData> = useMemo(
     () => {
       return {
         columns: processedColumns,

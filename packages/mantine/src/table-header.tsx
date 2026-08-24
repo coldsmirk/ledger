@@ -21,6 +21,7 @@ import { useDataTableContext } from "./context";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { FilterPopover } from "./filter-popover";
 import { IconChevronDown, IconChevronUp, IconSortable } from "./icons";
+import { ledgerCommands } from "./ledger-commands";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { syncTruncationTitle } from "./truncate";
 import { useColumnReorder } from "./use-column-reorder";
@@ -118,7 +119,7 @@ function HeaderCell<TData extends RowData>({
   // options, not into the wrapper's, so reading only `table.options` here would silently make
   // every click a single-sort. A consumer override through `tableOptions` still wins.
   const isMultiSortEvent = table.options.isMultiSortEvent ?? ((event: unknown) => (event as MouseEvent).shiftKey);
-  const sorting = table.options.meta?.ledger?.sorting;
+  const sorting = ledgerCommands(table.options.meta?.ledger)?.sorting;
   const sortCount = table.atoms.sorting.get().length;
   const sortIndex = column.getSortIndex();
   // Ledger's own gate: the TanStack `columnResizingFeature` (and its `getCanResize`) is
