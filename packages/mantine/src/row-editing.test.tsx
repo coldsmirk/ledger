@@ -740,6 +740,95 @@ describe("row editing mode", () => {
     expect(committed[1]).toEqual({ name: "Second" });
   });
 
+  it("cancels the row when the table-level switch shuts under it", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editMode="row"
+            enableEditing={enableEditing}
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // Losing eligibility cancels (docs/editing.md) — the body merely stops rendering editors, so
+    // the session has to end itself or it would sit there behind a closed gate.
+    rerender(view(false));
+
+    await waitFor(() => expect(document.querySelector("[data-editing-row]")).toBeNull());
+    expect(onRowEditCommit).not.toHaveBeenCalled();
+
+    // Reopening the gate must not bring the session — or its draft — back with it.
+    rerender(view(true));
+
+    expect(editorInputs()).toHaveLength(0);
+    expect(document.querySelector("[data-editing-row]")).toBeNull();
+  });
+
+  it("keeps a row whose other columns are still editable, dropping only the closed one", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    const readOnlyName: Array<ColumnDef<Person, any>> = [
+      { accessorKey: "name", header: "Name" },
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      }
+    ];
+
+    const view = (columnSet: Array<ColumnDef<Person, any>>) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columnSet}
+            data={people}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(columns));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    rerender(view(readOnlyName));
+
+    // One column shutting is not the row shutting: age is still editable, so the row stays.
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+    expect(document.querySelector("[data-row-id=\"1\"][data-editing-row]")).toBeTruthy();
+
+    // The gate reopens: the value typed behind it is gone, because nothing could have shown it.
+    rerender(view(columns));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    expect((editorInputs()[0] as HTMLInputElement).value).toBe("Carol");
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(onRowEditCommit).not.toHaveBeenCalled();
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

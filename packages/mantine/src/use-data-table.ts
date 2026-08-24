@@ -419,7 +419,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * A session can outlive its own writes: a controlled application may decline to close the row,
    * and the data it feeds back arrives whenever it arrives. Until then `source` — what the cell
    * read when the write went out — still matches, and the value written is the newer truth. Once
-   * the data moves, it wins: it may be our write applied, normalized, or somebody else's.
+   * the data moves, it wins: it may be our write applied, normalised, or somebody else's.
    */
   const previousRowValue = (columnId: string, source: unknown): unknown => {
     const written = rowDrafts.current.committed.get(columnId);
@@ -535,6 +535,57 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       // The row was not in the table when the edit opened. Data arriving later is the first
       // chance to record what the user is editing away from; anything typed meanwhile stays.
       rowDrafts.current.baseline = snapshotEditableValues(editingRowId);
+    }
+  });
+
+  /**
+   * Losing eligibility mid-edit cancels the row (docs/editing.md) — the same rule cell mode
+   * applies to its single editor. The body only stops rendering editors for cells that fail
+   * `canEditCell`, so without this the session, its drafts and `editingRowId` would all survive
+   * a gate that shut, and come back the moment it reopened.
+   *
+   * A row that keeps one editable cell keeps editing: a single column shutting drops that
+   * column's pending value, not the row. A row the table does not hold yet is a row that has not
+   * arrived, not one that may not be edited.
+   *
+   * Passive, not layout: nothing has to be keyed before the user can type, and this must not race
+   * the session boundary above. No dependency array, because eligibility is `enableEditing`, the
+   * column definitions and the row's own data at once — nothing a list describes.
+   */
+  useEffect(() => {
+    const rowId = editingRowRef.current;
+    const tableInstance = tableRef.current;
+
+    // A request already out passed the gate before it shut. It settles first; the render its
+    // settlement causes brings this test back round.
+    if (rowId === null || !tableInstance || rowPendingCommit.current) {
+      return;
+    }
+
+    let row: Row<TData> | undefined;
+
+    try {
+      row = tableInstance.getRow(rowId, true);
+    } catch {
+      return;
+    }
+
+    const erasedRow = row as Row<any>;
+    let editable = false;
+
+    for (const cell of erasedRow.getAllCells()) {
+      if (canEditCell(cell, erasedRow)) {
+        editable = true;
+      } else {
+        // The gate shut on this column: its pending value goes now rather than at commit time,
+        // so a gate that reopens cannot bring back a draft nothing was showing.
+        rowDrafts.current.values.delete(cell.column.id);
+      }
+    }
+
+    if (!editable) {
+      discardRowEdits(rowId);
+      finishRowEditing();
     }
   });
 
