@@ -200,6 +200,7 @@ interface DataTableEditContext<TData, TValue> {
   commit: () => boolean | Promise<boolean>;  // false = validation/application commit failed; editor stays active
   cancel: () => void;
   error: string | null;
+  pending: boolean;                          // a write is still out (the cell's; in row mode the row's)
 }
 
 interface DataTableEditCommit<TData> {

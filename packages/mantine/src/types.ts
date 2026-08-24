@@ -113,6 +113,13 @@ export interface DataTableEditContext<TData extends RowData, TValue> {
   commit: () => boolean | Promise<boolean>;
   cancel: () => void;
   error: string | null;
+  /**
+   * A write for this editor is still out — the cell's in cell mode, the whole row's in row mode.
+   * The built-in variants disable themselves for the duration; a custom editor is never disabled
+   * for it, because the host cannot know what to disable, so it decides for itself
+   * (docs/editing.md#custom-editors).
+   */
+  pending: boolean;
 }
 
 export interface DataTableEditCommit<TData extends RowData> {

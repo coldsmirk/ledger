@@ -1580,6 +1580,71 @@ describe("row editing mode", () => {
     expect(document.activeElement).toBe(editorInputs()[1]);
   });
 
+  it("tells a row custom editor that the row's write is still out", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    // Row mode's pending belongs to the row, not to one cell: the commit is atomic, so every
+    // editor in it is waiting on the same write.
+    const custom: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: ({
+            value,
+            setValue,
+            pending
+          }) => (
+            <input
+              aria-label="Edit Name"
+              disabled={pending}
+              value={value === null || value === undefined ? "" : String(value)}
+              onChange={event => setValue(event.currentTarget.value)}
+            />
+          )
+        }
+      },
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={custom}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={() => inFlight.promise}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+
+    const customInput = () => screen.getByLabelText("Edit Name") as HTMLInputElement;
+    expect(customInput().disabled).toBe(false);
+
+    fireEvent.change(editorInputs()[1] as HTMLInputElement, { target: { value: "31" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    // The write is the row's, and it was another column that changed — this editor is waiting on
+    // it all the same.
+    expect(customInput().disabled).toBe(true);
+
+    await act(async () => {
+      inFlight.reject(new Error("nope"));
+      await inFlight.promise.catch(() => undefined);
+    });
+
+    // A rejection returns the row to editing, so the editor is here and no longer waiting.
+    expect(customInput().disabled).toBe(false);
+  });
+
   it("hands a row custom editor the commit's real result", async () => {
     const results: Array<boolean | Promise<boolean>> = [];
     const inFlight = Promise.withResolvers<void>();

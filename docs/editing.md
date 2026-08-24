@@ -92,7 +92,7 @@ meta: {
 }
 ```
 
-The context is `DataTableEditContext`: `row`, `column`, the draft `value`, `setValue`, `commit`, `cancel`, and the current `error`. `commit()` returns `boolean | Promise<boolean>` — `true` means it is safe to leave the cell; `false` means validation or the application commit failed. The host still provides the keyboard map, blur-commit, pending state, and lifecycle above — the function only replaces the input.
+The context is `DataTableEditContext`: `row`, `column`, the draft `value`, `setValue`, `commit`, `cancel`, the current `error`, and `pending` — true while a write for this editor is still out, so an editor that wants to disable itself, or show its own indicator, can. `commit()` returns `boolean | Promise<boolean>` — `true` means it is safe to leave the cell; `false` means validation or the application commit failed. The host still provides the keyboard map, blur-commit, pending state, and lifecycle above — the function only replaces the input.
 
 ## Row mode
 
@@ -115,7 +115,7 @@ The context is `DataTableEditContext`: `row`, `column`, the draft `value`, `setV
 - **A session remembers its own writes** (both modes). A successful commit takes back the pending values it carried and records them instead, so a repeated `stopEditing` sends nothing, a second commit departs from the value already written rather than from `data` that has not caught up with it, and cancelling restores that value rather than a stale one. The record is dropped for good the moment the data moves — your write applied, your write normalized, or somebody else's edit — including while the write is still in flight, so data that moves away and back again during the request leaves nothing for it to be true about — and from then on `data` is what the row holds and what its editors show, including a value that later returns to what the write departed from. This matters whenever the row outlives its own commit: a controlled `editingRowId` the application declines to close, or a `data` update that arrives on its own schedule. `previousValues` therefore means *what the application last knew the column to hold*, which is the value the row is editing away from — not what it held when the row first opened.
 - Starting another row first commits the current one (commit, never discard) — the switch only happens if that commit succeeds.
 - The `checkbox` variant becomes a draft-bound checkbox inside the row (its cell-mode toggle-commits-immediately behavior belongs to cell mode); the `select` variant no longer commits on choose, and does not auto-open its dropdown.
-- Custom editors receive the same `DataTableEditContext` — in row mode its `commit`/`cancel` operate on the whole row, and `commit` answers with the row's real result: every editable column's `validate`, then the application's handler.
+- Custom editors receive the same `DataTableEditContext` — in row mode its `commit`/`cancel` operate on the whole row, `pending` is the row's write rather than one cell's, and `commit` answers with the row's real result: every editable column's `validate`, then the application's handler.
 - The editing row renders `data-editing-row` (a primary wash with hairlines above and below).
 - Row mode ignores `onEditCommit` and the `editingCell` slice (dev warnings point to the row-mode counterparts).
 

@@ -358,6 +358,58 @@ describe("inline editing", () => {
     });
   });
 
+  it("tells a custom editor that its write is still out", async () => {
+    const inFlight = Promise.withResolvers<void>();
+    // The host never disables a custom editor — it cannot know what to disable — so the flag has
+    // to reach the editor for it to decide anything at all.
+    const customName: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: ({
+            value,
+            setValue,
+            pending
+          }) => (
+            <input
+              aria-label="Edit Name"
+              disabled={pending}
+              value={value === null || value === undefined ? "" : String(value)}
+              onChange={event => setValue(event.currentTarget.value)}
+            />
+          )
+        }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={customName}
+        data={people}
+        editingCell={{ columnId: "name", rowId: "1" }}
+        getRowId={getRowId}
+        onEditCommit={() => inFlight.promise}
+        onEditingCellChange={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(false);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(true);
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // The owner declined to close the cell, so the editor is still here — and no longer waiting.
+    expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(false);
+  });
+
   it("still commits a value typed while an async cell commit was in flight", async () => {
     const inFlight = Promise.withResolvers<void>();
     const committed: unknown[] = [];

@@ -103,7 +103,8 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
           setValue,
           commit: () => editing.commit(),
           cancel: () => editing.cancel(),
-          error: editError
+          error: editError,
+          pending
         })
       : (
           <VariantEditor
@@ -224,7 +225,8 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
           // application's handler — not an acknowledgement that the request was made.
           commit: () => editing.row.commit(),
           cancel: () => editing.row.stop({ commit: false }),
-          error: editError
+          error: editError,
+          pending
         })
       : (
           <VariantEditor
