@@ -44,11 +44,9 @@ function PaginationBarCore<TData extends RowData>({
   const to = Math.min(total, (pageIndex + 1) * pageSize);
   // The size on screen is always offerable, whoever set it: a controlled `pagination` (or a
   // persisted one) may hold a size the author never listed, and a Select whose value is absent
-  // from its data renders blank. Ascending and de-duplicated, so the list is the same list
-  // however the current size arrived.
-  const sizeOptions = pageSizeOptions.includes(pageSize)
-    ? pageSizeOptions
-    : [...pageSizeOptions, pageSize].toSorted((left, right) => left - right);
+  // from its data renders blank. Always de-duplicated and ascending, so the list a reader sees
+  // does not depend on how the current size got there.
+  const sizeOptions = [...new Set([...pageSizeOptions, pageSize])].toSorted((left, right) => left - right);
 
   return (
     <Group className={className} gap="md" justify="space-between" style={style} wrap="wrap">
@@ -67,7 +65,7 @@ function PaginationBarCore<TData extends RowData>({
           <Select
             allowDeselect={false}
             aria-labelledby={pageSizeLabelId}
-            data={[...new Set(sizeOptions)].map(String)}
+            data={sizeOptions.map(String)}
             size="xs"
             value={String(pageSize)}
             w={84}

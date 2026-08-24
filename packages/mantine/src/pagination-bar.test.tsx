@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { ColumnDef } from "./types";
 
 import { MantineProvider } from "@mantine/core";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -52,7 +52,7 @@ describe("pagination bar", () => {
     expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(7);
   });
 
-  it("shows a listed page size once, in ascending order", () => {
+  it("shows a listed page size once, in ascending order", async () => {
     render(
       <DataTable
         enablePagination
@@ -66,5 +66,33 @@ describe("pagination bar", () => {
     );
 
     expect(pageSizeSelect().value).toBe("20");
+
+    fireEvent.click(pageSizeSelect());
+    await waitFor(() => expect(document.querySelectorAll("[data-combobox-option]").length).toBeGreaterThan(0));
+
+    // The current size is already listed — it must not appear twice, and the order a reader
+    // sees does not depend on how it got there.
+    expect([...document.querySelectorAll("[data-combobox-option]")].map(option => option.textContent))
+      .toEqual(["10", "20", "50"]);
+  });
+
+  it("sorts an unlisted current page size into place", async () => {
+    render(
+      <DataTable
+        enablePagination
+        columns={columns}
+        data={people}
+        defaultPagination={{ pageIndex: 0, pageSize: 25 }}
+        getRowId={getRowId}
+        pageSizeOptions={[50, 10]}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.click(pageSizeSelect());
+    await waitFor(() => expect(document.querySelectorAll("[data-combobox-option]").length).toBeGreaterThan(0));
+
+    expect([...document.querySelectorAll("[data-combobox-option]")].map(option => option.textContent))
+      .toEqual(["10", "25", "50"]);
   });
 });
