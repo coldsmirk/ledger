@@ -25,7 +25,7 @@ Row virtualization keeps the DOM small at any data size while remaining a **real
 - **Detail panels are synthetic display rows**: an expanded row contributes `[row, panelRow]` to its top, center, or bottom display zone, so every `<tr>` is exactly one measured item. Center items virtualize; pinned data/detail pairs stay mounted and sticky together.
 - **The viewport is adaptive** ([sizing.md](sizing.md)): TanStack Virtual observes the scroll element with ResizeObserver — flex reflow, drawer toggling, and window resizing re-window automatically, with **no fixed-height prerequisite**. If the viewport turns out unconstrained (its height equals the content height), virtualization is inert and a dev-mode warning says so; give the table or an ancestor a definite height.
 - Pinned rows and their expanded detail rows stay mounted outside the window ([pinning.md](pinning.md)); virtualization changes nothing about pinned columns.
-- Scrolling an **editing** row out of the window commits the edit, never discards it ([editing.md](editing.md)).
+- Scrolling an **editing** cell out of the window commits it, never discards it. Row mode is the other way round: the draft store belongs to the controller, so an editing row that scrolls out and back keeps its pending values and commits only when asked to ([editing.md](editing.md)).
 - The header lives outside the scroller ([sizing.md](sizing.md)), so deep scrolling never touches it and the scrollbar spans exactly the rows.
 
 ## Infinite loading

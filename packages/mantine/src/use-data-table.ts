@@ -34,7 +34,7 @@ import type {
  * TanStack table instance.
  */
 import { functionalUpdate, useTable } from "@tanstack/react-table";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { buildColumns, EXPANDER_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, editErrorMessage, normalizeEdit } from "./cell-editor";
@@ -1276,7 +1276,18 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   }
 
   const table = useTable<LedgerFeatures, TData>({ ...tableOptions, ...managed } as TableOptions<LedgerFeatures, TData>);
-  tableRef.current = table;
+
+  /**
+   * The instance the editing paths reach for. v9's `useTable` returns a fresh wrapper whenever
+   * options or state change — `useMemo(() => ({ ...table, options, state }))` — so this is not the
+   * stable core instance, and a transition React renders and then throws away would otherwise
+   * leave it holding options nothing on screen is using: a commit would then be gated by an
+   * `enableEditing` the user never saw. Insertion phase, so it is in place before the layout
+   * effects above read it — declaration order puts them first, and the phases do not.
+   */
+  useInsertionEffect(() => {
+    tableRef.current = table;
+  });
 
   usePersistWriter(persistState, {
     sorting,
