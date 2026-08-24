@@ -16,19 +16,21 @@ import type {
  * to decide with, lives here: an editor is unmounted by a hidden column or a virtual scroll at any
  * moment, and a session is not. A mounted editor is a view of this plus a keyboard surface.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { canEditCell, editErrorMessage, normalizeEdit } from "./edit-meta";
 import { isPromiseLike, useEventCallback } from "./utils";
 
 export interface UseCellEditingInput<TData extends RowData> {
   editingCell: DataTableEditingCell | null;
+  enableEditing: boolean;
   setEditingCell: (cell: DataTableEditingCell | null) => void;
   tableRef: RefObject<TableInstance<TData> | null>;
   onEditCommit: ((change: DataTableEditCommit<TData>) => void | Promise<void>) | undefined;
 }
 
 export interface CellEditingSession {
+  active: (rowId: string, columnId: string) => boolean;
   start: (cell: DataTableEditingCell) => void;
   stop: (options?: { commit?: boolean }) => void;
   clear: () => void;
@@ -84,11 +86,19 @@ function closedStore(): CellStore {
 
 export function useCellEditing<TData extends RowData>({
   editingCell,
+  enableEditing,
   setEditingCell,
   tableRef,
   onEditCommit
 }: UseCellEditingInput<TData>): CellEditingSession {
   const store = useRef<CellStore>(closedStore());
+  /**
+   * Bumped whenever a session starts or ends without the slice moving — a gate shutting under a
+   * controlled application that declines to close it, or an explicit start on the cell already
+   * named. Whether an editor may be on screen is part of the render output, so a change in it has
+   * to be a change in state; a ref would leave the last render standing.
+   */
+  const [epoch, setEpoch] = useState(0);
   /**
    * One session, one token: a settled request may only act on the session that issued it.
    */
@@ -245,6 +255,35 @@ export function useCellEditing<TData extends RowData>({
   /**
    * Ends the session as a cancellation: what it held is discarded, and the close is requested.
    */
+  const markGateLost = () => {
+    if (store.current.gateLost) {
+      return;
+    }
+
+    store.current.gateLost = true;
+    setEpoch(token => token + 1);
+  };
+
+  /**
+   * Ends a session whose eligibility is gone. Idempotent per session, which is what makes the
+   * automatic path safe to reach from the effect, from a settling write, and from an editor
+   * leaving the screen because the gate took it away — an application that ignores the close
+   * would otherwise be asked once for each. An explicit Escape or `stopEditing` is never this: it
+   * is always a fresh request.
+   */
+  const closeLostSession = () => {
+    if (store.current.reconciled) {
+      return;
+    }
+
+    store.current.reconciled = true;
+    store.current.draft = null;
+    store.current.error = null;
+    store.current.settled = true;
+    redraw();
+    requestClose();
+  };
+
   const cancel = useEventCallback(() => {
     if (pendingRef.current) {
       return;
@@ -376,12 +415,8 @@ export function useCellEditing<TData extends RowData>({
         // landed does not undo that. The write stands, but the session it belonged to is over, so
         // nothing waiting to move may do so on the strength of it.
         if (store.current.gateLost || !stillEditable(rowId, columnId)) {
-          store.current.draft = null;
-          store.current.settled = true;
-          store.current.gateLost = true;
-          store.current.reconciled = true;
-          redraw();
-          requestClose();
+          markGateLost();
+          closeLostSession();
 
           return false;
         }
@@ -410,12 +445,8 @@ export function useCellEditing<TData extends RowData>({
 
         // A gate that shut while the request was out is answered now that it has landed.
         if (store.current.gateLost || !stillEditable(rowId, columnId)) {
-          store.current.draft = null;
-          store.current.error = null;
-          store.current.settled = true;
-          store.current.reconciled = true;
-          redraw();
-          requestClose();
+          markGateLost();
+          closeLostSession();
         }
 
         return false;
@@ -441,27 +472,38 @@ export function useCellEditing<TData extends RowData>({
       return;
     }
 
-    const cell = cellFor(rowId, columnId);
-    const record = store.current.written;
+    // The table switch is answered first, and without a cell: a session whose row has not arrived
+    // still loses its gate when editing is switched off, and must not be found waiting when it is
+    // switched back on.
+    if (enableEditing) {
+      const cell = cellFor(rowId, columnId);
 
-    if (cell && record && !Object.is(record.source, cell.getValue())) {
-      store.current.written = null;
-      redraw();
+      if (cell === null) {
+        // The row is not in the table: a target that has not arrived, or one the data no longer
+        // holds. Neither is an application closing a gate, so the session waits for it.
+        return;
+      }
+
+      const record = store.current.written;
+
+      if (record && !Object.is(record.source, cell.getValue())) {
+        store.current.written = null;
+        redraw();
+      }
+
+      if (canEditCell(cell, cell.row)) {
+        return;
+      }
     }
 
-    if (cell && canEditCell(cell, cell.row)) {
-      return;
-    }
-
-    store.current.gateLost = true;
+    markGateLost();
 
     // The in-flight write passed the gate before it shut; its settlement completes the cancel.
-    if (pendingRef.current || store.current.reconciled) {
+    if (pendingRef.current) {
       return;
     }
 
-    store.current.reconciled = true;
-    cancel();
+    closeLostSession();
   });
 
   const clear = useEventCallback(() => {
@@ -486,6 +528,21 @@ export function useCellEditing<TData extends RowData>({
     const rendered = renderedRef.current;
 
     if (!rendered || (rendered.rowId === target.rowId && rendered.columnId === target.columnId)) {
+      if (isSession(target.rowId, target.columnId) && store.current.gateLost) {
+        // The session on this cell is over — its gate shut, and a controlled application declined
+        // to close it. An explicit start is not that session coming back: it is the next one, so
+        // it gets a new token and nothing the old one held. The slice already names this cell, so
+        // no render would arrive to do it for us.
+        disarmUnmountCommit();
+        sessionRef.current += 1;
+        store.current = {
+          ...closedStore(),
+          columnId: target.columnId,
+          rowId: target.rowId
+        };
+        setEpoch(token => token + 1);
+      }
+
       setEditingCell(target);
 
       return;
@@ -536,6 +593,12 @@ export function useCellEditing<TData extends RowData>({
       editors.current.delete(editor);
 
       if (mountedFor(target) > 0) {
+        return;
+      }
+
+      // An editor the gate took off the screen did not depart — the session it belonged to ended,
+      // and it has nothing left to commit on the way out.
+      if (store.current.gateLost) {
         return;
       }
 
@@ -624,11 +687,22 @@ export function useCellEditing<TData extends RowData>({
   }, [redraw]);
 
   const pending = useCallback((rowId: string, columnId: string) => isSessionRef.current(rowId, columnId) && pendingRef.current, []);
+
+  const active = useCallback(
+    // Asked during render, so a cell the store has not been keyed to yet is a session about to
+    // open, which is live by definition; only the one being tracked can have lost its gate. Keyed
+    // to the epoch: the answer lives in a ref, so this identity changing is what carries a
+    // session starting or ending into the render layer's memo.
+    (rowId: string, columnId: string) => isSessionRef.current(rowId, columnId) ? !store.current.gateLost : true,
+    // eslint-disable-next-line @eslint-react/exhaustive-deps -- the epoch is the point: see above
+    [epoch]
+  );
   const error = useCallback((rowId: string, columnId: string) => isSessionRef.current(rowId, columnId) ? store.current.error : null, []);
 
   return useMemo(
     () => {
       return {
+        active,
         cancel,
         clear,
         commit,
@@ -641,6 +715,6 @@ export function useCellEditing<TData extends RowData>({
         write
       };
     },
-    [cancel, clear, commit, error, pending, read, register, start, stop, write]
+    [active, cancel, clear, commit, error, pending, read, register, start, stop, write]
   );
 }

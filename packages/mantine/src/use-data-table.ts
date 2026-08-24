@@ -241,6 +241,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   // unmount at any moment (docs/architecture.md).
   const cellSession = useCellEditing<TData>({
     editingCell,
+    enableEditing,
     onEditCommit,
     setEditingCell,
     tableRef
@@ -1141,6 +1142,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         editing: {
           mode: editMode,
           cell: editingCell,
+          active: cellSession.active,
           start: cellSession.start,
           stop: cellSession.stop,
           clear: cellSession.clear,

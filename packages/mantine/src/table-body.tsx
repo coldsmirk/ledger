@@ -827,7 +827,6 @@ export function TableBody({
         columnsKey={columnsKey}
         dataIndex={options.pinnedPosition ? -1 : dataIndex}
         depth={row.depth}
-        editingColumnId={editingCell?.rowId === row.id ? editingCell.columnId : null}
         editingRow={editingRowId === row.id && (ledger?.editing.row.active(row.id) ?? false)}
         expanded={row.getIsExpanded()}
         measureRef={options.measureRef}
@@ -840,6 +839,9 @@ export function TableBody({
         spanKey={spanKey}
         spanning={spanningActive}
         virtualIndex={options.virtualIndex}
+        editingColumnId={editingCell?.rowId === row.id && (ledger?.editing.active(row.id, editingCell.columnId) ?? false)
+          ? editingCell.columnId
+          : null}
       />
     );
   };

@@ -131,6 +131,26 @@ const customNameColumn: Array<ColumnDef<Person, any>> = [
   }
 ];
 
+/**
+ * A controlled cell naming a row the data may not hold yet.
+ */
+function pendingRowView(rows: Person[]) {
+  return (
+    <StrictMode>
+      <MantineProvider>
+        <DataTable
+          columns={customNameColumn}
+          data={rows}
+          editingCell={{ columnId: "name", rowId: "1" }}
+          getRowId={getRowId}
+          onEditCommit={vi.fn()}
+          onEditingCellChange={vi.fn()}
+        />
+      </MantineProvider>
+    </StrictMode>
+  );
+}
+
 describe("inline editing", () => {
   it("enters on double-click, commits on Enter with value and previousValue", () => {
     const onEditCommit = vi.fn();
@@ -261,10 +281,11 @@ describe("inline editing", () => {
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
     expect(onEditCommit).toHaveBeenCalledTimes(1);
 
-    // The switch closes while the write is in flight. Cancelling is refused for now — that
-    // value passed the gate before it shut — so the editor is still standing.
+    // The switch closes while the write is in flight. The editor goes at once — nothing under a
+    // closed gate may be typed into — while the write itself is left to finish, because that
+    // value passed the gate before it shut.
     rerender(view(false));
-    expect(screen.getByRole("textbox")).not.toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
 
     await act(async () => {
       inFlight.reject(new Error("nope"));
@@ -893,6 +914,60 @@ describe("inline editing", () => {
 
     // The checkbox variant is a live control, and it went the same way.
     expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("keeps a cell whose gate shut from rendering an editor again", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={customNameColumn}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            enableEditing={enableEditing}
+            getRowId={getRowId}
+            handleRef={handle}
+            onEditCommit={vi.fn()}
+            onEditingCellChange={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+
+    // The gate shuts. A custom editor is never disabled by anything the host does, so the only
+    // way it stops being interactive is by not being there.
+    rerender(view(false));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    // The owner declined to clear the slice, so it still names this cell. The gate reopening is
+    // the next session's eligibility, not a reprieve for the one that was cancelled.
+    rerender(view(true));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    // An explicit start on the same target is that next session — and nothing the old one held
+    // comes back with it.
+    act(() => handle.current?.startEditing("1", "name"));
+
+    const input = await screen.findByRole("textbox");
+    expect((input as HTMLInputElement).value).toBe("Carol");
+  });
+
+  it("keeps a controlled session waiting for a row that has not arrived", async () => {
+    const { rerender } = render(pendingRowView([]));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    // A row the data does not hold yet is a target that has not arrived — not an application
+    // closing the editing gate. The session waits for it.
+    rerender(pendingRowView(people));
+
+    const input = await screen.findByRole("textbox");
+    expect((input as HTMLInputElement).value).toBe("Carol");
   });
 
   it("a validation message blocks the commit and stays in editing", () => {

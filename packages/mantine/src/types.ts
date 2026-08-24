@@ -447,6 +447,12 @@ export interface LedgerRowEditingController {
 export interface LedgerEditingController {
   mode: DataTableEditMode;
   cell: DataTableEditingCell | null;
+  /**
+   * Whether this cell has a live editing session. The slice naming a cell is not enough — its
+   * gate may have shut while the application declined to close it — and the render layer asks
+   * this before putting an interactive editor on screen.
+   */
+  active: (rowId: string, columnId: string) => boolean;
   start: (cell: DataTableEditingCell) => void;
   /**
    * Delegates to the mounted editor. A successful commit clears the slice; failure keeps the
