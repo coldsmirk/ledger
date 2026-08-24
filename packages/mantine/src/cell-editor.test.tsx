@@ -296,6 +296,115 @@ describe("inline editing", () => {
     expect(committed).toEqual(["First", "Second"]);
   });
 
+  it("keeps an uncontrolled cell open when its commit settles behind a newer draft", async () => {
+    const inFlight = Promise.withResolvers<void>();
+    const committed: unknown[] = [];
+    const customName: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: ({ value, setValue }) => (
+            <input
+              aria-label="Edit Name"
+              value={value === null || value === undefined ? "" : String(value)}
+              onChange={event => setValue(event.currentTarget.value)}
+            />
+          )
+        }
+      }
+    ];
+
+    // No `editingCell` prop: the ordinary uncontrolled slice, which closes the cell itself.
+    render(
+      <DataTable
+        columns={customName}
+        data={people}
+        getRowId={getRowId}
+        onEditCommit={({ value }) => {
+          committed.push(value);
+
+          return committed.length === 1 ? inFlight.promise : undefined;
+        }}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(committed).toEqual(["First"]);
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // The write that settled never carried "Second", so closing now would drop it.
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Second");
+    expect(document.querySelector("[data-pending]")).toBeNull();
+
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(committed).toEqual(["First", "Second"]);
+  });
+
+  it("commits the value that outran an async request when the cell is unmounted", async () => {
+    const inFlight = Promise.withResolvers<void>();
+    const committed: unknown[] = [];
+    const customName: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: ({ value, setValue }) => (
+            <input
+              aria-label="Edit Name"
+              value={value === null || value === undefined ? "" : String(value)}
+              onChange={event => setValue(event.currentTarget.value)}
+            />
+          )
+        }
+      }
+    ];
+
+    const { unmount } = render(
+      <DataTable
+        columns={customName}
+        data={people}
+        getRowId={getRowId}
+        onEditCommit={({ value }) => {
+          committed.push(value);
+
+          return committed.length === 1 ? inFlight.promise : undefined;
+        }}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+
+    // Scrolled out of the virtual window while the first write was still out. Nobody can commit
+    // "Second" by hand anymore, and unmount commits rather than discards.
+    unmount();
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+    await act(async () => {
+      await new Promise(resolve => {
+        setTimeout(resolve, 0);
+      });
+    });
+
+    expect(committed).toEqual(["First", "Second"]);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

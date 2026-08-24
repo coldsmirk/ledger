@@ -430,6 +430,25 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   };
 
   /**
+   * Whether the row holds a value the write that just settled never carried. A custom editor is
+   * not disabled while a request is out, so the user can type straight past it; leaving on that
+   * write's word would drop what they typed.
+   */
+  const hasUncommittedRowEdits = (rowId: string, sent: Record<string, unknown>): boolean => {
+    if (rowDrafts.current.rowId !== rowId) {
+      return false;
+    }
+
+    for (const [columnId, value] of rowDrafts.current.values) {
+      if (!Object.hasOwn(sent, columnId) || !Object.is(value, sent[columnId])) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  /**
    * Throws the whole pending edit away — what cancelling means. The mounted editors are put back
    * alongside the store because the row can stay on screen: a controlled application may decline
    * to close it, and an editor still showing a value the store no longer holds is one nothing
@@ -693,6 +712,13 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           rowPendingCommit.current = null;
           recordRowCommit(rowId, values, sources);
           broadcastRowPending(false);
+
+          if (hasUncommittedRowEdits(rowId, values)) {
+            // Typed straight past the request while it was out. The write did go through, but
+            // this row is not finished — and whoever was waiting to leave it must not.
+            return false;
+          }
+
           finishRowEditing();
 
           return true;

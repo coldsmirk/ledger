@@ -190,18 +190,34 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
         setPending(true);
       }
 
-      const pendingCommit = Promise.resolve(result).then(
+      // The in-flight slot is released inside the handlers rather than in a `finally`: the
+      // not-carried branch below commits again, and a request that has settled must not still be
+      // standing there for its own successor to join.
+      const pendingCommit: Promise<boolean> = Promise.resolve(result).then(
         () => {
-          // Settled — unless the editor has moved on. A custom editor is not disabled while the
-          // request is out, so a value typed since is one this write never carried, and the
-          // editor is not done with it.
-          completedRef.current = Object.is(draftRef.current, value);
-          // What the next edit departs from is what this editor last sent.
+          // A custom editor is not disabled while the request is out, so the user can type
+          // straight past it. What this write carried is what the next edit departs from, but a
+          // value typed since is one it never carried.
+          const carried = Object.is(draftRef.current, value);
+          completedRef.current = carried;
           initialValue.current = value;
           pendingRef.current = false;
 
+          if (pendingCommitRef.current === pendingCommit) {
+            pendingCommitRef.current = null;
+          }
+
           if (mountedRef.current) {
             setPending(false);
+          }
+
+          if (!carried) {
+            // Still on screen: the cell does not close, and whoever was waiting to leave it is
+            // told it is not safe to. Gone from the screen: nobody can commit it by hand any
+            // more, and an unmount commits rather than discards (docs/editing.md) — so this
+            // write, which did succeed, is followed by the one it outran. That successor carries
+            // the latest value, so it settles `carried` and recurses no further.
+            return mountedRef.current ? false : commit();
           }
 
           clearIfCurrent();
@@ -211,6 +227,10 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
         (error: unknown) => {
           pendingRef.current = false;
 
+          if (pendingCommitRef.current === pendingCommit) {
+            pendingCommitRef.current = null;
+          }
+
           if (mountedRef.current) {
             setPending(false);
             setEditError(editErrorMessage(error));
@@ -218,11 +238,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
 
           return false;
         }
-      ).finally(() => {
-        if (pendingCommitRef.current === pendingCommit) {
-          pendingCommitRef.current = null;
-        }
-      });
+      );
 
       pendingCommitRef.current = pendingCommit;
 
