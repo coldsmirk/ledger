@@ -38,16 +38,74 @@ type Styles = GetStylesApi<DataTableFactory>;
 type Selector = Parameters<Styles>[0];
 
 /**
- * Everything one render of the Styles API answers, in one comparable string.
+ * One selector's resolved props: whatever `attributes` put there, plus `className` and `style`.
  */
-function resolveAnswers(getStyles: Styles, selectors: readonly Selector[]): string {
-  let answers = "";
+type Answer = Record<string, unknown>;
+
+type Answers = Partial<Record<Selector, Answer>>;
+
+/**
+ * Own string keys, compared by identity. Never serialized: `attributes` carries whatever the
+ * application put in it — event handlers, objects that refer to themselves — and writing answers
+ * down as text would silently drop a replaced handler and throw on the rest.
+ */
+function sameShallow(previous: unknown, next: unknown): boolean {
+  if (Object.is(previous, next)) {
+    return true;
+  }
+
+  if (typeof previous !== "object" || typeof next !== "object" || previous === null || next === null) {
+    return false;
+  }
+
+  const previousKeys = Object.keys(previous);
+
+  if (previousKeys.length !== Object.keys(next).length) {
+    return false;
+  }
+
+  return previousKeys.every(key => Object.hasOwn(next, key) && Object.is((previous as Answer)[key], (next as Answer)[key]));
+}
+
+function sameAnswer(previous: Answer, next: Answer): boolean {
+  const previousKeys = Object.keys(previous);
+
+  if (previousKeys.length !== Object.keys(next).length) {
+    return false;
+  }
+
+  return previousKeys.every(key => {
+    if (!Object.hasOwn(next, key)) {
+      return false;
+    }
+
+    // Mantine builds a fresh `style` object on every render, so identity says nothing there; one
+    // level of its own keys does. Everything else is compared by identity, which is what makes a
+    // replaced handler a real change — and what makes an object-valued attribute conservatively
+    // count as one.
+    return key === "style"
+      ? sameShallow(previous[key], next[key])
+      : Object.is(previous[key], next[key]);
+  });
+}
+
+function resolveAnswers(getStyles: Styles, selectors: readonly Selector[]): Answers {
+  const answers: Answers = {};
 
   for (const selector of selectors) {
-    answers += `${selector} ${JSON.stringify(getStyles(selector))}`;
+    answers[selector] = getStyles(selector) as Answer;
   }
 
   return answers;
+}
+
+function sameAnswers(previous: Answers, next: Answers, selectors: readonly Selector[]): boolean {
+  return selectors.every(selector => {
+    const before = previous[selector];
+    const after = next[selector];
+
+    return before !== undefined && after !== undefined && sameAnswer(before, after);
+  });
 }
 
 export function useStylesRevision(getStyles: Styles, selectors: readonly Selector[]): Styles {
@@ -61,15 +119,15 @@ export function useStylesRevision(getStyles: Styles, selectors: readonly Selecto
     useMantineStylesTransform()
   ];
   const answers = resolveAnswers(getStyles, selectors);
-  const committed = useRef<{ answers: string; provenance: unknown[]; getStyles: Styles }>({
+  const committed = useRef<{ answers: Answers; provenance: unknown[]; getStyles: Styles }>({
     answers,
     getStyles,
     provenance
   });
 
   const unchanged
-    = committed.current.answers === answers
-      && committed.current.provenance.every((value, index) => Object.is(value, provenance[index]));
+    = committed.current.provenance.every((value, index) => Object.is(value, provenance[index]))
+      && sameAnswers(committed.current.answers, answers, selectors);
   const revision = unchanged ? committed.current.getStyles : getStyles;
 
   useInsertionEffect(() => {

@@ -8,6 +8,7 @@ import { startTransition, StrictMode, Suspense, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
+import { useDataTable } from "./use-data-table";
 
 interface Person {
   id: string;
@@ -48,6 +49,17 @@ function Blocker({ blocked, promise }: { blocked: boolean; promise: Promise<void
 }
 
 const row = () => document.querySelector(".ledger-row") as HTMLElement;
+
+function handlerView(onMouseEnter: () => void) {
+  return (
+    <StrictMode>
+      <MantineProvider>
+        <DataTable attributes={{ row: { onMouseEnter } }} columns={columns} data={people} getRowId={getRowId} />
+      </MantineProvider>
+    </StrictMode>
+  );
+}
+
 const editor = () => document.querySelector(".ledger-cell-editor") as HTMLElement;
 
 function styledView(color: string) {
@@ -141,6 +153,28 @@ function themedBehaviourView(enableActiveRow: boolean) {
         <DataTable columns={columns} data={people} enableActiveRow={enableActiveRow} getRowId={getRowId} />
       </MantineProvider>
     </StrictMode>
+  );
+}
+
+// The other routing branch: `table={...}` skips the option partition entirely, and its
+// callbacks have to see the props that branch was given too.
+function HookMode({ striped }: { striped: boolean }) {
+  const table = useDataTable<Person>({
+    columns,
+    data: people,
+    getRowId
+  });
+
+  return (
+    <DataTable
+      striped={striped}
+      table={table}
+      styles={(_theme, props) => {
+        return {
+          row: { color: props.table === (table as unknown) && striped ? "green" : "grey" }
+        };
+      }}
+    />
   );
 }
 
@@ -258,6 +292,46 @@ describe("Styles API revision", () => {
     rerender(themedBehaviourView(true));
     expect(row().classList.contains("is-active-row")).toBe(true);
     expect(row().classList.contains("no-active-row")).toBe(false);
+  });
+
+  it("carries a replaced function attribute to the rows", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+
+    const { rerender } = render(handlerView(first));
+    fireEvent.mouseEnter(row());
+    expect(first).toHaveBeenCalledTimes(1);
+
+    // A handler is a resolved answer like any other, and one that cannot be written down as text.
+    rerender(handlerView(second));
+    first.mockClear();
+    fireEvent.mouseEnter(row());
+
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+  });
+
+  it("survives an attribute value that cannot be serialized", () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    render(
+      <DataTable attributes={{ row: { "data-payload": circular } }} columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    // Comparing answers may not assume they are writable as text: `attributes` carries whatever
+    // the application put there.
+    expect(row()).toBeTruthy();
+    expect(row().dataset.payload).toBe("[object Object]");
+  });
+
+  it("resolves a style callback against the table a hook-mode caller passed", () => {
+    const { rerender } = render(<HookMode striped={false} />, { wrapper });
+    expect(row().style.color).toBe("grey");
+
+    rerender(<HookMode striped />);
+    expect(row().style.color).toBe("green");
   });
 
   it("does not re-render rows for style props that resolve to the same thing", () => {
