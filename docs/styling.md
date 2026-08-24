@@ -53,6 +53,8 @@ All the border and background props are rendered by ledger itself rather than Ma
 
 ## DOM props
 
+Every channel of the Styles API — `classNames`, `styles` (object or function of the theme and props), `vars`, `attributes`, `unstyled`, and a `theme.components.DataTable` override — reaches the rows as soon as what it resolves to changes, memoized rows included. The `props` a callback receives are the component's, all of them: `<DataTable>` routes the behavior half to `useDataTable` and keeps it off the DOM, but a callback still sees `enableActiveRow`, `striped`, `data` and the rest, exactly as its type says. Passing a fresh object that resolves to the same thing, which is what writing one inline does on every render, changes nothing and re-renders nothing ([architecture.md](architecture.md#load-bearing-internals) has the mechanism).
+
 The Styles API dresses a slot; it cannot make a row carry an attribute, react to a hover, or vary per cell. That is what the DOM prop hooks are for — one per rendered element, each taking a static object or a function of the element's subject:
 
 | Prop | Element | Subject |

@@ -64,6 +64,7 @@ import { TableFooter, tableHasFooter, visibleFooterGroups } from "./table-footer
 import { TableHeader } from "./table-header";
 import { useColumnWidths } from "./use-column-widths";
 import { useDataTable } from "./use-data-table";
+import { useStylesRevision } from "./use-styles-revision";
 import { columnAfterVar, columnStartVar, columnWidthVar, toPx, useEventCallback } from "./utils";
 
 // ------------------------------------------------------------------------------------------------
@@ -137,6 +138,12 @@ const classes: Record<DataTableStylesNames, string> = {
   loaderRowContent: "ledger-loader-row-content",
   paginationBar: "ledger-pagination-bar"
 };
+
+/**
+ * Every selector the Styles API answers for — the comparison set behind the style revision
+ * (`use-styles-revision.ts`). Constant, so the cost is per render and never per row.
+ */
+const STYLE_SELECTORS = Object.keys(classes) as DataTableStylesNames[];
 
 /**
  * Stable identity for an unoccupied pinned zone — a fresh `[]` would re-run the announcement.
@@ -425,7 +432,13 @@ function DataTableRoot<TData extends RowData>(_props: DataTableProps<TData>) {
   if (props.table) {
     const { table, ...presentation } = props;
 
-    return <DataTableCore presentation={presentation as DataTableBaseProps<TData>} table={table} />;
+    return (
+      <DataTableCore
+        presentation={presentation as DataTableBaseProps<TData>}
+        stylesProps={props}
+        table={table}
+      />
+    );
   }
 
   return <DataTableFromOptions props={props} />;
@@ -435,6 +448,13 @@ export const DataTable = genericFactory<DataTableFactory>(DataTableRoot);
 
 interface RoutedProps<TData extends RowData> {
   presentation: DataTableBaseProps<TData>;
+  /**
+   * Everything the component was given, after `useProps`. The Styles API's callbacks are typed
+   * with the component's whole props and Mantine hands them exactly that — so the behaviour half,
+   * which the partition below routes to `useDataTable` and keeps off the DOM, still has to reach
+   * `useStyles`. Only the DOM partition is `presentation`.
+   */
+  stylesProps: DataTableProps<TData>;
   table: TableInstance<TData>;
 }
 
@@ -476,11 +496,19 @@ function DataTableFromOptions<TData extends RowData>({ props }: { props: DataTab
   const table = useDataTable(options as unknown as UseDataTableOptions<TData>);
 
   return (
-    <DataTableCore presentation={presentation as DataTableBaseProps<TData>} table={table} />
+    <DataTableCore
+      presentation={presentation as DataTableBaseProps<TData>}
+      stylesProps={props}
+      table={table}
+    />
   );
 }
 
-function DataTableCore<TData extends RowData>({ presentation, table }: RoutedProps<TData>) {
+function DataTableCore<TData extends RowData>({
+  presentation,
+  stylesProps,
+  table
+}: RoutedProps<TData>) {
   const {
     striped,
     // Consumed by varsResolver from raw props; destructured only to keep them off the DOM node.
@@ -536,7 +564,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
   const getStyles = useStyles<DataTableFactory>({
     name: "DataTable",
     classes,
-    props: presentation as DataTableProps,
+    props: stylesProps as DataTableProps,
     className,
     style,
     classNames,
@@ -547,13 +575,25 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     varsResolver
   });
 
-  /* Stable getStyles identity so the memoized context value never churns per render. */
-  const getStylesRef = useRef(getStyles);
-  getStylesRef.current = getStyles;
-  const stableGetStyles = useCallback<typeof getStyles>(
-    (...args: Parameters<typeof getStyles>) => getStylesRef.current(...args),
-    []
-  );
+  /**
+   * The Styles API, revised rather than mirrored.
+   *
+   * `useStyles` resolves theme, `classNames`, `styles`, `vars`, `attributes` and the props they
+   * read on every render, and hands back a **new** getter each time. Putting that getter straight
+   * into the context would rebuild the context value every render and leave nothing in the body
+   * memoized; freezing it behind a ref instead — which this used to do — meant a real change never
+   * reached the rows at all, and made the ref a render-phase write a discarded transition could
+   * poison.
+   *
+   * So the getter is compared by what it *resolves*: every selector's className, style and
+   * attributes, plus the provenance a per-call `options.style` is resolved against (this table
+   * passes no other per-call option, and Mantine resolves that one through the theme alone).
+   * Same answers, same getter — the rows never hear about it. Different answers, and this render's
+   * getter becomes the context value, which is a context change and therefore reaches even a
+   * memoized row. `Object.keys(classes)` is a constant 25-odd selectors, so the cost is per render,
+   * never per row.
+   */
+  const stylesRevision = useStylesRevision(getStyles, STYLE_SELECTORS);
 
   const labels = useMemo(() => resolveLabels(labelsProp), [labelsProp]);
 
@@ -639,7 +679,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
           return tableBoxRef.current;
         },
         instanceId,
-        getStyles: stableGetStyles,
+        getStyles: stylesRevision,
         labels,
         filterMode,
         virtualized: virtualEnabled,
@@ -655,7 +695,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
     },
     [
       instanceId,
-      stableGetStyles,
+      stylesRevision,
       labels,
       filterMode,
       virtualEnabled,
