@@ -217,6 +217,29 @@ export function useCellEditing<TData extends RowData>({
   const requestClose = useEventCallback(() => setEditingCell(null));
 
   /**
+   * Ends whatever session the store holds and opens the one for `target`, or none. Every session
+   * boundary goes through here — the render one below, and the in-place restart in `start` — so
+   * that a session ends whole: a boundary that disowned only some of what the last one held would
+   * leave the rest of it speaking for its successor. A departure that has not fired yet belongs
+   * to the session ending here, and a write still out belongs to nobody: its settlement finds a
+   * token that no longer matches and touches nothing, so the flag it would have cleared has to be
+   * cleared now or the next session opens permanently pending.
+   */
+  const beginSession = (target: DataTableEditingCell | null) => {
+    disarmUnmountCommit();
+    sessionRef.current += 1;
+    pendingCommit.current = null;
+    pendingRef.current = false;
+    store.current = target === null
+      ? closedStore()
+      : {
+          ...closedStore(),
+          columnId: target.columnId,
+          rowId: target.rowId
+        };
+  };
+
+  /**
    * Reconciles the session with the cell that actually reached the screen. Committed in a layout
    * effect, never during render: React may throw a tree away, and a session opened for a cell
    * nobody saw would take the commits meant for the one on screen.
@@ -234,19 +257,7 @@ export function useCellEditing<TData extends RowData>({
       return;
     }
 
-    // A departure that has not fired yet belongs to the session ending here, not to the one
-    // starting.
-    disarmUnmountCommit();
-    sessionRef.current += 1;
-    pendingCommit.current = null;
-    pendingRef.current = false;
-    store.current = editingCell === null
-      ? closedStore()
-      : {
-          ...closedStore(),
-          columnId: editingCell.columnId,
-          rowId: editingCell.rowId
-        };
+    beginSession(editingCell);
   });
 
   const setError = (message: string | null) => {
@@ -568,13 +579,7 @@ export function useCellEditing<TData extends RowData>({
         // to close it. An explicit start is not that session coming back: it is the next one, so
         // it gets a new token and nothing the old one held. The slice already names this cell, so
         // no render would arrive to do it for us.
-        disarmUnmountCommit();
-        sessionRef.current += 1;
-        store.current = {
-          ...closedStore(),
-          columnId: target.columnId,
-          rowId: target.rowId
-        };
+        beginSession(target);
         setEpoch(token => token + 1);
       }
 

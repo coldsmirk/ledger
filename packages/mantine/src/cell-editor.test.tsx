@@ -983,6 +983,58 @@ describe("inline editing", () => {
     expect((input as HTMLInputElement).value).toBe("Carol");
   });
 
+  it("does not carry a cancelled session's pending commit into the one restarting it", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const onEditCommit = vi.fn(() => inFlight.promise);
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={nameColumn()}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            enableEditing={enableEditing}
+            getRowId={getRowId}
+            handleRef={handle}
+            onEditCommit={onEditCommit}
+            onEditingCellChange={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(true);
+
+    // The gate shuts while that write is still out, and reopens. The session is cancelled either
+    // way, and the owner declined to close it, so the slice still names this cell.
+    rerender(view(false));
+    rerender(view(true));
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    // The next session opens on the same cell. Nothing the cancelled one held may come with it —
+    // least of all a write whose settlement will find a token that no longer matches, and so will
+    // never clear the flag it set.
+    act(() => handle.current?.startEditing("1", "name"));
+
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.disabled).toBe(false);
+    expect(input.value).toBe("Carol");
+    expect(document.querySelector("[data-pending]")).toBeNull();
+
+    // And what a live session can do, this one can do: type, and cancel.
+    fireEvent.change(input, { target: { value: "Second" } });
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Second");
+
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Carol");
+  });
+
   it("keeps a controlled session waiting for a row that has not arrived", async () => {
     const { rerender } = render(pendingRowView([]));
     expect(screen.queryByRole("textbox")).toBeNull();
