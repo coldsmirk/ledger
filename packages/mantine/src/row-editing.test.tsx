@@ -1358,6 +1358,96 @@ describe("row editing mode", () => {
     expect(await screen.findByText("Server said no")).toBeTruthy();
   });
 
+  it("puts a row failure where it can be read, not on a hidden column", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={() => inFlight.promise}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    // The row's first editable column is hidden and the write settles straight after — no pause
+    // in which a passive cleanup could tidy the registry first.
+    await act(async () => {
+      handle.current?.table.getColumn("name")?.toggleVisibility(false);
+      inFlight.reject(new Error("Server said no"));
+      await inFlight.promise.catch(() => undefined);
+    });
+
+    expect(editorInputs()).toHaveLength(1);
+    expect(await screen.findByText("Server said no")).toBeTruthy();
+  });
+
+  it("clears the failure the column carries, not the row's other ones", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const validated: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: {
+            validate: value => String(value ?? "").length > 0 ? null : "Name is required",
+            variant: "text"
+          }
+        }
+      },
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      }
+    ];
+
+    const view = () => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={validated}
+            data={people}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view());
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(await screen.findByText("Name is required")).toBeTruthy();
+
+    // Typing somewhere else is not an answer to what `name` is complaining about — and the next
+    // render of any kind must not be where it quietly disappears.
+    fireEvent.change(editorInputs()[1] as HTMLInputElement, { target: { value: "31" } });
+    rerender(view());
+
+    expect(screen.getByText("Name is required")).toBeTruthy();
+
+    // Typing into the field that carries it is.
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Fixed" } });
+
+    expect(screen.queryByText("Name is required")).toBeNull();
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

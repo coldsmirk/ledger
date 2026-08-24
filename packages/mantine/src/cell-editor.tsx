@@ -10,7 +10,7 @@ import type { Cell, DataTableEditConfig, DataTableEditContext, Row } from "./typ
  * table cell is visual noise.
  */
 import { Loader, NumberInput, Select, TextInput } from "@mantine/core";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 
 import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
@@ -480,7 +480,11 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
    */
   const redrawFromSession = useEventCallback(() => redraw());
 
-  useEffect(() => {
+  // Layout, not passive: the registry is what "on screen right now" means to the session, and a
+  // commit that unmounts this editor is followed by microtasks — a settling write among them —
+  // long before a passive cleanup would have run. A registration that outlives its DOM would put
+  // a failure on a column nobody can see.
+  useLayoutEffect(() => {
     const unregister = rowApi?.register(columnId, {
       focus: () => containerRef.current
         ?.querySelector<HTMLElement>(":scope input, :scope select, :scope textarea, :scope button")

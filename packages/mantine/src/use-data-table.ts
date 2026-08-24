@@ -336,7 +336,14 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * a write and let the user send a second one, while a rejection arriving with no editor mounted
    * would have had nowhere to go at all.
    */
-  const rowPresentation = useRef<{ pending: boolean; error: { columnId: string; message: string } | null }>({
+  const rowPresentation = useRef<{
+    pending: boolean;
+    /**
+     * `columnId: null` is the row's own failure — a rejected commit belongs to no cell, and which
+     * column shows it is decided when an editor renders (`rowErrorColumnId`).
+     */
+    error: { columnId: string | null; message: string } | null;
+  }>({
     error: null,
     pending: false
   });
@@ -665,19 +672,31 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const isCurrentRowSession = (session: number, rowId: string) => rowSessionRef.current === session && editingRowRef.current === rowId;
 
   /**
-   * The row's first editable column in display order, or null if it has none.
+   * The column currently showing the row's failure: the one it names, or for a row-level failure
+   * the first editable column with an editor on screen, in display order. Resolved on every read
+   * rather than fixed when the failure is reported, so a message follows the screen when the
+   * column under it is hidden or scrolls away.
    */
-  const firstEditableColumnId = (rowId: string): string | null => {
+  const rowErrorColumnId = (rowId: string): string | null => {
+    const { error } = rowPresentation.current;
     const tableInstance = tableRef.current;
 
-    if (!tableInstance) {
+    if (!error || !tableInstance) {
       return null;
+    }
+
+    if (error.columnId !== null) {
+      return error.columnId;
     }
 
     try {
       const erasedRow = tableInstance.getRow(rowId, true) as Row<any>;
 
-      return erasedRow.getAllCells().find(cell => canEditCell(cell, erasedRow))?.column.id ?? null;
+      return erasedRow
+        .getAllCells()
+        .find(cell => canEditCell(cell, erasedRow) && rowEditors.current.has(cell.column.id))
+        ?.column
+        .id ?? null;
     } catch {
       return null;
     }
@@ -689,27 +708,27 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
   };
 
+  const redrawRowEditorsRef = useRef(redrawRowEditors);
+  redrawRowEditorsRef.current = redrawRowEditors;
+
   const setRowPending = (pending: boolean) => {
     rowPresentation.current.pending = pending;
     redrawRowEditors();
   };
 
   /**
-   * Puts a failure on a column. A row-level rejection has no owning cell, so it goes to the row's
-   * first editable column — a column and not "the first mounted editor", because the editors are
-   * the one part of this a scroll can take away.
+   * Records a failure on the session, so it outlives the editors: one that is unmounted when the
+   * message arrives shows it when it comes back. `columnId: null` is the row's own — a rejected
+   * commit belongs to no cell.
    */
-  const reportRowError = (columnId: string, message: string) => {
+  const reportRowError = (rowId: string, columnId: string | null, message: string) => {
     rowPresentation.current.error = { columnId, message };
     redrawRowEditors();
-    rowEditors.current.get(columnId)?.focus();
-  };
 
-  const reportRowCommitError = (rowId: string, error: unknown) => {
-    const columnId = firstEditableColumnId(rowId);
+    const shown = rowErrorColumnId(rowId);
 
-    if (columnId !== null) {
-      reportRowError(columnId, editErrorMessage(error));
+    if (shown !== null) {
+      rowEditors.current.get(shown)?.focus();
     }
   };
 
@@ -835,7 +854,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       }
 
       if (message !== null) {
-        reportRowError(columnId, message);
+        reportRowError(rowId, columnId, message);
 
         return false;
       }
@@ -855,7 +874,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         previousValues
       });
     } catch (error) {
-      reportRowCommitError(rowId, error);
+      reportRowError(rowId, null, editErrorMessage(error));
       return false;
     }
 
@@ -904,7 +923,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
           rowPendingCommit.current = null;
           setRowPending(false);
-          reportRowCommitError(rowId, error);
+          reportRowError(rowId, null, editErrorMessage(error));
           reconcileRowEligibility();
 
           return false;
@@ -978,11 +997,17 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
   const registerRowEditor = useCallback((columnId: string, editor: LedgerRowEditor) => {
     rowEditors.current.set(columnId, editor);
+    // Which editor shows a row-level failure depends on who is on screen, so the rest have to
+    // look again whenever that changes.
+    redrawRowEditorsRef.current();
 
     return () => {
-      if (rowEditors.current.get(columnId) === editor) {
-        rowEditors.current.delete(columnId);
+      if (rowEditors.current.get(columnId) !== editor) {
+        return;
       }
+
+      rowEditors.current.delete(columnId);
+      redrawRowEditorsRef.current();
     };
   }, []);
 
@@ -996,9 +1021,11 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const rowDraftsApi = useRef({
     pending: (rowId: string) => rowDrafts.current.rowId === rowId && rowPresentation.current.pending,
     error: (rowId: string, columnId: string) => {
-      const { error } = rowPresentation.current;
+      if (rowDrafts.current.rowId !== rowId || rowErrorColumnId(rowId) !== columnId) {
+        return null;
+      }
 
-      return rowDrafts.current.rowId === rowId && error?.columnId === columnId ? error.message : null;
+      return rowPresentation.current.error?.message ?? null;
     },
     read: (rowId: string, columnId: string, source: unknown) => {
       if (rowDrafts.current.rowId !== rowId) {
@@ -1015,8 +1042,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       }
 
       rowDrafts.current.values.set(columnId, value);
-      // Typing is the answer to whatever the last attempt complained about.
-      rowPresentation.current.error = null;
+
+      // Typing answers the complaint the field is showing, and only that one: another column's
+      // message is still true, and its editor is not the one being redrawn.
+      if (rowErrorColumnId(rowId) === columnId) {
+        rowPresentation.current.error = null;
+      }
     }
   }).current;
 
