@@ -644,6 +644,42 @@ describe("row editing mode", () => {
     expect(onRowEditCommit).not.toHaveBeenCalled();
   });
 
+  it("writes the values this session already committed, not the data it has not reached", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const committed: Array<Record<string, unknown>> = [];
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editingRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onEditingRowIdChange={vi.fn()}
+        onRowEditCommit={({ values }) => {
+          committed.push(values);
+        }}
+      />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "First" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(committed).toEqual([{ age: 30, name: "First" }]);
+
+    // The application kept the row open and has not fed the write back into `data`, so the cell
+    // still reads "Carol". A second commit must not carry that back over the name it just wrote.
+    fireEvent.change(editorInputs()[1] as HTMLInputElement, { target: { value: "31" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    expect(committed).toEqual([
+      { age: 30, name: "First" },
+      { age: 31, name: "First" }
+    ]);
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

@@ -334,7 +334,7 @@ interface LedgerRowEditor {
   focus: () => void;
   setError: (error: string | null) => void;
   setPending: (pending: boolean) => void;
-  reset: () => void;                                       // discard the draft, show the row again
+  reset: (value: unknown) => void;                         // discard the draft, show this instead
 }
 ```
 

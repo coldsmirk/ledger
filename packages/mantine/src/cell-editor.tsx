@@ -429,12 +429,12 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
   });
 
   /**
-   * The controller calls this when the row's pending edit is thrown away. An event callback, not
-   * a closure captured at registration: the cell it reads the value from is a fresh object every
-   * render.
+   * The controller calls this when the row's pending edit is thrown away, with the value the row
+   * should show — which is not always the cell's, since a write the application has accepted but
+   * not fed back is the newer truth.
    */
-  const resetDraft = useEventCallback(() => {
-    setDraftState(cell.getValue());
+  const resetDraft = useEventCallback((value: unknown) => {
+    setDraftState(value);
     setEditError(null);
   });
 

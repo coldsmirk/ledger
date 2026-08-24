@@ -386,10 +386,11 @@ export interface LedgerRowEditor {
   setError: (error: string | null) => void;
   setPending: (pending: boolean) => void;
   /**
-   * Discards the editor's own copy of the draft and shows the row's value again — what a
-   * cancelled row has to look like when the application declines to close it.
+   * Discards the editor's own copy of the draft and shows `value` instead — what a cancelled row
+   * has to look like when the application declines to close it. The controller resolves the
+   * value, because what the row holds may be a write the data has not fed back yet.
    */
-  reset: () => void;
+  reset: (value: unknown) => void;
 }
 
 export interface LedgerRowEditingController {

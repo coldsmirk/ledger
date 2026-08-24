@@ -305,10 +305,16 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
      * not in the table yet — see `openRowDrafts`.
      */
     baseline: Map<string, unknown> | null;
+    /**
+     * What this session has already written, per column, against the value the data held when
+     * it went out — see `previousRowValue`.
+     */
+    committed: Map<string, { value: unknown; source: unknown }>;
   }>({
     rowId: null,
     values: new Map(),
-    baseline: new Map()
+    baseline: new Map(),
+    committed: new Map()
   });
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
   const rowFocusColumn = useRef<string | null>(null);
@@ -382,7 +388,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     rowDrafts.current = {
       rowId,
       values: new Map(),
-      baseline: rowId === null ? new Map() : snapshotEditableValues(rowId)
+      baseline: rowId === null ? new Map() : snapshotEditableValues(rowId),
+      committed: new Map()
     };
   };
 
@@ -396,21 +403,29 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const draftsFor = (rowId: string | null): Map<string, unknown> => rowDrafts.current.rowId === rowId ? rowDrafts.current.values : new Map();
 
   /**
-   * Takes back the pending values a commit has just sent, so a second `stopEditing` before the
-   * row closes cannot send the same edit twice. Only those: the store outlives the request — a
-   * custom editor is not disabled while one is in flight, and a controlled application may
-   * decline to close the row — so anything typed since is an edit no write has carried yet, and
-   * emptying the store wholesale would lose it.
+   * What the application last knew this column to hold — the value the row is editing away from.
+   * A session can outlive its own writes: a controlled application may decline to close the row,
+   * and the data it feeds back arrives whenever it arrives. Until then `source` — what the cell
+   * read when the write went out — still matches, and the value written is the newer truth. Once
+   * the data moves, it wins: it may be our write applied, normalized, or somebody else's.
    */
-  const consumeCommittedRowDrafts = (rowId: string, committed: Record<string, unknown>) => {
+  const previousRowValue = (columnId: string, source: unknown): unknown => {
+    const written = rowDrafts.current.committed.get(columnId);
+
+    return written && Object.is(written.source, source) ? written.value : source;
+  };
+
+  /**
+   * Records a write that went through, so the values it carried stop reading as pending edits
+   * and the next commit departs from them rather than from data that has not caught up.
+   */
+  const recordRowCommit = (rowId: string, values: Record<string, unknown>, sources: Map<string, unknown>) => {
     if (rowDrafts.current.rowId !== rowId) {
       return;
     }
 
-    for (const [columnId, value] of rowDrafts.current.values) {
-      if (Object.hasOwn(committed, columnId) && Object.is(value, committed[columnId])) {
-        rowDrafts.current.values.delete(columnId);
-      }
+    for (const [columnId, value] of Object.entries(values)) {
+      rowDrafts.current.committed.set(columnId, { value, source: sources.get(columnId) });
     }
   };
 
@@ -418,17 +433,20 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * Throws the whole pending edit away — what cancelling means. The mounted editors are put back
    * alongside the store because the row can stay on screen: a controlled application may decline
    * to close it, and an editor still showing a value the store no longer holds is one nothing
-   * would commit.
+   * would commit. They are put back to what the session has written, not to the data, for the
+   * same reason `previousRowValue` exists.
    */
   const discardRowEdits = (rowId: string | null) => {
-    if (rowDrafts.current.rowId !== rowId) {
+    if (rowId === null || rowDrafts.current.rowId !== rowId) {
       return;
     }
 
     rowDrafts.current.values.clear();
 
-    for (const editor of rowEditors.current.values()) {
-      editor.reset();
+    const source = snapshotEditableValues(rowId) ?? rowDrafts.current.baseline ?? new Map();
+
+    for (const [columnId, editor] of rowEditors.current) {
+      editor.reset(previousRowValue(columnId, source.get(columnId)));
     }
   };
 
@@ -568,12 +586,17 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     const drafts = draftsFor(rowId);
     const values: Record<string, unknown> = {};
     const previousValues: Record<string, unknown> = {};
+    // What the data itself reads, so a write that goes through can later be told apart from the
+    // data catching up with it.
+    const sources = new Map<string, unknown>();
     let changed = false;
 
     for (const cell of editableCells) {
       const columnId = cell.column.id;
-      const previous = cell.getValue();
+      const source = cell.getValue();
+      const previous = previousRowValue(columnId, source);
       const value = drafts.has(columnId) ? drafts.get(columnId) : previous;
+      sources.set(columnId, source);
       values[columnId] = value;
       previousValues[columnId] = previous;
       changed ||= !Object.is(value, previous);
@@ -601,7 +624,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       // crossing removes it before TanStack ever sees it, so there is no cell to read. The value
       // the user typed is still theirs and commits against the baseline captured at edit start.
       // Its `validate` cannot run, because the definition that carried it is gone.
-      const previous = rowDrafts.current.baseline?.get(columnId);
+      const source = rowDrafts.current.baseline?.get(columnId);
+      const previous = previousRowValue(columnId, source);
+      sources.set(columnId, source);
       values[columnId] = value;
       previousValues[columnId] = previous;
       changed ||= !Object.is(value, previous);
@@ -666,7 +691,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           }
 
           rowPendingCommit.current = null;
-          consumeCommittedRowDrafts(rowId, values);
+          recordRowCommit(rowId, values, sources);
           broadcastRowPending(false);
           finishRowEditing();
 
@@ -694,7 +719,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return pending;
     }
 
-    consumeCommittedRowDrafts(rowId, values);
+    recordRowCommit(rowId, values, sources);
     finishRowEditing();
     return true;
   });
