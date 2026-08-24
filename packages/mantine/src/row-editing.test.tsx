@@ -1017,6 +1017,51 @@ describe("row editing mode", () => {
     expect(change.previousValues).toEqual({ name: "Carol" });
   });
 
+  it("ends the row when a commit rejects after the table switch shut behind it", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editMode="row"
+            enableEditing={enableEditing}
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={() => inFlight.promise}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    // The gate shuts while the write is out. Every editor unmounts with it, so nothing is left
+    // whose state change could bring the session round again — the settlement has to do it.
+    rerender(view(false));
+    expect(document.querySelector("[data-editing-row]")).toBeTruthy();
+
+    await act(async () => {
+      inFlight.reject(new Error("nope"));
+      await inFlight.promise.catch(() => undefined);
+    });
+
+    expect(document.querySelector("[data-editing-row]")).toBeNull();
+
+    rerender(view(true));
+
+    expect(editorInputs()).toHaveLength(0);
+    expect(document.querySelector("[data-editing-row]")).toBeNull();
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

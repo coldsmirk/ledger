@@ -555,34 +555,27 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   });
 
   /**
-   * Losing eligibility mid-edit cancels the row (docs/editing.md) — the same rule cell mode
-   * applies to its single editor. The body only stops rendering editors for cells that fail
-   * `canEditCell`, so without this the session, its drafts and `editingRowId` would all survive
-   * a gate that shut, and come back the moment it reopened.
+   * Reconciles the row being edited with the table it lives in. Three things can move under an
+   * open row, and only one of them ends it:
    *
-   * A row that keeps one editable cell keeps editing: a single column shutting drops that
-   * column's pending value, not the row. A column that simply left the definitions — a responsive
-   * breakpoint crossing — shut no gate at all: the layout changed, the row keeps editing, and its
-   * draft still commits against the baseline (docs/editing.md). So the row ends when the table
-   * switch is off, or when a gate shut on a column this session was editing and none is left
-   * editable. A row the table does not hold yet is a row that has not arrived, not one that may
-   * not be edited.
+   * - the data moves past a value this session wrote — the overlay entry retires for good, so
+   * data that later returns to what the write departed from cannot bring our value back with
+   * it (`previousRowValue` tests the same thing, for the reads that happen before this runs);
+   * - a column's gate shuts (`meta.edit` removed, `edit.enabled(row)` turning false) — its
+   * pending value goes now rather than at commit time, so a gate that reopens cannot bring back
+   * a draft nothing was showing;
+   * - a column simply leaves the definitions, a responsive breakpoint crossing — nothing shut,
+   * the layout changed, and its draft still commits against the baseline (docs/editing.md).
    *
-   * It is also where a value this session wrote retires: once the data has moved past it, it is
-   * gone for good, so data that later returns to what the write departed from cannot bring our
-   * value back with it (`previousRowValue` tests the same thing, for reads that happen first).
-   *
-   * Passive, not layout: nothing has to be keyed before the user can type, and this must not race
-   * the session boundary above. No dependency array, because eligibility is `enableEditing`, the
-   * column definitions and the row's own data at once — nothing a list describes.
+   * So the row ends when the table switch is off, or when the gate shut on a column this session
+   * was editing and none is left editable. A row the table does not hold yet has not arrived,
+   * which is not the same as a row that may not be edited.
    */
-  useEffect(() => {
+  const reconcileRowEligibility = useEventCallback(() => {
     const rowId = editingRowRef.current;
     const tableInstance = tableRef.current;
 
-    // A request already out passed the gate before it shut. It settles first; the render its
-    // settlement causes brings this test back round.
-    if (rowId === null || !tableInstance || rowPendingCommit.current) {
+    if (rowId === null || !tableInstance) {
       return;
     }
 
@@ -610,8 +603,6 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       if (canEditCell(cell, erasedRow)) {
         editable = true;
       } else {
-        // Here and not editable: the gate shut on it. Its pending value goes now rather than at
-        // commit time, so a gate that reopens cannot bring back a draft nothing was showing.
         gateShut ||= baseline?.has(columnId) ?? false;
         rowDrafts.current.values.delete(columnId);
       }
@@ -623,6 +614,22 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
     discardRowEdits(rowId);
     finishRowEditing();
+  });
+
+  /**
+   * Passive, not layout: nothing has to be keyed before the user can type, and this must not race
+   * the session boundary above. No dependency array, because what it watches is `enableEditing`,
+   * the column definitions and the row's own data at once — nothing a list describes.
+   */
+  useEffect(() => {
+    // Held off while a request is out: that write passed the gate before it shut. The settlement
+    // calls this itself rather than trusting a render to follow — with the gate closed there may
+    // be no editor left whose state change would cause one.
+    if (rowPendingCommit.current) {
+      return;
+    }
+
+    reconcileRowEligibility();
   });
 
   /**
@@ -812,6 +819,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           recordRowCommit(rowId, values, sources);
           consumeCommittedRowDrafts(rowId, values);
           broadcastRowPending(false);
+          // The gate may have shut while this write was out; it was held off until the write it
+          // let through had landed.
+          reconcileRowEligibility();
 
           if (hasUncommittedRowEdits(rowId, values)) {
             // Typed straight past the request while it was out. The write did go through, but
@@ -831,6 +841,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           rowPendingCommit.current = null;
           broadcastRowPending(false);
           reportRowCommitError(error);
+          reconcileRowEligibility();
 
           return false;
         }
