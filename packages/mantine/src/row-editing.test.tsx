@@ -2032,6 +2032,135 @@ describe("row editing mode", () => {
     expect(editorsAtLayout.every(count => count === 0)).toBe(true);
   });
 
+  it("commits the row on screen, not one a discarded render replaced", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [rows, setRows] = useState(people);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={columns}
+            data={rows}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setRows([{ ...(people[0] as Person), age: 99 }, people[1] as Person]);
+              setBlocked(true);
+            })}
+          >
+            swap
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Renamed" } });
+
+    // The transition renders the row holding a different age and is then thrown away.
+    fireEvent.click(screen.getByRole("button", { name: "swap" }));
+    expect(editorInputs()).toHaveLength(2);
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
+    const change = onRowEditCommit.mock.calls[0]?.[0] as {
+      values: Record<string, unknown>;
+      previousValues: Record<string, unknown>;
+    };
+
+    // Age was never touched, and what the application last knew it to hold is 30 — the 99 no
+    // render ever put on screen is not a previous value.
+    expect(change.values).toEqual({ name: "Renamed", age: 30 });
+    expect(change.previousValues).toEqual({ name: "Carol", age: 30 });
+  });
+
+  it("commits a row a discarded render removed", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [rows, setRows] = useState(people);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={columns}
+            data={rows}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setRows([]);
+              setBlocked(true);
+            })}
+          >
+            empty
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Renamed" } });
+
+    // The row is still on screen; only a render nobody saw took it away.
+    fireEvent.click(screen.getByRole("button", { name: "empty" }));
+    expect(editorInputs()).toHaveLength(2);
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

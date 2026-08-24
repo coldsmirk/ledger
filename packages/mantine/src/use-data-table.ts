@@ -36,7 +36,7 @@ import { functionalUpdate, useTable } from "@tanstack/react-table";
 import { useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { buildColumns, EXPANDER_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
-import { canEditCell, editErrorMessage, normalizeEdit } from "./edit-meta";
+import { editErrorMessage, normalizeEdit } from "./edit-meta";
 import { isDev, warnOnce } from "./env";
 import { ledgerFilterFns } from "./filter-fns";
 import { buildLedgerFeatures } from "./ledger-features";
@@ -359,26 +359,15 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * and "this row has no previous values" is a different answer from "there is no row to ask".
    */
   const snapshotEditableValues = (rowId: string): Map<string, unknown> | null => {
-    const tableInstance = tableRef.current;
-
-    if (!tableInstance) {
-      return null;
-    }
-
-    let row: Row<TData> | undefined;
-
-    try {
-      row = tableInstance.getRow(rowId, true);
-    } catch {
+    if (committed.row(rowId) === null) {
       return null;
     }
 
     const baseline = new Map<string, unknown>();
-    const erasedRow = row as Row<any>;
 
-    for (const cell of erasedRow.getAllCells()) {
-      if (canEditCell(cell, erasedRow)) {
-        baseline.set(cell.column.id, cell.getValue());
+    for (const columnId of committed.columnIds()) {
+      if (committed.canEdit(rowId, columnId)) {
+        baseline.set(columnId, committed.value(rowId, columnId));
       }
     }
 
@@ -642,18 +631,11 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     // The table switch is answered before the row is even looked for. A session opened on a row
     // whose data has not arrived would otherwise survive the switch closing, and a switch that
     // reopened before the data landed would find the old session waiting.
-    if (!enableEditing) {
+    if (!committed.enableEditing()) {
       markRowGateLost();
     }
 
-    const tableInstance = tableRef.current;
-    let row: Row<TData> | undefined;
-
-    try {
-      row = tableInstance?.getRow(rowId, true);
-    } catch {
-      row = undefined;
-    }
+    const row = committed.row(rowId);
 
     if (!row) {
       // Not in the table: a row that has not arrived, or one the data no longer holds. Neither is
@@ -661,14 +643,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return endLostRowSession(rowId);
     }
 
-    const erasedRow = row as Row<any>;
     const { baseline } = rowDrafts.current;
     let editable = false;
     let gateShut = false;
 
-    for (const cell of erasedRow.getAllCells()) {
-      const columnId = cell.column.id;
-      const source = cell.getValue();
+    for (const columnId of committed.columnIds()) {
+      const source = committed.value(rowId, columnId);
       const written = rowDrafts.current.committed.get(columnId);
 
       if (written && !Object.is(written.source, source)) {
@@ -683,7 +663,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         writing.moved = true;
       }
 
-      if (canEditCell(cell, erasedRow)) {
+      if (committed.canEdit(rowId, columnId)) {
         editable = true;
 
         // The last effective previous this session saw for the column, refreshed while it is
@@ -691,7 +671,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         // whose definition later disappears has nothing else left to answer with. Recording it
         // on every sighting also gives the session its membership — which is how a gate shutting
         // on a column it was editing is told apart from a breakpoint taking one away.
-        baseline?.set(columnId, previousRowValue(columnId, cell.getValue()));
+        baseline?.set(columnId, previousRowValue(columnId, source));
       } else {
         gateShut ||= baseline?.has(columnId) ?? false;
         rowDrafts.current.values.delete(columnId);
@@ -733,9 +713,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    */
   const rowErrorColumnId = (rowId: string): string | null => {
     const { error } = rowPresentation.current;
-    const tableInstance = tableRef.current;
 
-    if (!error || !tableInstance) {
+    if (!error) {
       return null;
     }
 
@@ -743,17 +722,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return error.columnId;
     }
 
-    try {
-      const erasedRow = tableInstance.getRow(rowId, true) as Row<any>;
-
-      return erasedRow
-        .getAllCells()
-        .find(cell => canEditCell(cell, erasedRow) && rowEditors.current.has(cell.column.id))
-        ?.column
-        .id ?? null;
-    } catch {
-      return null;
-    }
+    return committed
+      .columnIds()
+      .find(columnId => committed.canEdit(rowId, columnId) && rowEditors.current.has(columnId)) ?? null;
   };
 
   // Stable, and reads nothing but refs — so `registerRowEditor` can close over it directly rather
@@ -798,9 +769,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
   const commitRow = useEventCallback((): boolean | Promise<boolean> => {
     const rowId = editingRowRef.current;
-    const tableInstance = tableRef.current;
 
-    if (rowId === null || !tableInstance) {
+    if (rowId === null) {
       return true;
     }
 
@@ -837,13 +807,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return false;
     }
 
-    let row: Row<TData> | undefined;
-
-    try {
-      row = tableInstance.getRow(rowId, true);
-    } catch {
-      row = undefined;
-    }
+    const row = committed.row(rowId);
 
     if (!row) {
       // The row left the data set mid-edit — there is nothing to commit onto.
@@ -854,16 +818,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     rowPresentation.current.error = null;
     redrawRowEditors();
 
-    // v9's `in out` generics make Cell/Row invariant in TData; the editing helpers speak the
-    // erased shape (the same single-erasure convention the render layer documents).
-    const erasedRow = row as Row<any>;
-    // Every editable cell, not just the visible ones (docs/api.md: "every editable column,
+    // Every editable column, not just the visible ones (docs/api.md: "every editable column,
     // drafts merged in"). Hiding a column mid-edit — the columns panel, or a responsive
     // breakpoint crossing on a window resize — must not silently drop the value typed into it,
     // still less make `changed` false and discard the whole commit.
-    const allCells = erasedRow.getAllCells();
-    const editableCells = allCells.filter(cell => canEditCell(cell, erasedRow));
-    const presentColumnIds = new Set(allCells.map(cell => cell.column.id));
+    const presentColumnIds = committed.columnIds();
+    const editableColumnIds = presentColumnIds.filter(columnId => committed.canEdit(rowId, columnId));
     const drafts = draftsFor(rowId);
     const values: Record<string, unknown> = {};
     const previousValues: Record<string, unknown> = {};
@@ -872,9 +832,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     const sources = new Map<string, unknown>();
     let changed = false;
 
-    for (const cell of editableCells) {
-      const columnId = cell.column.id;
-      const source = cell.getValue();
+    for (const columnId of editableColumnIds) {
+      const source = committed.value(rowId, columnId);
       const previous = previousRowValue(columnId, source);
       const value = drafts.has(columnId) ? drafts.get(columnId) : previous;
       sources.set(columnId, source);
@@ -889,7 +848,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         continue;
       }
 
-      if (presentColumnIds.has(columnId)) {
+      if (committed.has(columnId)) {
         // The column is still here, it simply stopped being editable mid-edit — `meta.edit`
         // removed, or `edit.enabled(row)` now false for this row. Committing that draft would
         // push a value through a gate the application just closed, and unvalidated besides (the
@@ -914,9 +873,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     // First validation failure focuses its editor and blocks the whole row.
-    for (const cell of editableCells) {
-      const columnId = cell.column.id;
-      const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
+    for (const columnId of editableColumnIds) {
+      const normalized = normalizeEdit(committed.edit(columnId));
 
       if (normalized?.kind !== "variant" || !normalized.config.validate) {
         continue;
@@ -925,7 +883,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       let message: string | null;
 
       try {
-        message = normalized.config.validate(values[columnId], erasedRow);
+        message = normalized.config.validate(values[columnId], row);
       } catch (error) {
         message = editErrorMessage(error);
       }
@@ -945,8 +903,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     let result: void | Promise<void>;
 
     try {
+      // Single erasure, the same boundary the render layer crosses: the committed resolver speaks
+      // the erased shape, and v9's `in out` generics make Row invariant in TData.
       result = onRowEditCommit?.({
-        row,
+        row: row as Row<TData>,
         values,
         previousValues
       });
