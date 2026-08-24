@@ -1211,6 +1211,69 @@ describe("row editing mode", () => {
     await waitFor(() => expect(document.querySelector("[data-editing-row]")).toBeNull());
   });
 
+  it("falls back to the last previous it saw when a column's definition goes", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    const narrow: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      }
+    ];
+
+    const view = (rows: Person[], columnSet: Array<ColumnDef<Person, any>>) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columnSet}
+            data={rows}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(people, columns));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // Somebody else changes the row while the column is still on screen. That is what the
+    // application last knew it to hold.
+    rerender(view([
+      {
+        age: 30,
+        id: "1",
+        name: "Caroline"
+      },
+      people[1] as Person
+    ], columns));
+
+    await waitFor(() => expect((editorInputs()[0] as HTMLInputElement).value).toBe("Drafted"));
+
+    // The column then leaves the definitions, so only what the session observed can answer.
+    rerender(view([
+      {
+        age: 30,
+        id: "1",
+        name: "Caroline"
+      },
+      people[1] as Person
+    ], narrow));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
+    const change = onRowEditCommit.mock.calls[0]?.[0] as { previousValues: Record<string, unknown> };
+    expect(change.previousValues).toEqual({ age: 30, name: "Caroline" });
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

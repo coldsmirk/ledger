@@ -606,14 +606,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       if (canEditCell(cell, erasedRow)) {
         editable = true;
 
-        // A session can meet a column after it opened — a breakpoint widening brings one back
-        // into the definitions. What that column held has to be recorded the first time it is
-        // seen, or a later breakpoint taking it away again would leave the commit with no
-        // previous value to depart from, and its gate shutting would not read as this session
-        // losing a column. Never an overwrite: the earliest sighting is the one that counts.
-        if (baseline && !baseline.has(columnId)) {
-          baseline.set(columnId, cell.getValue());
-        }
+        // The last effective previous this session saw for the column, refreshed while it is
+        // here to be seen: `previousValues` means what the application last knew, and a column
+        // whose definition later disappears has nothing else left to answer with. Recording it
+        // on every sighting also gives the session its membership — which is how a gate shutting
+        // on a column it was editing is told apart from a breakpoint taking one away.
+        baseline?.set(columnId, previousRowValue(columnId, cell.getValue()));
       } else {
         gateShut ||= baseline?.has(columnId) ?? false;
         rowDrafts.current.values.delete(columnId);
