@@ -1,12 +1,16 @@
-import type { RowData } from "@tanstack/react-table";
+import type { ColumnSizingState } from "@tanstack/react-table";
 
-import type { TableInstance } from "./types";
+import type { ResizerSpec } from "./use-column-resize";
 
 /**
- * Fit a column to its rendered content (the resizer's double-click). Measures the header cell
- * and every RENDERED body cell of the column — under virtualization that is the current window,
- * which is the industry contract for autosize (unrendered rows have no boxes to measure) — and
- * writes the result through `columnSizing`, clamped like an interactive resize.
+ * Fit a column to its rendered content (the resizer's double-click). Measures the header cell,
+ * every RENDERED body cell of the column — under virtualization that is the current window, which
+ * is the industry contract for autosize (unrendered rows have no boxes to measure) — and the
+ * footer cell, which is rendered content the column has to hold like any other. Writes the result
+ * through `columnSizing`, clamped like an interactive resize.
+ *
+ * The column, its constraints and whether it carries a filter all arrive from the render that put
+ * the handle on screen, for the reason `use-column-resize.ts` gives.
  *
  * Measurement forces `white-space: nowrap` on every cell first and reads afterwards, so the
  * whole pass costs one reflow. Truncating cells clip their own overflow (the td never grows),
@@ -63,21 +67,31 @@ function headerCellWidth(th: HTMLElement, hasFilter: boolean): number {
     + (hasFilter ? HEADER_ACTIONS_ALLOWANCE_PX : 0);
 }
 
-export function autosizeColumn<TData extends RowData>(
-  table: TableInstance<TData>,
-  columnId: string,
+export interface AutosizeSpec extends Pick<ResizerSpec, "columnId" | "minSize" | "maxSize"> {
+  /**
+   * The column carries a filter control, so the header reserves room for the hover overlay.
+   */
+  hasFilter: boolean;
+}
+
+export function autosizeColumn(
+  setColumnSizing: (updater: (previous: ColumnSizingState) => ColumnSizingState) => void,
+  {
+    columnId,
+    minSize,
+    maxSize,
+    hasFilter
+  }: AutosizeSpec,
   main: HTMLElement
 ): void {
-  const column = table.getColumn(columnId);
-
-  if (!column) {
-    return;
-  }
-
   const selector = `[data-ledger-column-id="${CSS.escape(columnId)}"]`;
   const headerCell = main.querySelector<HTMLElement>(`:scope .ledger-header ${selector}`);
   const bodyCells = [...main.querySelectorAll<HTMLElement>(`:scope .ledger-tbody ${selector}`)];
-  const cells = headerCell ? [headerCell, ...bodyCells] : bodyCells;
+  // A footer cell that spans columns says nothing about the width of any one of them.
+  const footerCells = [...main.querySelectorAll<HTMLElement>(`:scope .ledger-footer ${selector}`)]
+    .filter(cell => (cell as HTMLTableCellElement).colSpan <= 1);
+  const contentCells = [...bodyCells, ...footerCells];
+  const cells = headerCell ? [headerCell, ...contentCells] : contentCells;
 
   if (cells.length === 0) {
     return;
@@ -90,10 +104,9 @@ export function autosizeColumn<TData extends RowData>(
     cell.style.whiteSpace = "nowrap";
   }
 
-  const hasFilter = column.columnDef.meta?.filter !== undefined;
   let content = headerCell ? headerCellWidth(headerCell, hasFilter) : 0;
 
-  for (const cell of bodyCells) {
+  for (const cell of contentCells) {
     content = Math.max(content, bodyCellWidth(cell));
   }
 
@@ -101,11 +114,7 @@ export function autosizeColumn<TData extends RowData>(
     cell.style.whiteSpace = previousWhitespace[index] ?? "";
   }
 
-  const { minSize, maxSize } = column.columnDef;
-  const next = Math.min(
-    Math.max(Math.round(content + AUTOSIZE_SLACK_PX), minSize ?? 20),
-    maxSize ?? Number.MAX_SAFE_INTEGER
-  );
+  const next = Math.min(Math.max(Math.round(content + AUTOSIZE_SLACK_PX), minSize), maxSize);
 
-  table.setColumnSizing(previous => previous[columnId] === next ? previous : { ...previous, [columnId]: next });
+  setColumnSizing(previous => previous[columnId] === next ? previous : { ...previous, [columnId]: next });
 }

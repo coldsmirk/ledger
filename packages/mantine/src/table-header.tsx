@@ -1,7 +1,8 @@
-import type { RowData } from "@tanstack/react-table";
+import type { ColumnSizingState, RowData } from "@tanstack/react-table";
 import type { MouseEvent } from "react";
 
 import type { Header, TableInstance } from "./types";
+import type { ResizerSpec } from "./use-column-resize";
 
 /**
  * The header: sortable labels (full-area button, shift for multi-sort, order badges), the
@@ -25,16 +26,20 @@ import { useColumnReorder } from "./use-column-reorder";
 import { useColumnResize } from "./use-column-resize";
 
 /**
- * `columnWidths` arrives as a prop, not through the context: a drag departs from the edge the
- * user grabbed, which is the one this render put on screen. A ref shared with a work-in-progress
- * tree would hand the pointer a width from a render nobody saw (docs/architecture.md).
+ * `columnWidths` and `columnSizing` arrive as props, not through the context or the table: a drag
+ * departs from the edge the user grabbed and restores what that render had, and both belong to
+ * the render that drew the handle. Reaching for either at event time reaches the shared core,
+ * which carries whatever render pass ran last — a discarded one included
+ * (docs/architecture.md).
  */
 export function TableHeader<TData extends RowData>({
   table,
-  columnWidths
+  columnWidths,
+  columnSizing
 }: {
   table: TableInstance<TData>;
   columnWidths: Record<string, number>;
+  columnSizing: ColumnSizingState;
 }) {
   const {
     getStyles,
@@ -42,7 +47,7 @@ export function TableHeader<TData extends RowData>({
     headerRowProps
   } = useDataTableContext();
   const reorder = useColumnReorder(table);
-  const resize = useColumnResize(table, columnWidths);
+  const resize = useColumnResize(table.setColumnSizing);
 
   return (
     <MantineTable.Thead {...getStyles("thead")}>
@@ -55,7 +60,17 @@ export function TableHeader<TData extends RowData>({
             ...getStyles("headerRow")
           })}
         >
-          {headerGroup.headers.map(header => <HeaderCell key={header.id} header={header} reorder={reorder} resize={resize} table={table} />)}
+          {headerGroup.headers.map(header => (
+            <HeaderCell
+              key={header.id}
+              columnSizing={columnSizing}
+              columnWidths={columnWidths}
+              header={header}
+              reorder={reorder}
+              resize={resize}
+              table={table}
+            />
+          ))}
         </MantineTable.Tr>
       ))}
     </MantineTable.Thead>
@@ -67,13 +82,17 @@ interface HeaderCellProps<TData extends RowData> {
   table: TableInstance<TData>;
   reorder: ReturnType<typeof useColumnReorder>;
   resize: ReturnType<typeof useColumnResize>;
+  columnWidths: Record<string, number>;
+  columnSizing: ColumnSizingState;
 }
 
 function HeaderCell<TData extends RowData>({
   header,
   table,
   reorder,
-  resize
+  resize,
+  columnWidths,
+  columnSizing
 }: HeaderCellProps<TData>) {
   const { getStyles, labels } = useDataTableContext();
   const { column } = header;
@@ -93,6 +112,19 @@ function HeaderCell<TData extends RowData>({
       // a group header would write a `columnSizing` entry nothing ever reads.
       && column.columns.length === 0;
   const resizing = resize.resizingId === column.id;
+  /**
+   * Everything a drag or a fit decides with, read here, in the render that draws the handle —
+   * the width on screen, the constraints this render's definition carries, the entry Escape puts
+   * back, and whether the header reserves room for a filter control. The handler on the DOM then
+   * needs nothing from the table at all (docs/architecture.md).
+   */
+  const resizerSpec: ResizerSpec = {
+    columnId: column.id,
+    width: columnWidths[column.id] ?? column.getSize(),
+    minSize: column.columnDef.minSize ?? 20,
+    maxSize: column.columnDef.maxSize ?? Number.MAX_SAFE_INTEGER,
+    sizingEntry: columnSizing[column.id]
+  };
 
   const dragged = reorder.drag.draggedId === column.id;
   const dropSide = reorder.drag.targetId === column.id ? reorder.drag.side : null;
@@ -186,10 +218,14 @@ function HeaderCell<TData extends RowData>({
                       const main = event.currentTarget.closest<HTMLElement>(".ledger-main");
 
                       if (main) {
-                        autosizeColumn(table, column.id, main);
+                        autosizeColumn(
+                          table.setColumnSizing,
+                          { ...resizerSpec, hasFilter: meta?.filter !== undefined },
+                          main
+                        );
                       }
                     }}
-                    {...resize.getResizerProps(column.id)}
+                    {...resize.getResizerProps(resizerSpec)}
                     {...getStyles("resizer")}
                   />
                 )}

@@ -56,6 +56,9 @@ export function TableFooter<TData extends RowData>({
               {...mergeElementProps(resolveElementProps(footer.column.columnDef.meta?.footerCellProps, footer), {
                 colSpan: footer.colSpan,
                 "data-align": footer.column.columnDef.meta?.align,
+                // Autosize measures the footer like every other rendered cell, and finds it the
+                // same way (docs/sizing.md).
+                "data-ledger-column-id": footer.column.id,
                 "data-pinned": footer.column.getIsPinned() || undefined,
                 "data-pinned-edge": pinnedEdge(footer.column),
                 // Totals are data, not headers — under the ARIA table they are plain cells.

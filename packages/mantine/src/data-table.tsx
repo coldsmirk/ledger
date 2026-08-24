@@ -1240,7 +1240,7 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
             <div ref={headerViewportRef} {...getStyles("header")}>
               <MantineTable {...sharedTableProps} {...tableStyleProps()}>
                 <colgroup>{colElements}</colgroup>
-                <TableHeader columnWidths={columnWidths.byId} table={erasedTable} />
+                <TableHeader columnSizing={tableState.columnSizing} columnWidths={columnWidths.byId} table={erasedTable} />
               </MantineTable>
             </div>
           )}
