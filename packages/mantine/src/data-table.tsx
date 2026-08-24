@@ -16,6 +16,7 @@ import type { DataAttributes, DataTableElementProps } from "./element-props";
 import type { DataTableLabels } from "./labels";
 import type { VirtualizationConfig } from "./table-body";
 import type {
+  Column,
   DataTableHandle,
   DataTableScrollToRowOptions,
   HeaderGroup,
@@ -462,23 +463,47 @@ interface RoutedProps<TData extends RowData> {
  * Resolve a row against the exact list owned by the virtualizer. Pinned rows are mounted outside
  * that list, so they deliberately have no scroll index.
  */
+/**
+ * The rows and the naming column of one committed render, in the shape the handlers that answer
+ * for the screen need them (docs/architecture.md).
+ */
+export interface DisplaySnapshot<TData extends RowData> {
+  /**
+   * Every row on screen, in display order — pinned top, the page, pinned bottom. What the
+   * keyboard steps through and what the announcement counts.
+   */
+  ordered: Array<Row<TData>>;
+  /**
+   * The unpinned zone alone, which is what the virtualizer indexes.
+   */
+  centerRows: Array<Row<TData>>;
+  topRows: Array<Row<TData>>;
+  bottomRows: Array<Row<TData>>;
+  /**
+   * The page's own row model — what a numeric `scrollToRow` index counts through.
+   */
+  pageRows: Array<Row<TData>>;
+  /**
+   * The leading data column, whose accessor names a row for the announcement.
+   */
+  leadingColumn: Column<TData, unknown> | null;
+  /**
+   * Detail panels are on, so an expanded row owns a synthetic display item of its own.
+   */
+  withDetailPanels: boolean;
+}
+
 export function resolveVirtualDisplayIndex<TData extends RowData>(
-  table: TableInstance<TData>,
-  rowId: string,
-  withDetailPanels: boolean
+  snapshot: DisplaySnapshot<TData>,
+  rowId: string
 ): number | null {
-  const rowPinningActive = table.options.enableRowPinning === true;
+  const pinned = [...snapshot.topRows, ...snapshot.bottomRows].some(row => row.id === rowId);
 
-  if (rowPinningActive) {
-    const pinned = [...table.getTopRows(), ...table.getBottomRows()].some(row => row.id === rowId);
-
-    if (pinned) {
-      return null;
-    }
+  if (pinned) {
+    return null;
   }
 
-  const rows = rowPinningActive ? table.getCenterRows() : table.getRowModel().rows;
-  const index = buildDisplayRows(rows, withDetailPanels)
+  const index = buildDisplayRows(snapshot.centerRows, snapshot.withDetailPanels)
     .findIndex(displayRow => displayRow.kind === "data" && displayRow.row.id === rowId);
 
   return index === -1 ? null : index;
@@ -668,7 +693,9 @@ function DataTableCore<TData extends RowData>({
   // the instance lives, so naming them individually is what lets the context value hold while
   // the wrapper identity changes on every state tick (context.ts).
   const ledger = table.options.meta?.ledger;
+  const editing = ledger?.editing;
   const activeRowEnabled = ledger?.activeRow.enabled === true;
+  const activeRowId = ledger?.activeRow.id ?? null;
   const setActiveRow = ledger?.activeRow.set;
   const subscribeColumnFilters = ledger?.filtering.subscribeColumnFilters;
 
@@ -829,16 +856,57 @@ function DataTableCore<TData extends RowData>({
   const hasFooter = tableHasFooter(table);
   // No header region means no header rows — every aria-rowindex downstream counts from 0.
   const headerRowCount = columnHeadersVisible ? table.getHeaderGroups().length : 0;
-  const withDetailPanels = Boolean(table.options.meta?.ledger?.renderDetailPanel);
+  const withDetailPanels = Boolean(ledger?.renderDetailPanel);
   const rowPinningActive = table.options.enableRowPinning === true;
+  /**
+   * The zones this render draws, read once here. Each array is TanStack-memoized, so holding
+   * them costs nothing per scroll step — and every handler below answers from them instead of
+   * asking the table again when the key is pressed. A row model reached for at event time is
+   * the shared core's, which carries whatever pass rendered last, a discarded one included
+   * (docs/architecture.md).
+   */
+  const pageRows = table.getRowModel().rows;
+  const topRows = rowPinningActive ? table.getTopRows() : NO_ARIA_ROWS;
+  const bottomRows = rowPinningActive ? table.getBottomRows() : NO_ARIA_ROWS;
+  const centerRows = rowPinningActive ? table.getCenterRows() : pageRows;
   // Counting, not building: this runs on every render of a component the virtualizer also
   // re-renders, and three throwaway arrays per scroll step is the same O(rows) cost twice over.
   const logicalDisplayRowCount
     = rowPinningActive
-      ? countDisplayRows(table.getTopRows(), withDetailPanels)
-      + countDisplayRows(table.getCenterRows(), withDetailPanels)
-      + countDisplayRows(table.getBottomRows(), withDetailPanels)
-      : countDisplayRows(table.getRowModel().rows, withDetailPanels);
+      ? countDisplayRows(topRows, withDetailPanels)
+      + countDisplayRows(centerRows, withDetailPanels)
+      + countDisplayRows(bottomRows, withDetailPanels)
+      : countDisplayRows(pageRows, withDetailPanels);
+
+  /**
+   * The leading DATA column of the display order — what names a row to a screen reader. The
+   * injected columns hold controls, not identity.
+   */
+  const leadingColumn = useMemo(
+    () => visibleLeafColumns.find(column => !isInternalColumn(column.id)) ?? null,
+    [visibleLeafColumns]
+  );
+
+  /**
+   * One object so a `useEventCallback` closure carries the whole display in a single binding:
+   * mirrored in an insertion effect, it is always the snapshot of the render that reached the
+   * screen (utils.ts). Keyed on the row models themselves — sorting, filtering or paging moves
+   * the current row, changes the total, and can take it off the page altogether.
+   */
+  const displaySnapshot = useMemo<DisplaySnapshot<TData>>(
+    () => {
+      return {
+        bottomRows,
+        centerRows,
+        leadingColumn,
+        ordered: rowPinningActive ? [...topRows, ...centerRows, ...bottomRows] : centerRows,
+        pageRows,
+        topRows,
+        withDetailPanels
+      };
+    },
+    [topRows, centerRows, bottomRows, pageRows, leadingColumn, rowPinningActive, withDetailPanels]
+  );
   const bodyAriaRowCount
     = loading && logicalDisplayRowCount === 0
       ? skeletonRowCount
@@ -920,8 +988,8 @@ function DataTableCore<TData extends RowData>({
 
   const scrollRowIntoView = useEventCallback(
     (rowId: string | number, options?: DataTableScrollToRowOptions) => {
-      const { rows } = table.getRowModel();
-      const id = typeof rowId === "number" ? rows[rowId]?.id : rowId;
+      const snapshot = displaySnapshot;
+      const id = typeof rowId === "number" ? snapshot.pageRows[rowId]?.id : rowId;
 
       if (id === undefined) {
         return;
@@ -930,8 +998,7 @@ function DataTableCore<TData extends RowData>({
       const virtualizer = virtualizerRef.current;
 
       if (virtualizer) {
-        const withDetail = Boolean(table.options.meta?.ledger?.renderDetailPanel);
-        const index = resolveVirtualDisplayIndex(table, id, withDetail);
+        const index = resolveVirtualDisplayIndex(snapshot, id);
 
         if (index !== null) {
           virtualizer.scrollToIndex(index, {
@@ -992,7 +1059,6 @@ function DataTableCore<TData extends RowData>({
   );
 
   /* ---- active row keyboard (docs/rows.md): the body viewport is the focus stop ---- */
-  const activeRowId = table.options.meta?.ledger?.activeRow.id ?? null;
   const activeRowAnnouncer = useRef<HTMLSpanElement>(null);
   const rowNavigationHintId = `${instanceId}-row-navigation`;
   // The keyboard model describes the element that actually takes focus — a description is read
@@ -1019,11 +1085,8 @@ function DataTableCore<TData extends RowData>({
       return;
     }
 
-    const pinningActive = table.options.enableRowPinning === true;
-    const orderedRows = pinningActive
-      ? [...table.getTopRows(), ...table.getCenterRows(), ...table.getBottomRows()]
-      : table.getRowModel().rows;
-    const index = orderedRows.findIndex(row => row.id === activeRowId);
+    const { ordered, leadingColumn: leading } = displaySnapshot;
+    const index = ordered.findIndex(row => row.id === activeRowId);
 
     if (index === -1) {
       target.textContent = "";
@@ -1031,47 +1094,27 @@ function DataTableCore<TData extends RowData>({
       return;
     }
 
-    // The leading data cell is what identifies a row to a reader; the injected columns hold
-    // controls, not identity.
-    const leadingCell = (orderedRows[index] as Row<any>)
-      .getVisibleCells()
-      .find(cell => !isInternalColumn(cell.column.id));
-    const value = leadingCell === undefined ? "" : String(leadingCell.getValue() ?? "");
+    // Through the leading column's own accessor, never `row.getValue`: that resolves the column
+    // through `row.table` — the shared core — and reads a cache the row only rebuilds when the
+    // data changes (use-committed-table.ts).
+    const row = ordered[index] as Row<TData>;
+    const value = leading === null ? "" : String(leading.accessorFn?.(row.original, row.index) ?? "");
 
-    target.textContent = labels.currentRow(value === "" ? activeRowId : value, index + 1, orderedRows.length);
+    target.textContent = labels.currentRow(value === "" ? activeRowId : value, index + 1, ordered.length);
   });
-
-  // The row model identities are dependencies in their own right: sorting, filtering or paging
-  // changes the current row's position, the total, and even whether it is still on the page —
-  // an id-only dependency would leave the last announcement standing after the row left. Each
-  // of these arrays is TanStack-memoized, so a virtual scroll step does not touch them.
-  const announcementRows = table.getRowModel().rows;
-  const announcementTopRows = rowPinningActive ? table.getTopRows() : NO_ARIA_ROWS;
-  const announcementBottomRows = rowPinningActive ? table.getBottomRows() : NO_ARIA_ROWS;
 
   useEffect(() => {
     if (activeRowEnabled) {
       announceActiveRow();
     }
-    // `visibleLeafColumns` belongs here for the same reason: the announcement names the row by
-    // its leading visible cell, so hiding, reordering or pinning a column can rename the row
-    // without moving it. That memo is keyed on the display-order signature and the column
-    // token, which is exactly the set of changes that can pick a different leading cell.
-  }, [
-    activeRowId,
-    activeRowEnabled,
-    announcementRows,
-    announcementTopRows,
-    announcementBottomRows,
-    visibleLeafColumns,
-    labels,
-    announceActiveRow
-  ]);
+    // The snapshot is the dependency in its own right, not the row id: sorting, filtering or
+    // paging changes the current row's position, the total, and even whether it is still on the
+    // page, and hiding or reordering a column can rename the row without moving it. An id-only
+    // dependency would leave the last announcement standing after any of that.
+  }, [activeRowId, activeRowEnabled, displaySnapshot, labels, announceActiveRow]);
 
   const handleActiveRowKeyDown = useEventCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const activeRow = table.options.meta?.ledger?.activeRow;
-
-    if (!activeRow?.enabled) {
+    if (!activeRowEnabled || !setActiveRow) {
       return;
     }
 
@@ -1093,14 +1136,12 @@ function DataTableCore<TData extends RowData>({
     // and never hosts an editor; in row mode it is a draft-bound editor like any other, and a row
     // whose only editable column is one would otherwise never open at all.
     if (event.key === "F2") {
-      const editing = table.options.meta?.ledger?.editing;
-
-      if (!editing || activeRow.id === null) {
+      if (!editing || activeRowId === null) {
         return;
       }
 
       const rowMode = editing.mode === "row";
-      const target = editing.firstEditable(activeRow.id, !rowMode);
+      const target = editing.firstEditable(activeRowId, !rowMode);
 
       if (target === null) {
         return;
@@ -1109,30 +1150,27 @@ function DataTableCore<TData extends RowData>({
       event.preventDefault();
 
       if (rowMode) {
-        editing.row.start(activeRow.id, { focusColumnId: target });
+        editing.row.start(activeRowId, { focusColumnId: target });
       } else {
-        editing.start({ rowId: activeRow.id, columnId: target });
+        editing.start({ rowId: activeRowId, columnId: target });
       }
 
       return;
     }
 
-    const pinningActive = table.options.enableRowPinning === true;
-    const rows = pinningActive
-      ? [...table.getTopRows(), ...table.getCenterRows(), ...table.getBottomRows()]
-      : table.getRowModel().rows;
+    const rows = displaySnapshot.ordered;
 
     if (rows.length === 0) {
       return;
     }
 
-    const currentIndex = activeRow.id === null ? -1 : rows.findIndex(row => row.id === activeRow.id);
+    const currentIndex = activeRowId === null ? -1 : rows.findIndex(row => row.id === activeRowId);
 
     const moveTo = (index: number) => {
       const row = rows[Math.min(Math.max(index, 0), rows.length - 1)];
 
       if (row) {
-        activeRow.set(row.id);
+        setActiveRow(row.id);
         scrollRowIntoView(row.id);
       }
     };

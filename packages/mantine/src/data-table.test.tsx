@@ -1007,7 +1007,18 @@ describe("DataTable", () => {
       { wrapper }
     );
 
-    expect(resolveVirtualDisplayIndex(handle.current!.table, "2", false)).toBe(0);
-    expect(resolveVirtualDisplayIndex(handle.current!.table, "1", false)).toBeNull();
+    const { table } = handle.current!;
+    const snapshot = {
+      bottomRows: table.getBottomRows(),
+      centerRows: table.getCenterRows(),
+      leadingColumn: null,
+      ordered: [...table.getTopRows(), ...table.getCenterRows()],
+      pageRows: table.getRowModel().rows,
+      topRows: table.getTopRows(),
+      withDetailPanels: false
+    };
+
+    expect(resolveVirtualDisplayIndex(snapshot, "2")).toBe(0);
+    expect(resolveVirtualDisplayIndex(snapshot, "1")).toBeNull();
   });
 });
