@@ -4,7 +4,7 @@ import type { ColumnDef, DataTableHandle } from "./types";
 
 import { MantineProvider } from "@mantine/core";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createRef, startTransition, StrictMode, Suspense, useState } from "react";
+import { createRef, startTransition, StrictMode, Suspense, useLayoutEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
@@ -48,6 +48,18 @@ function wrapper({ children }: { children: ReactNode }) {
       <MantineProvider>{children}</MantineProvider>
     </StrictMode>
   );
+}
+
+/**
+ * Reads the DOM in the layout phase, which is the frame as it will be painted: React mutates the
+ * whole commit's DOM before any layout effect runs, and passive effects — where reconciliation
+ * lives — run after the paint. Rendered after the table, so anything the table's own layout
+ * effects put right still counts as put right.
+ */
+function LayoutProbe({ observe }: { observe: () => void }) {
+  useLayoutEffect(observe);
+
+  return null;
 }
 
 const editorInputs = () => [...document.querySelectorAll<HTMLInputElement>(".ledger-cell-editor input")];
@@ -1912,6 +1924,44 @@ describe("row editing mode", () => {
     // the switch does not — and the close it needs is asked for again, because a command is
     // always a fresh request.
     expect(onEditingRowIdChange.mock.calls).toEqual([[null], [null]]);
+  });
+
+  it("takes the row's editors off the screen in the same commit their gate shuts", async () => {
+    const editorsAtLayout: number[] = [];
+
+    const observe = () => {
+      editorsAtLayout.push(editorInputs().length);
+    };
+
+    const view = (editingEnabled: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId="1"
+            editMode="row"
+            enableEditing={editingEnabled}
+            getRowId={person => person.id}
+            onEditingRowIdChange={vi.fn()}
+            onRowEditCommit={vi.fn()}
+          />
+
+          <LayoutProbe observe={observe} />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    editorsAtLayout.length = 0;
+
+    // Row mode asks the gate per cell in the render itself, so the editors go with the commit
+    // that shut it — never a frame later, behind the reconciliation that ends the session.
+    rerender(view(false));
+
+    expect(editorsAtLayout.every(count => count === 0)).toBe(true);
   });
 
   it("commits a draft whose column was hidden mid-edit", async () => {

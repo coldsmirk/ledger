@@ -275,11 +275,19 @@ function DataCell({
   // on every parent row. Aggregated rendering only exists on real grouping rows.
   const aggregated = cell.getIsAggregated() && row.getIsGrouped();
   const placeholder = cell.getIsPlaceholder();
-  const editable = !editing && !grouped && !aggregated && !placeholder && canEditCell(cell, row);
-  // `rowEditing` already means a live session, not merely a slice that names the row — a gate
-  // that shut ends the session even when a controlled application declines to close it, and the
-  // row must not become interactive again if that gate reopens (docs/architecture.md).
-  const rowEditorActive = rowEditing && !grouped && !aggregated && !placeholder && canEditCell(cell, row);
+  // The gate, asked in the render that has to answer it. Ending a session whose eligibility is
+  // gone is a side effect, so reconciliation runs after the paint — but whether an editor is on
+  // the screen is this render's own question, and this render already knows the gate is shut. Ask
+  // it later and the commit that shuts the gate still paints a live editor for one frame, which
+  // is a frame the user can type into.
+  const gateOpen = !grouped && !aggregated && !placeholder && canEditCell(cell, row);
+  const editable = !editing && gateOpen;
+  // `editing` / `rowEditing` are the other half: they already mean a live *session*, not merely a
+  // slice that names this target — a gate that shut ends the session even when a controlled
+  // application declines to close it, and neither editor may become interactive again if that
+  // gate reopens (docs/architecture.md).
+  const cellEditorActive = editing && gateOpen;
+  const rowEditorActive = rowEditing && gateOpen;
   const checkboxVariant = meta?.edit === "checkbox" || (typeof meta?.edit === "object" && meta.edit.variant === "checkbox");
 
   let content: ReactNode;
@@ -290,7 +298,7 @@ function DataCell({
     content = flexRender(column.columnDef.aggregatedCell ?? column.columnDef.cell, cell.getContext());
   } else if (placeholder) {
     content = null;
-  } else if (editing) {
+  } else if (cellEditorActive) {
     content = <CellEditor cell={cell} />;
   } else if (rowEditorActive) {
     content = <RowCellEditor cell={cell} />;
@@ -340,7 +348,7 @@ function DataCell({
         colSpan: colSpan > 1 ? colSpan : undefined,
         "data-align": meta?.align,
         "data-editable": editable || undefined,
-        "data-editing": editing || rowEditorActive || undefined,
+        "data-editing": cellEditorActive || rowEditorActive || undefined,
         "data-leading": column.getIsFirstColumn() || undefined,
         "data-ledger-column-id": column.id,
         "data-pinned": column.getIsPinned() || undefined,

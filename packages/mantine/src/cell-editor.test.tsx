@@ -4,7 +4,7 @@ import type { ColumnDef, DataTableEditingCell, DataTableHandle } from "./types";
 
 import { MantineProvider } from "@mantine/core";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { createRef, startTransition, StrictMode, Suspense, useState } from "react";
+import { createRef, startTransition, StrictMode, Suspense, useLayoutEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
@@ -150,6 +150,18 @@ function pendingRowView(rows: Person[]) {
       </MantineProvider>
     </StrictMode>
   );
+}
+
+/**
+ * Reads the DOM in the layout phase, which is the frame as it will be painted: React mutates the
+ * whole commit's DOM before any layout effect runs, and passive effects — where reconciliation
+ * lives — run after the paint. Rendered after the table, so anything the table's own layout
+ * effects put right still counts as put right.
+ */
+function LayoutProbe({ observe }: { observe: () => void }) {
+  useLayoutEffect(observe);
+
+  return null;
 }
 
 function SwappableTable() {
@@ -1085,6 +1097,44 @@ describe("inline editing", () => {
 
     fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Carol");
+  });
+
+  it("takes an editor off the screen in the same commit its gate shuts", () => {
+    const editorsAtLayout: number[] = [];
+
+    const observe = () => {
+      editorsAtLayout.push(document.querySelectorAll(".ledger-cell-editor input").length);
+    };
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={customNameColumn}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            enableEditing={enableEditing}
+            getRowId={getRowId}
+            onEditCommit={vi.fn()}
+            onEditingCellChange={vi.fn()}
+          />
+
+          <LayoutProbe observe={observe} />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+    expect(editorsAtLayout.at(-1)).toBe(1);
+    editorsAtLayout.length = 0;
+
+    // The gate shuts. Ending the *session* is a side effect and belongs to reconciliation, which
+    // runs after the paint — but whether an editor is on the screen is a question this render can
+    // answer for itself, and this render already knows the gate is shut. A frame with a live
+    // editor behind a closed gate is one the user can type into.
+    rerender(view(false));
+
+    expect(editorsAtLayout).not.toContain(1);
   });
 
   it("keeps a controlled session waiting for a row that has not arrived", async () => {
