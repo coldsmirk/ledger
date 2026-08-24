@@ -211,6 +211,16 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
             setPending(false);
           }
 
+          // The gate can shut while a request is out. This write passed it on the way, so it
+          // stands — but the session it belonged to is over, and nothing waiting to move may do
+          // so on the strength of a commit whose editor was taken out from under it.
+          if (!canEditCell(cell, cell.row)) {
+            completedRef.current = true;
+            clearIfCurrent();
+
+            return false;
+          }
+
           if (!carried) {
             // Still on screen: the cell does not close, and whoever was waiting to leave it is
             // told it is not safe to. Gone from the screen: nobody can commit it by hand any
@@ -253,7 +263,9 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   }) as () => CommitResult;
 
   const cancel = useEventCallback(() => {
-    if (pendingRef.current) {
+    // Nothing to cancel while a request is out, and nothing left to cancel once this editor has
+    // settled — a second request would ask the application to close the same session twice.
+    if (pendingRef.current || completedRef.current) {
       return;
     }
 

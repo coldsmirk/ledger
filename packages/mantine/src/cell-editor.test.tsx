@@ -476,6 +476,49 @@ describe("inline editing", () => {
     });
   });
 
+  it("does not authorize a move when the gate shuts under a pending commit", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const onEditingCellChange = vi.fn();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={nameColumn()}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            enableEditing={enableEditing}
+            getRowId={getRowId}
+            handleRef={handle}
+            onEditCommit={() => inFlight.promise}
+            onEditingCellChange={onEditingCellChange}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+
+    // Asking for Alice's cell commits this one first and waits on that write.
+    act(() => handle.current?.startEditing("2", "name"));
+    onEditingCellChange.mockClear();
+
+    rerender(view(false));
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // The gate shut, so this session is over — but nothing may be opened on the strength of a
+    // write whose editor was cancelled, and the ending is requested once.
+    expect(onEditingCellChange).not.toHaveBeenCalledWith({ columnId: "name", rowId: "2" });
+    expect(onEditingCellChange.mock.calls.filter(call => call[0] === null)).toHaveLength(1);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

@@ -570,13 +570,16 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * So the row ends when the table switch is off, or when the gate shut on a column this session
    * was editing and none is left editable. A row the table does not hold yet has not arrived,
    * which is not the same as a row that may not be edited.
+   *
+   * Returns whether it ended the row. A session that stops because the gate shut was cancelled,
+   * not finished, so nothing waiting on a commit may move on the strength of it.
    */
-  const reconcileRowEligibility = useEventCallback(() => {
+  const reconcileRowEligibility = useEventCallback((): boolean => {
     const rowId = editingRowRef.current;
     const tableInstance = tableRef.current;
 
     if (rowId === null || !tableInstance) {
-      return;
+      return false;
     }
 
     let row: Row<TData> | undefined;
@@ -584,7 +587,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     try {
       row = tableInstance.getRow(rowId, true);
     } catch {
-      return;
+      return false;
     }
 
     const erasedRow = row as Row<any>;
@@ -609,11 +612,13 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     if (enableEditing && (editable || !gateShut)) {
-      return;
+      return false;
     }
 
     discardRowEdits(rowId);
     finishRowEditing();
+
+    return true;
   });
 
   /**
@@ -819,9 +824,14 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           recordRowCommit(rowId, values, sources);
           consumeCommittedRowDrafts(rowId, values);
           broadcastRowPending(false);
-          // The gate may have shut while this write was out; it was held off until the write it
-          // let through had landed.
-          reconcileRowEligibility();
+
+          // The gate may have shut while this write was out; the test was held off until the
+          // write it let through had landed. If it did shut, the row has just been cancelled —
+          // it did not finish here, and a switch waiting on this commit must not open a row
+          // nobody may edit.
+          if (reconcileRowEligibility()) {
+            return false;
+          }
 
           if (hasUncommittedRowEdits(rowId, values)) {
             // Typed straight past the request while it was out. The write did go through, but

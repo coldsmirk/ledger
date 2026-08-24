@@ -1062,6 +1062,52 @@ describe("row editing mode", () => {
     expect(document.querySelector("[data-editing-row]")).toBeNull();
   });
 
+  it("does not authorize a switch when the gate shuts under a pending commit", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const onEditingRowIdChange = vi.fn();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId="1"
+            editMode="row"
+            enableEditing={enableEditing}
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={onEditingRowIdChange}
+            onRowEditCommit={() => inFlight.promise}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // Asking for Alice commits Carol first and waits on that write.
+    act(() => handle.current?.startEditing("2"));
+    onEditingRowIdChange.mockClear();
+
+    // Editing is switched off while the write is out.
+    rerender(view(false));
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // The session ended because the gate shut, not because the row finished — nothing may be
+    // opened on the strength of it, and the one ending is requested once.
+    expect(onEditingRowIdChange).not.toHaveBeenCalledWith("2");
+    expect(onEditingRowIdChange.mock.calls.filter(call => call[0] === null)).toHaveLength(1);
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();
