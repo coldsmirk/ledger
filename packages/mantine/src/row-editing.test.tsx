@@ -553,6 +553,64 @@ describe("row editing mode", () => {
     expect(change.previousValues).toEqual({ age: 30, name: "Carol" });
   });
 
+  it("keeps a value typed while an async row commit was in flight", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const committed: Array<Record<string, unknown>> = [];
+    // A custom editor is never disabled by the pending state, so typing while the write is out
+    // is ordinary rather than exotic.
+    const customName: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: {
+          edit: ({ value, setValue }) => (
+            <input
+              aria-label="Edit Name"
+              value={value === null || value === undefined ? "" : String(value)}
+              onChange={event => setValue(event.currentTarget.value)}
+            />
+          )
+        }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={customName}
+        data={people}
+        editingRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onEditingRowIdChange={vi.fn()}
+        onRowEditCommit={({ values }) => {
+          committed.push(values);
+
+          return committed.length === 1 ? inFlight.promise : undefined;
+        }}
+      />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "First" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(committed).toEqual([{ name: "First" }]);
+
+    // The request is still out, and the row is still on screen: what is typed now is a value
+    // the first write never carried.
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Second" } });
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(committed).toEqual([{ name: "First" }, { name: "Second" }]);
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

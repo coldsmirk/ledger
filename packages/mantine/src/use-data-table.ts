@@ -396,15 +396,33 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const draftsFor = (rowId: string | null): Map<string, unknown> => rowDrafts.current.rowId === rowId ? rowDrafts.current.values : new Map();
 
   /**
-   * Takes the pending values away without disturbing which row the store is keyed to. A commit
-   * has just sent them, or a cancel has just discarded them; either way the row can stay on
-   * screen — a controlled application may decline to close it — and what it holds must stop
-   * being what was typed, or the next `stopEditing` would send the same edit a second time.
+   * Takes back the pending values a commit has just sent, so a second `stopEditing` before the
+   * row closes cannot send the same edit twice. Only those: the store outlives the request — a
+   * custom editor is not disabled while one is in flight, and a controlled application may
+   * decline to close the row — so anything typed since is an edit no write has carried yet, and
+   * emptying the store wholesale would lose it.
    */
-  const consumeRowDrafts = (rowId: string | null) => {
-    if (rowDrafts.current.rowId === rowId) {
-      rowDrafts.current.values.clear();
+  const consumeCommittedRowDrafts = (rowId: string, committed: Record<string, unknown>) => {
+    if (rowDrafts.current.rowId !== rowId) {
+      return;
     }
+
+    for (const [columnId, value] of rowDrafts.current.values) {
+      if (Object.hasOwn(committed, columnId) && Object.is(value, committed[columnId])) {
+        rowDrafts.current.values.delete(columnId);
+      }
+    }
+  };
+
+  /**
+   * Throws the whole pending edit away — what cancelling means.
+   */
+  const discardRowEdits = (rowId: string | null) => {
+    if (rowDrafts.current.rowId !== rowId) {
+      return;
+    }
+
+    rowDrafts.current.values.clear();
   };
 
   /**
@@ -641,7 +659,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           }
 
           rowPendingCommit.current = null;
-          consumeRowDrafts(rowId);
+          consumeCommittedRowDrafts(rowId, values);
           broadcastRowPending(false);
           finishRowEditing();
 
@@ -669,7 +687,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return pending;
     }
 
-    consumeRowDrafts(rowId);
+    consumeCommittedRowDrafts(rowId, values);
     finishRowEditing();
     return true;
   });
@@ -717,7 +735,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     if (stopOptions?.commit ?? true) {
       void commitRow();
     } else {
-      consumeRowDrafts(editingRowRef.current);
+      discardRowEdits(editingRowRef.current);
       finishRowEditing();
     }
   });
