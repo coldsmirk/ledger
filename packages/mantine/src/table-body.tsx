@@ -304,6 +304,14 @@ function DataCell({
       : column.id === EXPANDER_COLUMN_ID
         ? "expanderCell"
         : "cell";
+  // An injected column is a control column: nothing in it activates the row (docs/rows.md). The
+  // built-in checkbox and chevron stop their own events, but the column's renderer is
+  // overridable (`selectionColumn` / `expanderColumn`), and whatever an application puts there
+  // cannot be expected to know that rule — so the host cell holds it instead. A `cellProps`
+  // handler still runs: ledger's own is chained ahead of it, not in place of it.
+  const stopActivation = isInternalColumn(column.id)
+    ? (event: MouseEvent) => event.stopPropagation()
+    : undefined;
 
   return (
     <MantineTable.Td
@@ -320,8 +328,8 @@ function DataCell({
         "data-pinned-edge": pinnedEdge(column),
         role: "cell",
         rowSpan: rowSpan > 1 ? rowSpan : undefined,
-        onClick: ledger?.editTrigger === "click" ? startEditing : undefined,
-        onDoubleClick: ledger?.editTrigger === "double-click" ? startEditing : undefined,
+        onClick: stopActivation ?? (ledger?.editTrigger === "click" ? startEditing : undefined),
+        onDoubleClick: stopActivation ?? (ledger?.editTrigger === "double-click" ? startEditing : undefined),
         ...getStyles(selector, { style: pinnedCellStyle(column) })
       })}
     >

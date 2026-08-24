@@ -1032,4 +1032,36 @@ describe("DataTable", () => {
     expect(screen.getByRole("table").getAttribute("aria-busy")).toBe("true");
     expect(container.querySelector(".ledger-root")?.getAttribute("aria-busy")).toBeNull();
   });
+
+  it("keeps a custom injected-column renderer from activating the row", () => {
+    const onRowClick = vi.fn();
+    const onRowDoubleClick = vi.fn();
+    const onPick = vi.fn();
+
+    render(
+      <DataTable
+        enableRowSelection
+        columns={columns}
+        data={people}
+        getRowId={getRowId}
+        selectionColumn={{ cell: () => <button type="button" onClick={onPick}>pick</button> }}
+        onRowClick={onRowClick}
+        onRowDoubleClick={onRowDoubleClick}
+      />,
+      { wrapper }
+    );
+
+    const pick = screen.getAllByRole("button", { name: "pick" })[0] as HTMLElement;
+    fireEvent.click(pick);
+    fireEvent.doubleClick(pick);
+
+    // The control column is a control column whoever renders it (docs/rows.md).
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onRowClick).not.toHaveBeenCalled();
+    expect(onRowDoubleClick).not.toHaveBeenCalled();
+
+    // The row itself still activates from an ordinary cell.
+    fireEvent.click(document.querySelector(".ledger-row .ledger-cell") as Element);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+  });
 });
