@@ -1448,6 +1448,49 @@ describe("row editing mode", () => {
     expect(screen.queryByText("Name is required")).toBeNull();
   });
 
+  it("does not un-cancel a row when the gate reopens before its write lands", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const inFlight = Promise.withResolvers<void>();
+    const onEditingRowIdChange = vi.fn();
+
+    const view = (enableEditing: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId="1"
+            editMode="row"
+            enableEditing={enableEditing}
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={onEditingRowIdChange}
+            onRowEditCommit={() => inFlight.promise}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    act(() => handle.current?.startEditing("2"));
+    onEditingRowIdChange.mockClear();
+
+    // The gate shuts while the write is out, and reopens before it lands.
+    rerender(view(false));
+    rerender(view(true));
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    // Losing eligibility ended that session; reopening is the next one's eligibility.
+    expect(onEditingRowIdChange).not.toHaveBeenCalledWith("2");
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

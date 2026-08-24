@@ -262,11 +262,17 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
      * it went out — see `previousRowValue`.
      */
     committed: Map<string, { value: unknown; source: unknown }>;
+    /**
+     * Eligibility was lost during this session. It latches: a gate that reopens before an
+     * in-flight write settles is the *next* session's eligibility, not a reprieve for this one.
+     */
+    gateLost: boolean;
   }>({
     rowId: null,
     values: new Map(),
     baseline: new Map(),
-    committed: new Map()
+    committed: new Map(),
+    gateLost: false
   });
   const rowEditors = useRef(new Map<string, LedgerRowEditor>());
   /**
@@ -357,7 +363,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       rowId,
       values: new Map(),
       baseline: rowId === null ? new Map() : snapshotEditableValues(rowId),
-      committed: new Map()
+      committed: new Map(),
+      gateLost: false
     };
     rowPresentation.current = { error: null, pending: false };
   };
@@ -576,7 +583,18 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       }
     }
 
-    if (enableEditing && (editable || !gateShut)) {
+    if (!enableEditing || (!editable && gateShut)) {
+      rowDrafts.current.gateLost = true;
+    }
+
+    if (!rowDrafts.current.gateLost) {
+      return false;
+    }
+
+    // The write already out passed the gate before it shut; its settlement calls this again and
+    // completes the cancel. The loss is recorded now either way, so a gate that reopens in the
+    // meantime cannot undo it.
+    if (rowPendingCommit.current) {
       return false;
     }
 
@@ -592,13 +610,6 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * the column definitions and the row's own data at once — nothing a list describes.
    */
   useEffect(() => {
-    // Held off while a request is out: that write passed the gate before it shut. The settlement
-    // calls this itself rather than trusting a render to follow — with the gate closed there may
-    // be no editor left whose state change would cause one.
-    if (rowPendingCommit.current) {
-      return;
-    }
-
     reconcileRowEligibility();
   });
 
