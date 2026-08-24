@@ -389,25 +389,42 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   /**
    * The drafts held for `rowId`. A read, never a write: editors read their draft while
    * rendering, and a render can be thrown away (a transition that suspends), so re-keying the
-   * store from here would let an abandoned render erase the values on screen. The store is
-   * keyed by session boundaries alone — `openRowDrafts`, below and in the effect that reconciles
-   * a controlled change. A caller asking about another row gets nothing, which is the truth.
+   * store from here would let an abandoned render erase the values on screen. The effect below
+   * is the store's only keyer. A caller asking about another row gets nothing, which is the
+   * truth.
    */
   const draftsFor = (rowId: string | null): Map<string, unknown> => rowDrafts.current.rowId === rowId ? rowDrafts.current.values : new Map();
 
+  /**
+   * Takes the pending values away without disturbing which row the store is keyed to. A commit
+   * has just sent them, or a cancel has just discarded them; either way the row can stay on
+   * screen — a controlled application may decline to close it — and what it holds must stop
+   * being what was typed, or the next `stopEditing` would send the same edit a second time.
+   */
+  const consumeRowDrafts = (rowId: string | null) => {
+    if (rowDrafts.current.rowId === rowId) {
+      rowDrafts.current.values.clear();
+    }
+  };
+
+  /**
+   * Asks for the row edit to end. A request, not the ending itself: `editingRowId` is a
+   * controlled slice, and an application may answer `onEditingRowIdChange` by leaving the prop
+   * exactly where it was. The row then stays on screen, and a row on screen is one the user can
+   * still type into — so the session, its ownership of an in-flight commit, and the draft store
+   * all stay with it until a render says otherwise.
+   */
   const finishRowEditing = useEventCallback(() => {
-    endRowSession();
-    editingRowRef.current = null;
-    openRowDrafts(null);
     rowFocusColumn.current = null;
     setEditingRowId(null);
   });
 
   /**
-   * Reconciles the session with what actually reached the screen. `editingRowId` is a controlled
-   * slice, so an application can move the edit to another row — or end it — without
-   * `startRowEditing` or `finishRowEditing` running; those two claim the ref themselves, so a
-   * mismatch here is always someone else's change.
+   * Reconciles the session with the row that actually reached the screen. Every change of
+   * `editingRowId` lands here, ledger's own requests included, because it is a controlled
+   * slice: `startRowEditing` and `finishRowEditing` can only ask, and an application may move
+   * the edit itself, answer with a different row, or decline to move it at all. Committing the
+   * boundary anywhere else would leave the session speaking for a row nobody is editing.
    *
    * It is a layout effect and not a render-phase check because ending a session is a real side
    * effect — it invalidates an in-flight commit's ownership — and React may render a tree it
@@ -416,18 +433,22 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * the row still on screen: its commit disowned, its editors pending forever. Layout, not
    * passive: the drafts store has to be keyed before anything can be typed into it.
    *
-   * No dependency array on purpose. The comparison is against what was committed, and a
-   * controlled application that declines to move `editingRowId` produces a render where nothing
-   * in the dependency list changed but the ref and the prop still disagree.
+   * No dependency array on purpose. The comparison is against what was committed last time,
+   * which no dependency list describes.
    */
   useLayoutEffect(() => {
     const moved = editingRowRef.current !== editingRowId;
 
     if (moved) {
       endRowSession();
-      // A `startRowEditing` still waiting on a commit was going to open a row the controller
-      // has since decided against.
-      rowStartRequestRef.current += 1;
+
+      if (editingRowId !== null) {
+        // A `startRowEditing` still waiting on a commit was going to open a row, and the edit
+        // has landed on a different one — that request is overruled. Landing on *no* row is the
+        // ordinary end of the very commit it is waiting for, and must not cancel it.
+        rowStartRequestRef.current += 1;
+      }
+
       editingRowRef.current = editingRowId;
     }
 
@@ -444,9 +465,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   });
 
   /**
-   * Whether the session a request was issued under is still the live one. The row id is part of
-   * the test because `editingRowId` is controllable: an application can move the edit from one
-   * row to another without `startRowEditing` or `finishRowEditing` ever running.
+   * Whether the request issued under `session` still speaks for `rowId`. Sessions end the moment
+   * the rendered row changes, so the two tests agree by construction; the row id is spelled out
+   * because acting on another row's editors is precisely what a stale settlement must not do.
    */
   const isCurrentRowSession = (session: number, rowId: string) => rowSessionRef.current === session && editingRowRef.current === rowId;
 
@@ -620,6 +641,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           }
 
           rowPendingCommit.current = null;
+          consumeRowDrafts(rowId);
           broadcastRowPending(false);
           finishRowEditing();
 
@@ -647,6 +669,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return pending;
     }
 
+    consumeRowDrafts(rowId);
     finishRowEditing();
     return true;
   });
@@ -657,10 +680,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return;
     }
 
+    // Like `finishRowEditing`, a request: the session boundary is taken by the effect above,
+    // once a render has actually put this row on screen.
     const begin = () => {
-      endRowSession();
-      editingRowRef.current = rowId;
-      openRowDrafts(rowId);
       rowFocusColumn.current = startOptions?.focusColumnId ?? null;
       setEditingRowId(rowId);
     };
@@ -695,6 +717,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     if (stopOptions?.commit ?? true) {
       void commitRow();
     } else {
+      consumeRowDrafts(editingRowRef.current);
       finishRowEditing();
     }
   });

@@ -426,6 +426,79 @@ describe("row editing mode", () => {
     blocker.resolve();
   });
 
+  it("keeps editing the row on screen when the controller declines the switch", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    // A controlled slice whose owner ignores the change. React's contract is that the row on
+    // screen stays the one `editingRowId` names, so that is the row every write still belongs
+    // to — asking to move the edit is not the same as having moved it.
+    const onEditingRowIdChange = vi.fn();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editingRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onEditingRowIdChange={onEditingRowIdChange}
+        onRowEditCommit={onRowEditCommit}
+      />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+
+    act(() => handle.current?.startEditing("2"));
+
+    expect(onEditingRowIdChange).toHaveBeenCalledWith("2");
+    expect(document.querySelector("[data-row-id=\"1\"][data-editing-row]")).toBeTruthy();
+
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
+    const change = onRowEditCommit.mock.calls[0]?.[0] as {
+      row: { id: string };
+      values: Record<string, unknown>;
+    };
+    expect(change.row.id).toBe("1");
+    expect(change.values).toEqual({ age: 30, name: "Drafted" });
+  });
+
+  it("sends one write when the row is committed twice before the close renders", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onRowEditCommit={onRowEditCommit}
+      />,
+      { wrapper }
+    );
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // Closing the row and opening another are answered by a single render, so the second commit
+    // runs while the first row is still the one on screen. The write it would repeat has
+    // already gone out.
+    act(() => {
+      handle.current?.stopEditing({ commit: true });
+      handle.current?.startEditing("2");
+    });
+
+    await waitFor(() => expect(document.querySelector("[data-row-id=\"2\"][data-editing-row]")).toBeTruthy());
+    expect(onRowEditCommit).toHaveBeenCalledTimes(1);
+  });
+
   it("captures the baseline when the edited row arrives after the first render", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();
