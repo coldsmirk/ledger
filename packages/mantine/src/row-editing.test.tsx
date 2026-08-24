@@ -1759,6 +1759,96 @@ describe("row editing mode", () => {
     expect(onEditingRowIdChange.mock.calls).toEqual([[null], [null]]);
   });
 
+  it("does not authorize a switch when the commit itself finds the gate shut", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditingRowIdChange = vi.fn();
+    const onRowEditCommit = vi.fn();
+    // `edit.enabled` is application code, and nothing makes it answer the same way twice — so a
+    // commit can be the first thing to learn that the gate is shut, with no render in between.
+    let gateOpen = true;
+    const gated: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { edit: { enabled: () => gateOpen, variant: "text" } }
+      },
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: { enabled: () => gateOpen, variant: "number" } }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={gated}
+        data={people}
+        editingRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onEditingRowIdChange={onEditingRowIdChange}
+        onRowEditCommit={onRowEditCommit}
+      />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    onEditingRowIdChange.mockClear();
+
+    act(() => {
+      gateOpen = false;
+      handle.current?.startEditing("2");
+    });
+
+    // A session cancelled by its gate did not finish, so nothing opens on its behalf — and what
+    // it held never passed a gate, so nothing of it is sent either.
+    expect(onRowEditCommit).not.toHaveBeenCalled();
+    expect(onEditingRowIdChange.mock.calls).toEqual([[null]]);
+  });
+
+  it("does not authorize a switch away from a row the table-level switch closed", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditingRowIdChange = vi.fn();
+
+    const view = (editingEnabled: boolean) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={people}
+            editingRowId="1"
+            editMode="row"
+            enableEditing={editingEnabled}
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={onEditingRowIdChange}
+            onRowEditCommit={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(true));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+    onEditingRowIdChange.mockClear();
+
+    // Reconciliation cancels the session and asks once; the owner declines, so the slice goes on
+    // naming this row.
+    rerender(view(false));
+    expect(onEditingRowIdChange.mock.calls).toEqual([[null]]);
+
+    act(() => handle.current?.startEditing("2"));
+
+    // Editing is off. The commit that has to happen before the switch cannot happen at all, so
+    // the switch does not — and the close it needs is asked for again, because a command is
+    // always a fresh request.
+    expect(onEditingRowIdChange.mock.calls).toEqual([[null], [null]]);
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();

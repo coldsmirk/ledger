@@ -581,6 +581,16 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   };
 
   /**
+   * Cancels the session: what it holds is discarded — it never passed a gate — and the close is
+   * asked for.
+   */
+  const cancelLostRowSession = (rowId: string) => {
+    rowDrafts.current.reconciled = true;
+    discardRowEdits(rowId);
+    finishRowEditing();
+  };
+
+  /**
    * Ends a session whose eligibility is gone, once nothing is still out on its behalf. Returns
    * whether it ended the row: a session that stops because the gate shut was cancelled, not
    * finished, so nothing waiting on a commit may move on the strength of it.
@@ -603,9 +613,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return false;
     }
 
-    rowDrafts.current.reconciled = true;
-    discardRowEdits(rowId);
-    finishRowEditing();
+    cancelLostRowSession(rowId);
 
     return true;
   };
@@ -792,14 +800,27 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       return inFlight.promise;
     }
 
-    // The table-level switch outranks every per-column case below, so it is tested once here
-    // rather than per cell: with `enableEditing` off nothing in this row is editable, and a
-    // draft for a column that also left the definitions has no cell left to be tested against
-    // (the baseline path further down reconstructs it from the snapshot alone).
-    if (tableInstance.options.meta?.ledger?.enableEditing !== true) {
-      finishRowEditing();
+    // Eligibility is re-read here, not trusted from when the session opened: `enableEditing` can
+    // switch off, `meta.edit` can be removed, and `edit.enabled(row)` — application code, which
+    // nothing makes answer the same way twice — can turn false with no render in between, which
+    // makes this commit the first thing to learn of it. The same reconciliation the effect runs,
+    // so the table-level switch, a gate closing on a column this session was editing, and a
+    // breakpoint merely taking a column away are told apart exactly once, in one place.
+    //
+    // A session cancelled that way did not finish: what it held never passed a gate and is
+    // discarded rather than promoted (a draft whose column also left the definitions has no cell
+    // left to test it against, and the baseline path below would otherwise reconstruct and send
+    // it), and nothing waiting to move may proceed on the strength of it.
+    const cancelledNow = reconcileRowEligibility();
 
-      return true;
+    if (rowDrafts.current.gateLost) {
+      if (!cancelledNow) {
+        // Reconciliation is once per session; a command is not. An owner that declined the close
+        // still has this row on screen, so it is asked again.
+        cancelLostRowSession(rowId);
+      }
+
+      return false;
     }
 
     let row: Row<TData> | undefined;
@@ -856,11 +877,11 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
       if (presentColumnIds.has(columnId)) {
         // The column is still here, it simply stopped being editable mid-edit — `meta.edit`
-        // removed, or `edit.enabled(row)` now false for this row. (`enableEditing` cannot reach
-        // this loop: the table-level switch is answered at the entry to `commitRow`.)
-        // Committing that draft would push a value through a gate the application just closed,
-        // and unvalidated besides (the validation pass below only walks editable cells). The
-        // pending value is dropped, not promoted.
+        // removed, or `edit.enabled(row)` now false for this row. Committing that draft would
+        // push a value through a gate the application just closed, and unvalidated besides (the
+        // validation pass below only walks editable cells). The pending value is dropped, not
+        // promoted. (The reconciliation at the entry to `commitRow` has usually done this
+        // already; a column whose gate shut between the two is why it is still tested here.)
         drafts.delete(columnId);
 
         continue;
