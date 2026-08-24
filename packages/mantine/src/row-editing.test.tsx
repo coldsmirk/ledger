@@ -1108,6 +1108,109 @@ describe("row editing mode", () => {
     expect(onEditingRowIdChange.mock.calls.filter(call => call[0] === null)).toHaveLength(1);
   });
 
+  it("records a baseline for a column the session only meets later", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onRowEditCommit = vi.fn();
+    const ageOnly: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      }
+    ];
+
+    const view = (columnSet: Array<ColumnDef<Person, any>>) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columnSet}
+            data={people}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={onRowEditCommit}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    // The session opens on a narrow breakpoint, where `name` is not in the definitions at all.
+    const { rerender } = render(view(ageOnly));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+
+    // It widens, `name` arrives, and the user edits it.
+    rerender(view(columns));
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "Drafted" } });
+
+    // Then it narrows again and `name` is gone by commit time. What it held has to have been
+    // recorded when the session met it, not only when the session opened.
+    rerender(view(ageOnly));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    await waitFor(() => expect(onRowEditCommit).toHaveBeenCalledTimes(1));
+    const change = onRowEditCommit.mock.calls[0]?.[0] as {
+      previousValues: Record<string, unknown>;
+      values: Record<string, unknown>;
+    };
+    expect(change.values).toEqual({ age: 30, name: "Drafted" });
+    expect(change.previousValues).toEqual({ age: 30, name: "Carol" });
+  });
+
+  it("cancels the row when the gate shuts on the only column it met later", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const ageOnly: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      }
+    ];
+    const nameOnly: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { edit: "text" }
+      }
+    ];
+    const readOnlyName: Array<ColumnDef<Person, any>> = [{ accessorKey: "name", header: "Name" }];
+
+    const view = (columnSet: Array<ColumnDef<Person, any>>) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columnSet}
+            data={people}
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onRowEditCommit={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(ageOnly));
+
+    act(() => handle.current?.startEditing("1"));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+
+    // `age` leaves and `name` arrives: the only column the session can now edit is one it never
+    // saw when it opened.
+    rerender(view(nameOnly));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+
+    // Its gate shuts. That is a gate closing on a column this session was editing, so the row
+    // ends — which it cannot know from the snapshot taken at the start.
+    rerender(view(readOnlyName));
+
+    await waitFor(() => expect(document.querySelector("[data-editing-row]")).toBeNull());
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();
