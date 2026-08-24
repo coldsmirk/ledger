@@ -57,7 +57,7 @@ export function useSlice<T>({
    * other rather than against a snapshot the last one has already moved past. How long it may
    * stand depends on who owns the state.
    */
-  const requestedRef = useRef<{ value: T } | null>(null);
+  const requestedRef = useRef<{ value: T; controlled: boolean } | null>(null);
 
   useInsertionEffect(() => {
     committedRef.current = current;
@@ -65,8 +65,10 @@ export function useSlice<T>({
     // Only a commit that actually carries the value ends the request. React renders lanes it has
     // not been asked to flush yet — an urgent update commits without the transition queued behind
     // it — and an update still sitting in that queue is one React will apply, so it goes on
-    // counting until it does.
-    if (requestedRef.current && Object.is(current, requestedRef.current.value)) {
+    // counting until it does. A slice that has changed hands drops it either way: what the last
+    // owner asked for is nothing the new one agreed to.
+    if (requestedRef.current
+      && (requestedRef.current.controlled !== controlled || Object.is(current, requestedRef.current.value))) {
       requestedRef.current = null;
     }
 
@@ -76,7 +78,8 @@ export function useSlice<T>({
   });
 
   const set = useCallback<SliceSetter<T>>(updater => {
-    const requested = requestedRef.current;
+    // A request the other owner made says nothing about this one's value.
+    const requested = requestedRef.current?.controlled === controlledRef.current ? requestedRef.current : null;
     const next = functionalUpdate(updater, requested ? requested.value : committedRef.current);
 
     // Uncontrolled state always takes the update. React renders it when it chooses — a
@@ -95,7 +98,7 @@ export function useSlice<T>({
       });
     }
 
-    requestedRef.current = { value: next };
+    requestedRef.current = { controlled: controlledRef.current, value: next };
     onSetRef.current?.(next);
     setCurrentRef.current(next);
   }, []);

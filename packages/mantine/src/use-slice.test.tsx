@@ -328,4 +328,73 @@ describe("useSlice", () => {
     // Two increments were asked for and React still holds both.
     expect(screen.getByTestId("value").textContent).toBe("2");
   });
+
+  it("drops a request the previous owner made when the slice changes hands", () => {
+    const onChange = vi.fn();
+    const setter: { current: SliceSetter<number> | null } = { current: null };
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Handover() {
+      const [value, setValue] = useState<number | undefined>(undefined);
+      const [blocked, setBlocked] = useState(false);
+      const [current, set] = useSlice<number>({
+        value,
+        defaultValue: 0,
+        onChange,
+        fallback: 0
+      });
+
+      useEffect(() => {
+        setter.current = set;
+      }, [set]);
+
+      return (
+        <>
+          <span data-testid="value">{String(current)}</span>
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              set(previous => previous + 1);
+              setBlocked(true);
+            })}
+          >
+            defer
+          </button>
+
+          <button type="button" onClick={() => setValue(10)}>
+            take over
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Handover />, { wrapper });
+
+    // An uncontrolled increment is queued behind a suspended transition.
+    fireEvent.click(screen.getByRole("button", { name: "defer" }));
+    expect(screen.getByTestId("value").textContent).toBe("0");
+
+    // The application then starts passing `value`, so the slice is controlled and 10 is what it
+    // holds. Whatever the previous owner had asked for is not this owner's business.
+    fireEvent.click(screen.getByRole("button", { name: "take over" }));
+    expect(screen.getByTestId("value").textContent).toBe("10");
+
+    onChange.mockClear();
+    act(() => setter.current?.(previous => previous + 1));
+
+    expect(onChange).toHaveBeenCalledWith(11);
+  });
 });
