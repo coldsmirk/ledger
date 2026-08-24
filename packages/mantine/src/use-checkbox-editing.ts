@@ -64,6 +64,26 @@ function findTarget(store: TargetStore, rowId: string, columnId: string): Checkb
   return store.get(rowId)?.get(columnId);
 }
 
+/**
+ * The gate has shut on this target. There is no session to cancel — a toggle is over the moment
+ * it is sent — but the failure it was showing has nowhere left to be shown, and a write still out
+ * must not bring one back when the gate reopens. Reports whether anything a control shows changed.
+ */
+function loseGate(target: CheckboxTarget): boolean {
+  let touched = false;
+
+  if (target.error !== null) {
+    target.error = null;
+    touched = true;
+  }
+
+  if (target.request) {
+    target.request.lost = true;
+  }
+
+  return touched;
+}
+
 function redraw(target: CheckboxTarget): void {
   for (const editor of target.editors) {
     editor.redraw();
@@ -176,6 +196,20 @@ export function useCheckboxEditing<TData extends RowData>({
     const rowId = cell.row.id;
     const columnId = cell.column.id;
     const target = openTarget(rowId, columnId);
+
+    // Eligibility is re-read here, not trusted from the render that put this control on screen:
+    // `edit.enabled` is application code, and nothing makes it answer the same way twice, so a
+    // click can be the first thing to learn that the gate is shut. Both editing modes' commits
+    // re-read it for exactly this reason (docs/architecture.md) — a toggle is a commit, and the
+    // one path that skipped the check would write through a gate the application had closed, and
+    // unvalidated besides, since a closed gate is what `validate` no longer guards.
+    if (!canEditCell(cell, cell.row)) {
+      if (loseGate(target)) {
+        redraw(target);
+      }
+
+      return;
+    }
 
     // One write at a time per target: the control is disabled while its own is out, and a second
     // request would race the first to describe the same cell. Other targets are unaffected —
@@ -290,14 +324,7 @@ export function useCheckboxEditing<TData extends RowData>({
         const eligible = enableEditing && (cell === null || canEditCell(cell, cell.row));
 
         if (!eligible) {
-          if (target.error !== null) {
-            target.error = null;
-            touched = true;
-          }
-
-          if (target.request) {
-            target.request.lost = true;
-          }
+          touched = loseGate(target) || touched;
         }
 
         if (touched) {

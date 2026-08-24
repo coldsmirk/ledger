@@ -323,6 +323,56 @@ describe("checkbox transient editing", () => {
     expect(box("Edit Archived", 1).disabled).toBe(false);
   });
 
+  it("does not send a toggle the gate shut on since the last render", () => {
+    const onEditCommit = vi.fn();
+    const validate = vi.fn(() => null);
+    // `edit.enabled` is application code, and nothing makes it answer the same way twice — so a
+    // click can be the first thing to learn that the gate is shut, with no render in between.
+    let gateOpen = true;
+    const gated: Array<ColumnDef<Item, any>> = [
+      { accessorKey: "name", header: "Name" },
+      {
+        accessorKey: "onSale",
+        header: "On sale",
+        meta: {
+          edit: {
+            enabled: () => gateOpen,
+            validate,
+            variant: "checkbox"
+          }
+        }
+      }
+    ];
+
+    render(
+      <DataTable
+        columns={gated}
+        data={items}
+        getRowId={getRowId}
+        onEditCommit={onEditCommit}
+      />,
+      { wrapper }
+    );
+
+    gateOpen = false;
+    fireEvent.click(box("Edit On sale"));
+
+    // Nothing passed the gate, so nothing happened: no write, not even the validation that only
+    // guards writes, and nothing left behind to be shown or departed from.
+    expect(onEditCommit).not.toHaveBeenCalled();
+    expect(validate).not.toHaveBeenCalled();
+    expect(box("Edit On sale").checked).toBe(true);
+    expect(box("Edit On sale").disabled).toBe(false);
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    // And the cell was not quietly written to behind the closed gate: reopening it finds the
+    // value the data has always held.
+    gateOpen = true;
+    fireEvent.click(box("Edit On sale"));
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+    expect(onEditCommit.mock.calls[0]?.[0]).toMatchObject({ previousValue: true, value: false });
+  });
+
   it("latches a gate that shuts behind a write, and does not revive it when the gate reopens", async () => {
     const inFlight = Promise.withResolvers<void>();
     const view = (enableEditing: boolean) => (
