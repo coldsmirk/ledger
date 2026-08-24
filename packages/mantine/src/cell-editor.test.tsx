@@ -554,6 +554,51 @@ describe("inline editing", () => {
     expect(onEditCommit).toHaveBeenCalledTimes(1);
   });
 
+  it("follows the data past the value it acknowledged, when the owner keeps it open", () => {
+    const committed: Array<{ previousValue: unknown; value: unknown }> = [];
+
+    const view = (rows: Person[]) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={nameColumn()}
+            data={rows}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            getRowId={getRowId}
+            onEditCommit={change => {
+              committed.push({ previousValue: change.previousValue, value: change.value });
+            }}
+            onEditingCellChange={vi.fn()}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(people));
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "First" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    expect(committed).toEqual([{ previousValue: "Carol", value: "First" }]);
+
+    // The owner ignored the close and fed back a normalized value. That is what the cell holds
+    // now, and what the editor still on screen has to show.
+    rerender(view([
+      {
+        active: true,
+        id: "1",
+        name: "FIRST"
+      },
+      people[1] as Person
+    ]));
+
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("FIRST");
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Second" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+
+    expect(committed[1]).toEqual({ previousValue: "FIRST", value: "Second" });
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(

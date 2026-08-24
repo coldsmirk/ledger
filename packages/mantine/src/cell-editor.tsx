@@ -76,9 +76,16 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const ledger = table.options.meta?.ledger;
   const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
 
-  const initialValue = useRef(cell.getValue());
-  const draftRef = useRef<unknown>(initialValue.current);
-  const [draft, setDraftState] = useState<unknown>(initialValue.current);
+  /**
+   * What this session has written, against what the data read when it went out — the cell-mode
+   * counterpart of the row session's record. While it stands, it is what the cell holds and what
+   * the next edit departs from; once the data moves past it (the write applied, normalized, or
+   * another writer's edit) the data wins and the record retires for good. A value copied at mount
+   * could do neither.
+   */
+  const written = useRef<{ value: unknown; source: unknown } | null>(null);
+  const draftRef = useRef<{ value: unknown } | null>(null);
+  const [, redraw] = useReducer((token: number) => token + 1, 0);
   const [editError, setEditError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
@@ -92,9 +99,32 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
    */
   const reconciledRef = useRef(false);
 
+  /**
+   * What the cell holds as far as the application is concerned.
+   */
+  const settledValue = () => {
+    const record = written.current;
+    const source = cell.getValue();
+
+    return record && Object.is(record.source, source) ? record.value : source;
+  };
+
+  const draft = draftRef.current ? draftRef.current.value : settledValue();
+
+  // The record only stands while the data has not moved past it. Retiring it here rather than on
+  // read makes it permanent: data that later returns to what the write departed from is the
+  // application's own value, not ours resurfacing.
+  useEffect(() => {
+    const record = written.current;
+
+    if (record && !Object.is(record.source, cell.getValue())) {
+      written.current = null;
+    }
+  });
+
   const setValue = useEventCallback((value: unknown) => {
-    draftRef.current = value;
-    setDraftState(value);
+    draftRef.current = { value };
+    redraw();
     setEditError(null);
     // A new value is a new edit. This editor is only still on screen past a settled commit or
     // cancel because the application declined to close the slice, and what it holds now is
@@ -147,8 +177,9 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
       return true;
     }
 
-    const previousValue = initialValue.current;
-    const value = draftRef.current;
+    const source = cell.getValue();
+    const previousValue = settledValue();
+    const value = draftRef.current ? draftRef.current.value : previousValue;
 
     if (Object.is(value, previousValue)) {
       completedRef.current = true;
@@ -208,9 +239,14 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
           // A custom editor is not disabled while the request is out, so the user can type
           // straight past it. What this write carried is what the next edit departs from, but a
           // value typed since is one it never carried.
-          const carried = Object.is(draftRef.current, value);
+          const carried = !draftRef.current || Object.is(draftRef.current.value, value);
           completedRef.current = carried;
-          initialValue.current = value;
+          written.current = { source, value };
+
+          if (carried) {
+            draftRef.current = null;
+          }
+
           pendingRef.current = false;
 
           if (pendingCommitRef.current === pendingCommit) {
@@ -267,7 +303,8 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     }
 
     completedRef.current = true;
-    initialValue.current = value;
+    written.current = { source, value };
+    draftRef.current = null;
     clearIfCurrent();
 
     return true;
@@ -280,8 +317,8 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
 
     // The pending value is discarded, not merely abandoned: an application that declines to
     // close the slice keeps this editor on screen, and what it shows must be the cell again.
-    draftRef.current = initialValue.current;
-    setDraftState(initialValue.current);
+    draftRef.current = null;
+    redraw();
     setEditError(null);
     completedRef.current = true;
     clearIfCurrent();
