@@ -78,6 +78,20 @@ function namedPerson(name: string): Person[] {
   ];
 }
 
+/**
+ * One column, read through whatever accessor the caller hands in.
+ */
+function named(accessor: (person: Person) => string): Array<ColumnDef<Person, any>> {
+  return [
+    {
+      id: "name",
+      accessorFn: accessor,
+      header: "Name",
+      meta: { edit: "text" }
+    }
+  ];
+}
+
 function fixedCellView(rows: Person[]) {
   return (
     <StrictMode>
@@ -1802,6 +1816,157 @@ describe("inline editing", () => {
     // nobody saw left it. Stopping instead would strand the user at the edge of a table that has
     // another column right there.
     expect(onEditingCellChange).toHaveBeenLastCalledWith({ columnId: "id", rowId: "1" });
+  });
+
+  it("shows what the accessor of the render drawing it resolves", () => {
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [defs, setDefs] = useState(() => named(person => person.name));
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={defs}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            getRowId={getRowId}
+            onEditCommit={vi.fn()}
+            onEditingCellChange={vi.fn()}
+          />
+
+          <button type="button" onClick={() => setDefs(named(person => person.name.toUpperCase()))}>
+            recase
+          </button>
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setDefs(named(() => "FROM-A-RENDER-NOBODY-SAW"));
+              setBlocked(true);
+            })}
+          >
+            reaccess
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Carol");
+
+    // A real committed render changes what the column reads, with `data` identical. Upstream
+    // caches a row's values against the row object, and that object outlives a definition change
+    // — so the editor has to resolve the value itself rather than ask the row for it.
+    fireEvent.click(screen.getByRole("button", { name: "recase" }));
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("CAROL");
+
+    // And a pass that never reached the screen decides nothing: the draft is discarded, the
+    // session redraws, and what it draws is still the render's own answer.
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    fireEvent.click(screen.getByRole("button", { name: "reaccess" }));
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("CAROL");
+  });
+
+  it("tabs in pinned display order, not definition order", async () => {
+    const onEditingCellChange = vi.fn();
+    const pinned: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { edit: "text" }
+      },
+      {
+        accessorKey: "id",
+        header: "Id",
+        meta: { edit: "text" }
+      },
+      {
+        accessorKey: "active",
+        header: "Active",
+        meta: { edit: "text" }
+      }
+    ];
+
+    render(
+      <DataTable
+        columnPinning={{ start: ["active"], end: [] }}
+        columns={pinned}
+        data={people}
+        editingCell={{ columnId: "active", rowId: "1" }}
+        getRowId={getRowId}
+        onColumnPinningChange={vi.fn()}
+        onEditCommit={vi.fn()}
+        onEditingCellChange={onEditingCellChange}
+      />,
+      { wrapper }
+    );
+
+    // `active` is pinned to the start, so on screen it comes first and `name` is its neighbour —
+    // even though the definitions put it last. Stepping by definition order would move backwards.
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Tab" });
+
+    await waitFor(() => expect(onEditingCellChange).toHaveBeenLastCalledWith({ columnId: "name", rowId: "1" }));
+  });
+
+  it("resolves where Tab lands after the commit, not before it is sent", async () => {
+    const inFlight = Promise.withResolvers<void>();
+    const onEditingCellChange = vi.fn();
+
+    function Harness() {
+      const [hidden, setHidden] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={editableColumns}
+            columnVisibility={{ id: !hidden }}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            getRowId={getRowId}
+            onColumnVisibilityChange={vi.fn()}
+            onEditCommit={() => inFlight.promise}
+            onEditingCellChange={onEditingCellChange}
+          />
+
+          <button type="button" onClick={() => setHidden(true)}>
+            hide
+          </button>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Drafted" } });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Tab" });
+    onEditingCellChange.mockClear();
+
+    // The write is still out, and a real render takes the column the caret was headed for off the
+    // screen. Where Tab lands is decided when the commit lands, not when the key was pressed.
+    fireEvent.click(screen.getByRole("button", { name: "hide" }));
+
+    await act(async () => {
+      inFlight.resolve();
+      await inFlight.promise;
+    });
+
+    expect(onEditingCellChange).not.toHaveBeenCalledWith({ columnId: "id", rowId: "1" });
   });
 
   it("a validation message blocks the commit and stays in editing", () => {

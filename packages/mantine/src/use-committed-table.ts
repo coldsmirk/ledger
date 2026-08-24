@@ -58,7 +58,10 @@ export interface CommittedTable {
    */
   columnIds: () => string[];
   /**
-   * The leaf columns that render, in display order — what a keyboard move steps through.
+   * The leaf columns that render, in **display** order — start + center + end, the order the
+   * header groups and each row's cells are drawn in. `getVisibleLeafColumns` alone ignores
+   * pinning (docs/architecture.md), and a keyboard move that used it would step sideways past a
+   * pinned column and back.
    */
   visibleColumnIds: () => string[];
   canEdit: (rowId: string, columnId: string) => boolean;
@@ -119,7 +122,11 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
     }
 
     snapshot.current = {
-      visibleColumnIds: table.getVisibleLeafColumns().map(column => column.id),
+      visibleColumnIds: [
+        ...table.getStartVisibleLeafColumns(),
+        ...table.getCenterVisibleLeafColumns(),
+        ...table.getEndVisibleLeafColumns()
+      ].map(column => column.id),
       columnIds,
       columns,
       // The same two models `table_getRow(id, true)` consults, in the same order, read here where

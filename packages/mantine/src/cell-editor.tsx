@@ -14,7 +14,7 @@ import { useLayoutEffect, useReducer, useRef } from "react";
 
 import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
-import { normalizeEdit } from "./edit-meta";
+import { cellValue, normalizeEdit } from "./edit-meta";
 import { useEventCallback } from "./utils";
 
 export { canEditCell } from "./edit-meta";
@@ -49,7 +49,7 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     return null;
   }
 
-  const draft = editing.drafts.read(rowId, columnId, cell.getValue());
+  const draft = editing.drafts.read(rowId, columnId, cellValue(cell));
   const editError = editing.drafts.error(rowId, columnId);
   const pending = editing.drafts.pending(rowId, columnId);
 
@@ -151,7 +151,7 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
   // and local state would go on showing a value the row had already left behind. Rendering is
   // the only thing left to ask for.
   const [, redraw] = useReducer((token: number) => token + 1, 0);
-  const draft = rowApi ? rowApi.drafts.read(rowId, columnId, cell.getValue()) : cell.getValue();
+  const draft = rowApi ? rowApi.drafts.read(rowId, columnId, cellValue(cell)) : cellValue(cell);
   const editError = rowApi?.drafts.error(rowId, columnId) ?? null;
   const pending = rowApi?.drafts.pending(rowId) ?? false;
   const containerRef = useRef<HTMLDivElement | null>(null);

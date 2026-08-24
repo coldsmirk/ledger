@@ -1204,8 +1204,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
             write: cellSession.write
           },
           register: cellSession.register,
-          eligible: committed.canEdit,
-          isCheckbox: committed.isCheckbox,
+          firstEditable: cellSession.firstEditable,
           checkbox: checkboxSession,
           row: {
             id: editingRowId,
@@ -1243,7 +1242,6 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       editingCell,
       cellSession,
       checkboxSession,
-      committed,
       editMode,
       editingRowId,
       startRowEditing,

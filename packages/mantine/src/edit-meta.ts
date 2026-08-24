@@ -33,6 +33,19 @@ export function normalizeEdit(
   return { kind: "variant", config: typeof edit === "string" ? { variant: edit } : edit };
 }
 
+/**
+ * The value the cell of *this* render holds, through its own column's accessor.
+ *
+ * Not `cell.getValue()`: upstream caches a row's values on the row object, and that cache is only
+ * rebuilt when `data` changes — so a column whose `accessorFn` changed under the same data would
+ * go on answering with the accessor it had before, and an editor drawing from it would show a
+ * value the table has stopped holding. Resolving here also means a redraw between renders cannot
+ * pick up a definition from a render pass that never reached the screen.
+ */
+export function cellValue(cell: Cell<any, unknown>): unknown {
+  return cell.column.accessorFn?.(cell.row.original, cell.row.index);
+}
+
 export interface EditGate {
   enableEditing: boolean;
   /**

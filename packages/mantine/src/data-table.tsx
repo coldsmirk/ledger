@@ -1036,6 +1036,43 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
       return;
     }
 
+    // F2 is the one key here that needs no row list. The row it acts on is the active-row slice,
+    // and where it opens is the editing controller's answer for the render that reached the
+    // screen — so a render nobody saw cannot empty the table out from under it. The keys below
+    // move *through* the rows the table holds, which is a different question and still asks the
+    // core (docs/architecture.md).
+    //
+    // There is no cell cursor, so the row's first editable cell is the entry point — the cell to
+    // edit in cell mode, the cell to focus in row mode; the pattern defines F2 as placing focus
+    // in an input, so both modes land the caret somewhere. What a checkbox column is depends on
+    // the mode, and so does whether it can be that entry point: in cell mode it commits on toggle
+    // and never hosts an editor; in row mode it is a draft-bound editor like any other, and a row
+    // whose only editable column is one would otherwise never open at all.
+    if (event.key === "F2") {
+      const editing = table.options.meta?.ledger?.editing;
+
+      if (!editing || activeRow.id === null) {
+        return;
+      }
+
+      const rowMode = editing.mode === "row";
+      const target = editing.firstEditable(activeRow.id, !rowMode);
+
+      if (target === null || target === undefined) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (rowMode) {
+        editing.row.start(activeRow.id, { focusColumnId: target });
+      } else {
+        editing.start({ rowId: activeRow.id, columnId: target });
+      }
+
+      return;
+    }
+
     const pinningActive = table.options.enableRowPinning === true;
     const rows = pinningActive
       ? [...table.getTopRows(), ...table.getCenterRows(), ...table.getBottomRows()]
@@ -1100,45 +1137,6 @@ function DataTableCore<TData extends RowData>({ presentation, table }: RoutedPro
 
       // The WAI-APG grid pattern's dedicated edit key. Enter is spoken for here (it activates
       // the row), which is exactly the overload F2 exists to resolve.
-      case "F2": {
-        const row = currentIndex >= 0 ? rows[currentIndex] : null;
-        const editing = table.options.meta?.ledger?.editing;
-
-        if (!row || !editing) {
-          break;
-        }
-
-        // There is no cell cursor, so the row's first editable cell is the entry point — the
-        // cell to edit in cell mode, the cell to focus in row mode. The pattern defines F2 as
-        // placing focus in an input, so both modes land the caret somewhere.
-        //
-        // What a checkbox column is depends on the mode, and so does whether it can be that
-        // entry point: in cell mode it commits on toggle and never hosts an editor, so there is
-        // nothing for F2 to open; in row mode it is a draft-bound editor like any other, and a
-        // row whose only editable column is one would otherwise never open at all.
-        // The gate and the variant come from the controller, which answers for the render that
-        // reached the screen — asking the row's own cells would ask the shared core, and that
-        // carries whichever pass ran last (docs/architecture.md).
-        const rowMode = editing.mode === "row";
-        const target = row
-          .getVisibleCells()
-          .map(cell => cell.column.id)
-          .find(columnId => editing.eligible(row.id, columnId) && (rowMode || !editing.isCheckbox(columnId)));
-
-        if (target === undefined) {
-          break;
-        }
-
-        event.preventDefault();
-
-        if (rowMode) {
-          editing.row.start(row.id, { focusColumnId: target });
-        } else {
-          editing.start({ rowId: row.id, columnId: target });
-        }
-
-        break;
-      }
       // No default
     }
   });

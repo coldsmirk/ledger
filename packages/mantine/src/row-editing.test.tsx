@@ -124,6 +124,126 @@ describe("keyboard entry into editing", () => {
     await waitFor(() => expect(document.activeElement).toBe(editorInputs()[0]));
   });
 
+  it("enters at the cell on screen when F2 follows a discarded render", async () => {
+    Element.prototype.scrollIntoView ??= () => undefined;
+    const onEditingCellChange = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+    // The column that is first on screen is gone entirely in the discarded pass — so a candidate
+    // list taken from the shared core would not contain it, and F2 would enter one column over.
+    const withoutName: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "age",
+        header: "Age",
+        meta: { edit: "number" }
+      }
+    ];
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [defs, setDefs] = useState(() => columns);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            enableActiveRow
+            columns={defs}
+            data={people}
+            defaultActiveRowId="1"
+            getRowId={person => person.id}
+            onEditCommit={vi.fn()}
+            onEditingCellChange={onEditingCellChange}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setDefs(withoutName);
+              setBlocked(true);
+            })}
+          >
+            strip
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    // The transition takes the first column away and is then thrown away itself. On screen that
+    // column is still there, still first, and still editable — which is where F2 enters.
+    fireEvent.click(screen.getByRole("button", { name: "strip" }));
+    fireEvent.keyDown(viewport(), { key: "F2" });
+
+    await waitFor(() => expect(onEditingCellChange).toHaveBeenLastCalledWith({ columnId: "name", rowId: "1" }));
+  });
+
+  it("enters the row on screen when F2 follows a discarded render that emptied the data", async () => {
+    Element.prototype.scrollIntoView ??= () => undefined;
+    const onEditingCellChange = vi.fn();
+    const blocker = Promise.withResolvers<void>();
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [rows, setRows] = useState(people);
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            enableActiveRow
+            columns={columns}
+            data={rows}
+            defaultActiveRowId="1"
+            getRowId={person => person.id}
+            onEditCommit={vi.fn()}
+            onEditingCellChange={onEditingCellChange}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setRows([]);
+              setBlocked(true);
+            })}
+          >
+            empty
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    // The transition renders an empty table and is thrown away. The current row is still there.
+    fireEvent.click(screen.getByRole("button", { name: "empty" }));
+    fireEvent.keyDown(viewport(), { key: "F2" });
+
+    await waitFor(() => expect(onEditingCellChange).toHaveBeenLastCalledWith({ columnId: "name", rowId: "1" }));
+  });
+
   it("opens a row whose only editable column is a checkbox on F2", async () => {
     Element.prototype.scrollIntoView ??= () => undefined;
     // What a checkbox column *is* depends on the mode: in cell mode it commits on toggle and has

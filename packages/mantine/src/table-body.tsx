@@ -19,6 +19,7 @@ import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useReduc
 import { columnHeaderText, EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
 import { useDataTableContext } from "./context";
+import { cellValue } from "./edit-meta";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { IconChevronRight, IconRefresh } from "./icons";
@@ -175,7 +176,7 @@ function CheckboxCell({ cell }: { cell: Cell<any, unknown> }) {
     return null;
   }
 
-  const checked = checkbox.checked(rowId, columnId, cell.getValue());
+  const checked = checkbox.checked(rowId, columnId, cellValue(cell));
   const pending = checkbox.pending(rowId, columnId);
   const error = checkbox.error(rowId, columnId);
 

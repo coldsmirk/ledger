@@ -43,6 +43,7 @@ export interface CellEditingSession {
    * it. Answered here rather than by the editor, which would have to walk the shared core.
    */
   moveTo: (backwards: boolean) => void;
+  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null | undefined;
   write: (rowId: string, columnId: string, value: unknown) => void;
   pending: (rowId: string, columnId: string) => boolean;
   error: (rowId: string, columnId: string) => string | null;
@@ -744,33 +745,73 @@ export function useCellEditing<TData extends RowData>({
   const error = useCallback((rowId: string, columnId: string) => isSessionRef.current(rowId, columnId) ? store.current.error : null, []);
 
   /**
-   * Tab / Shift+Tab: commit-and-move to the row's adjacent editable cell (docs/editing.md keyboard
-   * map). Every candidate comes from the render that reached the screen — the visible order, the
-   * gate, and what each column's variant is — so a render nobody saw cannot decide where the
-   * caret goes, or that there is nowhere left to go.
+   * The row's next editable cell in display order, skipping the checkbox variant — it commits on
+   * toggle and hosts no editor for a caret to land in (docs/editing.md). Resolved from the render
+   * that reached the screen: the order, the gate and each column's variant all come from there,
+   * so a render nobody saw cannot decide where the caret goes, or that there is nowhere to go.
    */
-  const moveTo = useEventCallback((backwards: boolean) => {
-    const { rowId, columnId } = store.current;
-
-    if (rowId === null || columnId === null) {
-      return;
-    }
-
+  const adjacentEditable = (rowId: string, columnId: string | null, backwards: boolean): string | null => {
     const order = committed.visibleColumnIds();
-    const from = order.indexOf(columnId);
     const step = backwards ? -1 : 1;
+    const from = columnId === null ? backwards ? order.length : -1 : order.indexOf(columnId);
 
     for (let index = from + step; index >= 0 && index < order.length; index += step) {
       const candidate = order[index];
 
       if (candidate !== undefined && committed.canEdit(rowId, candidate) && !committed.isCheckbox(candidate)) {
-        start({ columnId: candidate, rowId });
-
-        return;
+        return candidate;
       }
     }
 
-    stop({ commit: true });
+    return null;
+  };
+
+  /**
+   * Tab / Shift+Tab: commit, and only then move (docs/editing.md keyboard map). The neighbour is
+   * resolved *after* the commit succeeds, never before it is sent — an async write leaves the
+   * keyboard free, and a real render landing while it is out can hide the column the caret was
+   * headed for, shut its gate, or move it somewhere else entirely.
+   */
+  const moveTo = useEventCallback((backwards: boolean) => {
+    const { rowId } = store.current;
+    const from = store.current.columnId;
+
+    if (rowId === null || from === null) {
+      return;
+    }
+
+    const settle = (succeeded: boolean) => {
+      if (!succeeded) {
+        return;
+      }
+
+      const target = adjacentEditable(rowId, from, backwards);
+
+      if (target === null) {
+        return;
+      }
+
+      start({ columnId: target, rowId });
+    };
+
+    const result = commit();
+
+    if (isPromiseLike(result)) {
+      // Custom editors may still reject despite the boolean-result contract; stay put.
+      void Promise.resolve(result).then(settle, () => undefined);
+    } else {
+      settle(result);
+    }
+  });
+
+  /**
+   * The row's first editable cell — where F2 enters (docs/editing.md#keyboard-and-lifecycle).
+   * `skipCheckbox` is the mode: cell mode has no editor to open on one, row mode does.
+   */
+  const firstEditable = useEventCallback((rowId: string, skipCheckbox: boolean) => {
+    const order = committed.visibleColumnIds();
+
+    return order.find(columnId => committed.canEdit(rowId, columnId) && (!skipCheckbox || !committed.isCheckbox(columnId))) ?? null;
   });
 
   return useMemo(
@@ -781,6 +822,7 @@ export function useCellEditing<TData extends RowData>({
         clear,
         commit,
         error,
+        firstEditable,
         moveTo,
         pending,
         read,
@@ -790,6 +832,6 @@ export function useCellEditing<TData extends RowData>({
         write
       };
     },
-    [active, cancel, clear, commit, error, moveTo, pending, read, register, start, stop, write]
+    [active, cancel, clear, commit, error, firstEditable, moveTo, pending, read, register, start, stop, write]
   );
 }

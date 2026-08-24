@@ -512,17 +512,13 @@ export interface LedgerEditingController {
    */
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
   /**
-   * The editing gate as the render that reached the screen left it — switches, handlers, column
-   * definitions and rows alike. The keyboard entry points ask this rather than the cell's own
-   * table, which is the shared core and carries whatever render pass ran last, committed or not
-   * (docs/architecture.md).
+   * Where F2 enters a row: its first editable cell in display order, as the render that reached
+   * the screen had it — the order, the gate and each column's variant all come from there rather
+   * than from the shared core, which carries whatever render pass ran last, committed or not
+   * (docs/architecture.md). `skipCheckbox` is the mode: cell mode has no editor to open on a
+   * checkbox, row mode does.
    */
-  eligible: (rowId: string, columnId: string) => boolean;
-  /**
-   * That render's variant for a column: what a checkbox column *is* depends on the mode, so the
-   * entry points need to know before they pick a target.
-   */
-  isCheckbox: (columnId: string) => boolean;
+  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null | undefined;
   /**
    * The checkbox variant's transient edits. Not a session: toggling *is* the commit, so there is
    * nothing to open or close — but the write still out, the failure it came back with and the
