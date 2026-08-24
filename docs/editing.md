@@ -62,7 +62,7 @@ meta: {
 
 | Key / event | Effect |
 | --- | --- |
-| F2 (with `enableActiveRow`) | Start editing the current row — its first editable cell in cell mode, the whole row in row mode. The dedicated edit key of the WAI-APG grid pattern; `Enter` is taken here, since it activates the row ([rows.md](rows.md#active-row)) |
+| F2 (with `enableActiveRow`) | Start editing the current row — its first editable cell in cell mode, the whole row in row mode. What counts as an entry point follows the mode: a `checkbox` column is skipped in cell mode, where toggling *is* the commit and there is no editor to place a caret in, but taken in row mode, where it is a draft-bound editor like any other. The dedicated edit key of the WAI-APG grid pattern; `Enter` is taken here, since it activates the row ([rows.md](rows.md#active-row)) |
 | Enter | Commit |
 | Escape | Cancel — the pending value is discarded and the editor shows what the row holds again, which after a commit the application declined to close is the value that commit wrote, not the one the session opened on |
 | Tab / Shift+Tab | Commit, wait for success, then move to the row's next/previous editable cell (checkbox cells are skipped in shorthand and object form; past the row's edge, editing stops with a commit) |
@@ -73,6 +73,15 @@ meta: {
 | Scrolling the editing row out of the virtual window | **Commits** (equivalent to blur), never discards. This is the one carve-out from "a failure keeps the editor": once the editor is unmounted **any** failure — a `validate` rejection, a thrown handler, a rejected promise — has nowhere left to report itself, so it degrades to discard rather than leaving an invisible cell in edit mode. The rows above describe the editor while it is still mounted. |
 
 Event boundaries: on an editable column, the double-click that enters editing does **not** fire `onRowDoubleClick`, and an editing cell swallows clicks so `onRowClick` never fires through it.
+
+## The checkbox variant
+
+Toggling *is* the commit, so a checkbox never enters edit mode and has no session to open or close. What a toggle leaves behind still belongs to the cell rather than to the control that sent it, and the host keeps it there:
+
+- **A toggle departs from what the application last knew**, exactly as `previousValue` means everywhere else — the value this cell has already written while your `data` has not caught up with it, and the data itself once it has. Toggling twice against a handler that has not fed anything back therefore sends `true → false` and then `false → true`, not the same change twice. The record retires for good the moment the data moves — your write applied, normalized, or somebody else's edit — including while the write is still in flight, so data that leaves and returns during the request leaves nothing for it to be true about.
+- **The pending write, and the failure it comes back with, survive the control.** Hiding the column, a responsive breakpoint removing it, or a virtual scroll taking the row off screen unmounts the checkbox; none of them is the write landing. It comes back still disabled if its write is still out (so a second click cannot send a second write), and a rejection that arrived while it was away is shown when it returns.
+- **Any number of cells can have a write out at once.** Each one's pending, failure and record are its own: a second checkbox never joins the first's request, and a failure lands only on the cell that sent it.
+- **A gate that shuts behind a write latches.** The write passed before it shut and is left to land — but the failure it may come back with has nowhere left to be shown, and a gate that reopens is not a reprieve for it. This is the same rule the editor sessions follow when nothing is left mounted to report a failure to.
 
 ## Custom editors
 

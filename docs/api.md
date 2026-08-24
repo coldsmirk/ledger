@@ -33,7 +33,7 @@ import "@coldsmirk/ledger-mantine/styles.css";
 
 Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell`, `Header`, `HeaderGroup` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape. Its methods are v9's — `accessor` / `display` / `group` / **`columns`**, the last being the variadic-tuple wrapper a `group`'s children need so each keeps its own `TValue` ([columns.md](columns.md#header-groups-and-footers)).
 
-ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
+ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerCheckboxEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
 
 Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
@@ -306,6 +306,7 @@ Per-column control rides `meta.export`: `false` excludes the column entirely; `{
 interface LedgerEditingController {
   mode: DataTableEditMode;                                 // "cell" | "row"
   cell: DataTableEditingCell | null;                       // cell mode: the cell being edited
+  active: (rowId: string, columnId: string) => boolean;    // …and its session is still live
   start: (cell: DataTableEditingCell) => void;
   stop: (options?: { commit?: boolean }) => void;
   clear: () => void;
@@ -318,7 +319,16 @@ interface LedgerEditingController {
     write: (rowId: string, columnId: string, value: unknown) => void;
   };
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
+  checkbox: LedgerCheckboxEditingController;               // the checkbox variant's transient edits
   row: LedgerRowEditingController;                         // inert while mode is "cell"
+}
+
+interface LedgerCheckboxEditingController {
+  checked: (rowId: string, columnId: string, source: unknown) => boolean;  // written, else source
+  pending: (rowId: string, columnId: string) => boolean;                   // this cell's write is out
+  error: (rowId: string, columnId: string) => string | null;
+  toggle: (cell: Cell<TData, unknown>) => void;                            // toggles and commits in one act
+  register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
 }
 
 interface LedgerCellEditor {
@@ -346,5 +356,7 @@ interface LedgerRowEditor {
   redraw: () => void;                                      // something the editor shows changed in the session
 }
 ```
+
+`editing.checkbox` is not a session — the checkbox variant commits on toggle, so there is nothing to open or close. What it holds is per *target* and any number can be live at once: the write still out, the failure it came back with, and the value the application now holds. It is addressed by row and column for the same reason the stores above are, and for one more: hiding the column, a breakpoint removing it, or a virtual scroll takes the control off the screen, and none of those are the write landing ([editing.md](editing.md#the-checkbox-variant)).
 
 The row-mode store is addressed by row and not by column alone: two rows' editors can be mounted at once while React reconciles a switch, and each must read its own pending values or none. `read`, `pending` and `error` are what an editor renders — it holds no copy of any of them, because an editor is unmounted by a hidden column or a virtual scroll at any moment while the session is not (see [architecture.md](architecture.md#load-bearing-internals)). `id` is the row that actually rendered — `start` and `stop` request a change of the controlled `editingRowId` slice, and an application may answer with a different row or with none ([editing.md](editing.md#row-mode)).

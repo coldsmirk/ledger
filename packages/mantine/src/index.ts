@@ -56,6 +56,7 @@ export type {
   DataTableRowEditCommit,
   DataTableScrollToRowOptions,
   LedgerCellEditor,
+  LedgerCheckboxEditingController,
   LedgerEditingController,
   LedgerMeta,
   LedgerRowEditingController,
