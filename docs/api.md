@@ -210,11 +210,6 @@ interface DataTableEditCommit<TData> {
 }
 
 interface DataTableEditingCell { rowId: string; columnId: string }
-
-interface ActiveCellEditor {
-  commit: () => boolean | Promise<boolean>;  // true only when it is safe to leave the cell
-  cancel: () => void;
-}
 ```
 
 ## Filter types
