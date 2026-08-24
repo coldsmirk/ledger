@@ -123,7 +123,11 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
   const value = useCallback((rowId: string, columnId: string) => {
     const found = snapshot.current.rows[rowId] ?? snapshot.current.coreRows[rowId] ?? null;
 
-    return found?.getValue(columnId);
+    // The committed column's accessor over the committed row, rather than `row.getValue` — which
+    // resolves the column through `row.table`, and that is the shared core. Upstream caches a
+    // row's values after the first read, so in most orders the two agree; depending on that is
+    // depending on having read the value already, which nothing here can promise.
+    return found === null ? undefined : snapshot.current.columns.get(columnId)?.accessorFn?.(found.original, found.index);
   }, []);
 
   const canEdit = useCallback((rowId: string, columnId: string) => {

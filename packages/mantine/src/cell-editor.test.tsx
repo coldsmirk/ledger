@@ -1601,6 +1601,100 @@ describe("inline editing", () => {
     expect(onEditCommit).toHaveBeenCalledTimes(1);
   });
 
+  it("reads a value through the accessor the committed render resolved", () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const onEditCommit = vi.fn();
+    const validated: unknown[] = [];
+    const blocker = Promise.withResolvers<void>();
+    // Same column id, different accessor. Reading a value has to resolve a column to do it, and
+    // the row's own `getValue` resolves one through the shared core — so ledger resolves it from
+    // the committed column instead. (Upstream caches a row's values after the first read, which
+    // would mask this in most orders; the assertion below pins that the swap really landed.)
+    const named = (accessor: (person: Person) => string): Array<ColumnDef<Person, any>> => [
+      {
+        id: "name",
+        accessorFn: accessor,
+        header: "Name",
+        cell: () => "fixed",
+        meta: {
+          edit: {
+            validate: value => {
+              validated.push(value);
+
+              return null;
+            },
+            variant: "text"
+          }
+        }
+      },
+      { accessorKey: "id", header: "Id" }
+    ];
+
+    function Blocker({ blocked }: { blocked: boolean }) {
+      if (blocked) {
+        throw blocker.promise;
+      }
+
+      return null;
+    }
+
+    function Harness() {
+      const [defs, setDefs] = useState(() => named(person => person.name));
+      const [blocked, setBlocked] = useState(false);
+
+      return (
+        <>
+          <DataTable
+            columns={defs}
+            columnVisibility={{ name: false }}
+            data={people}
+            editingCell={{ columnId: "name", rowId: "1" }}
+            getRowId={getRowId}
+            handleRef={handle}
+            onColumnVisibilityChange={vi.fn()}
+            onEditCommit={onEditCommit}
+            onEditingCellChange={vi.fn()}
+          />
+
+          <button
+            type="button"
+            onClick={() => startTransition(() => {
+              setDefs(named(() => "FROM-A-RENDER-NOBODY-SAW"));
+              setBlocked(true);
+            })}
+          >
+            reaccess
+          </button>
+
+          <Suspense fallback={<div>waiting</div>}>
+            <Blocker blocked={blocked} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Harness />, { wrapper });
+
+    // The column is hidden, so no editor mounts. The draft goes straight to the session, which is
+    // what an editor would have done.
+    act(() => {
+      handle.current?.table.options.meta?.ledger?.editing.drafts.write("1", "name", "Drafted");
+    });
+
+    // The transition swaps the accessor behind the same column id and is thrown away.
+    fireEvent.click(screen.getByRole("button", { name: "reaccess" }));
+    // The discarded pass really did reach the shared core: this is the accessor a commit would
+    // resolve if it went looking for the column there.
+    expect(handle.current?.table.getColumn("name")?.accessorFn?.(people[0] as Person, 0))
+      .toBe("FROM-A-RENDER-NOBODY-SAW");
+
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    expect(onEditCommit).toHaveBeenCalledTimes(1);
+    expect(onEditCommit.mock.calls[0]?.[0]).toMatchObject({ previousValue: "Carol", value: "Drafted" });
+    expect(validated).toEqual(["Drafted"]);
+  });
+
   it("a validation message blocks the commit and stays in editing", () => {
     const onEditCommit = vi.fn();
     render(
