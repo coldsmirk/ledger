@@ -8,7 +8,7 @@ import type { Updater } from "@tanstack/react-table";
  */
 import { useUncontrolled } from "@mantine/hooks";
 import { functionalUpdate } from "@tanstack/react-table";
-import { useCallback, useRef } from "react";
+import { useCallback, useInsertionEffect, useRef } from "react";
 
 export type SliceSetter<T> = (updater: Updater<T>) => void;
 
@@ -38,19 +38,47 @@ export function useSlice<T>({
     onChange
   });
 
-  // Mirror the latest value so chained updaters within one event resolve against fresh state,
-  // not the render-time snapshot.
-  const currentRef = useRef(current);
-  currentRef.current = current;
-
+  /**
+   * What actually reached the screen, and the handlers of the render that put it there. Mirrored
+   * in an effect rather than during render: refs are shared between the current tree and a
+   * work-in-progress one, so a transition React renders and then throws away — a sibling
+   * suspends — would otherwise leave updaters resolving against a value nobody ever saw, and
+   * calling the abandoned render's `onChange`. Insertion phase, so that a layout effect setting
+   * a slice already sees this render's values; `useEventCallback` mirrors its handler the same
+   * way, for the same reason.
+   */
+  const committedRef = useRef(current);
   const setCurrentRef = useRef(setCurrent);
-  setCurrentRef.current = setCurrent;
   const onSetRef = useRef(onSet);
-  onSetRef.current = onSet;
+
+  /**
+   * The value this event has already asked for, so updaters chained inside one event resolve
+   * against each other instead of against the render-time snapshot. It is scoped to that event:
+   * `value` is controllable, and an owner may answer by leaving it exactly where it was — no
+   * render would then arrive to correct this, and every later event would go on departing from a
+   * value the owner declined. So it is dropped at the end of the batch, by a microtask queued
+   * when the burst starts, rather than left for whatever render happens along next.
+   */
+  const requestedRef = useRef<{ value: T } | null>(null);
+
+  useInsertionEffect(() => {
+    committedRef.current = current;
+    requestedRef.current = null;
+    setCurrentRef.current = setCurrent;
+    onSetRef.current = onSet;
+  });
 
   const set = useCallback<SliceSetter<T>>(updater => {
-    const next = functionalUpdate(updater, currentRef.current);
-    currentRef.current = next;
+    const requested = requestedRef.current;
+    const next = functionalUpdate(updater, requested ? requested.value : committedRef.current);
+
+    if (requested === null) {
+      queueMicrotask(() => {
+        requestedRef.current = null;
+      });
+    }
+
+    requestedRef.current = { value: next };
     onSetRef.current?.(next);
     setCurrentRef.current(next);
   }, []);
