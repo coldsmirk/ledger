@@ -386,11 +386,10 @@ export interface LedgerRowEditor {
   setError: (error: string | null) => void;
   setPending: (pending: boolean) => void;
   /**
-   * Discards the editor's own copy of the draft and shows `value` instead — what a cancelled row
-   * has to look like when the application declines to close it. The controller resolves the
-   * value, because what the row holds may be a write the data has not fed back yet.
+   * The row's pending edit has been thrown away; draw again from the store. Nothing is passed,
+   * because the editor reads what it shows rather than holding a copy of it.
    */
-  reset: (value: unknown) => void;
+  reset: () => void;
 }
 
 export interface LedgerRowEditingController {
@@ -410,16 +409,19 @@ export interface LedgerRowEditingController {
    */
   shouldFocus: (columnId: string) => boolean;
   /**
-   * Pending values for the row being edited. The store outlives editor unmounts, so a
-   * virtualized editing row that scrolls out and back keeps what was typed into it, and it is
-   * addressed by row: an editor names the row it belongs to rather than trusting the
-   * controller's idea of which row is current, so two rows' editors mounted at once during a
-   * switch cannot read each other's drafts.
+   * The row's editing store. It outlives editor unmounts, so a virtualized editing row that
+   * scrolls out and back keeps what was typed into it, and it is addressed by row: an editor
+   * names the row it belongs to rather than trusting the controller's idea of which row is
+   * current, so two rows' editors mounted at once during a switch cannot read each other's
+   * values.
    */
   drafts: {
-    has: (rowId: string, columnId: string) => boolean;
-    get: (rowId: string, columnId: string) => unknown;
-    set: (rowId: string, columnId: string, value: unknown) => void;
+    /**
+     * What the editor should show: the pending value if there is one, else what this session has
+     * already written, else `source` — the cell's own value.
+     */
+    read: (rowId: string, columnId: string, source: unknown) => unknown;
+    write: (rowId: string, columnId: string, value: unknown) => void;
   };
   register: (columnId: string, editor: LedgerRowEditor) => () => void;
 }

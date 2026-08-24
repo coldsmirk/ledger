@@ -10,7 +10,7 @@ import type { Cell, DataTableEditConfig, DataTableEditContext, Row } from "./typ
  * table cell is visual noise.
  */
 import { Loader, NumberInput, Select, TextInput } from "@mantine/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 
 import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
@@ -428,9 +428,12 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const columnId = cell.column.id;
   const rowId = cell.row.id;
 
-  const [draft, setDraftState] = useState<unknown>(
-    () => rowApi?.drafts.has(rowId, columnId) ? rowApi.drafts.get(rowId, columnId) : cell.getValue()
-  );
+  // The store is the value, not a copy of it: what the row holds moves under an open editor —
+  // the application feeds a write back, normalizes it, or the controller throws the edit away —
+  // and local state would go on showing a value the row had already left behind. Rendering is
+  // the only thing left to ask for.
+  const [, redraw] = useReducer((token: number) => token + 1, 0);
+  const draft = rowApi ? rowApi.drafts.read(rowId, columnId, cell.getValue()) : cell.getValue();
   const [editError, setEditError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -439,19 +442,18 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const autoFocus = rowApi?.shouldFocus(columnId) ?? false;
 
   const setValue = useEventCallback((value: unknown) => {
-    setDraftState(value);
+    rowApi?.drafts.write(rowId, columnId, value);
     setEditError(null);
-    rowApi?.drafts.set(rowId, columnId, value);
+    redraw();
   });
 
   /**
-   * The controller calls this when the row's pending edit is thrown away, with the value the row
-   * should show — which is not always the cell's, since a write the application has accepted but
-   * not fed back is the newer truth.
+   * The controller calls this when the row's pending edit is thrown away. There is nothing to put
+   * back — the store already answers differently — only a render to ask for.
    */
-  const resetDraft = useEventCallback((value: unknown) => {
-    setDraftState(value);
+  const resetDraft = useEventCallback(() => {
     setEditError(null);
+    redraw();
   });
 
   useEffect(() => {

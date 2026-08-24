@@ -428,8 +428,26 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   };
 
   /**
-   * Records a write that went through, so the values it carried stop reading as pending edits
-   * and the next commit departs from them rather than from data that has not caught up.
+   * Takes back the pending values a write actually carried, leaving anything typed since. What it
+   * carried is recorded as committed instead; a draft left standing over it would go on beating
+   * the data the application feeds back — including a value it normalized on the way in.
+   */
+  const consumeCommittedRowDrafts = (rowId: string, sent: Record<string, unknown>) => {
+    if (rowDrafts.current.rowId !== rowId) {
+      return;
+    }
+
+    for (const [columnId, value] of rowDrafts.current.values) {
+      if (Object.hasOwn(sent, columnId) && Object.is(value, sent[columnId])) {
+        rowDrafts.current.values.delete(columnId);
+      }
+    }
+  };
+
+  /**
+   * Records a write that went through, so the next commit departs from it rather than from data
+   * that has not caught up. The entry is retired by the effect below the moment the data moves —
+   * see `previousRowValue`.
    */
   const recordRowCommit = (rowId: string, values: Record<string, unknown>, sources: Map<string, unknown>) => {
     if (rowDrafts.current.rowId !== rowId) {
@@ -464,8 +482,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * Throws the whole pending edit away — what cancelling means. The mounted editors are put back
    * alongside the store because the row can stay on screen: a controlled application may decline
    * to close it, and an editor still showing a value the store no longer holds is one nothing
-   * would commit. They are put back to what the session has written, not to the data, for the
-   * same reason `previousRowValue` exists.
+   * would commit. What they show once the store is empty is the store's answer again — the value
+   * the session has written, or the data — so they are only asked to draw themselves anew.
    */
   const discardRowEdits = (rowId: string | null) => {
     if (rowId === null || rowDrafts.current.rowId !== rowId) {
@@ -474,10 +492,8 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
     rowDrafts.current.values.clear();
 
-    const source = snapshotEditableValues(rowId) ?? rowDrafts.current.baseline ?? new Map();
-
-    for (const [columnId, editor] of rowEditors.current) {
-      editor.reset(previousRowValue(columnId, source.get(columnId)));
+    for (const editor of rowEditors.current.values()) {
+      editor.reset();
     }
   };
 
@@ -548,6 +564,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
    * column's pending value, not the row. A row the table does not hold yet is a row that has not
    * arrived, not one that may not be edited.
    *
+   * It is also where a value this session wrote retires: once the data has moved past it, it is
+   * gone for good, so data that later returns to what the write departed from cannot bring our
+   * value back with it (`previousRowValue` tests the same thing, for reads that happen first).
+   *
    * Passive, not layout: nothing has to be keyed before the user can type, and this must not race
    * the session boundary above. No dependency array, because eligibility is `enableEditing`, the
    * column definitions and the row's own data at once — nothing a list describes.
@@ -574,12 +594,19 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     let editable = false;
 
     for (const cell of erasedRow.getAllCells()) {
+      const columnId = cell.column.id;
+      const written = rowDrafts.current.committed.get(columnId);
+
+      if (written && !Object.is(written.source, cell.getValue())) {
+        rowDrafts.current.committed.delete(columnId);
+      }
+
       if (canEditCell(cell, erasedRow)) {
         editable = true;
       } else {
         // The gate shut on this column: its pending value goes now rather than at commit time,
         // so a gate that reopens cannot bring back a draft nothing was showing.
-        rowDrafts.current.values.delete(cell.column.id);
+        rowDrafts.current.values.delete(columnId);
       }
     }
 
@@ -774,6 +801,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
 
           rowPendingCommit.current = null;
           recordRowCommit(rowId, values, sources);
+          consumeCommittedRowDrafts(rowId, values);
           broadcastRowPending(false);
 
           if (hasUncommittedRowEdits(rowId, values)) {
@@ -809,6 +837,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     }
 
     recordRowCommit(rowId, values, sources);
+    consumeCommittedRowDrafts(rowId, values);
     finishRowEditing();
     return true;
   });
@@ -874,14 +903,23 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   }, []);
 
   /**
-   * Editors name the row they belong to rather than reading it from a shared mutable ref: two
-   * rows' editors can be on screen at once while React reconciles a switch, and each must see
-   * its own drafts or none.
+   * The store is what a row editor shows, rather than a value it copies at mount: what the row
+   * holds moves under it — the application feeds a write back, normalizes it, or another writer
+   * changes it — and an editor with its own copy would go on showing a value the row left behind.
+   * Editors name the row they belong to instead of reading it from a shared mutable ref, because
+   * two rows' editors can be on screen at once while React reconciles a switch.
    */
   const rowDraftsApi = useRef({
-    has: (rowId: string, columnId: string) => rowDrafts.current.rowId === rowId && rowDrafts.current.values.has(columnId),
-    get: (rowId: string, columnId: string) => rowDrafts.current.rowId === rowId ? rowDrafts.current.values.get(columnId) : undefined,
-    set: (rowId: string, columnId: string, value: unknown) => {
+    read: (rowId: string, columnId: string, source: unknown) => {
+      if (rowDrafts.current.rowId !== rowId) {
+        return source;
+      }
+
+      return rowDrafts.current.values.has(columnId)
+        ? rowDrafts.current.values.get(columnId)
+        : previousRowValue(columnId, source);
+    },
+    write: (rowId: string, columnId: string, value: unknown) => {
       if (rowDrafts.current.rowId === rowId) {
         rowDrafts.current.values.set(columnId, value);
       }

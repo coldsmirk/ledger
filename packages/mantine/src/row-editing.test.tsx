@@ -829,6 +829,144 @@ describe("row editing mode", () => {
     expect(onRowEditCommit).not.toHaveBeenCalled();
   });
 
+  it("lets data that moved past the value it acknowledged win the next commit", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const committed: Array<{ previousValues: Record<string, unknown>; values: Record<string, unknown> }> = [];
+
+    const view = (rows: Person[]) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={rows}
+            editingRowId="1"
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={vi.fn()}
+            onRowEditCommit={change => {
+              committed.push({ previousValues: change.previousValues, values: change.values });
+            }}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(people));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "First" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(committed[0]?.values).toEqual({ age: 30, name: "First" });
+
+    // The server normalized what it accepted and fed that back. It, not the value we sent, is
+    // what the row now holds — and what the editor has to show.
+    rerender(view([
+      {
+        age: 30,
+        id: "1",
+        name: "FIRST"
+      },
+      people[1] as Person
+    ]));
+
+    await waitFor(() => expect((editorInputs()[0] as HTMLInputElement).value).toBe("FIRST"));
+
+    fireEvent.change(editorInputs()[1] as HTMLInputElement, { target: { value: "31" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    expect(committed).toHaveLength(2);
+    expect(committed[1]?.values).toEqual({ age: 31, name: "FIRST" });
+    expect(committed[1]?.previousValues).toEqual({ age: 30, name: "FIRST" });
+  });
+
+  it("shows what the session wrote when an editor remounts under it", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        editingRowId="1"
+        editMode="row"
+        getRowId={person => person.id}
+        handleRef={handle}
+        onEditingRowIdChange={vi.fn()}
+        onRowEditCommit={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "First" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    // The write went through and the application kept the row open without feeding it back. An
+    // editor that unmounts and returns — the columns panel here, virtual scrolling in a real
+    // table — must not go back to showing a value the row no longer holds.
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(false));
+    await waitFor(() => expect(editorInputs()).toHaveLength(1));
+    act(() => handle.current?.table.getColumn("name")?.toggleVisibility(true));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    expect((editorInputs()[0] as HTMLInputElement).value).toBe("First");
+  });
+
+  it("does not bring a written value back when the data returns to what it departed from", async () => {
+    const handle = createRef<DataTableHandle<Person>>();
+    const committed: Array<Record<string, unknown>> = [];
+    const named = (name: string): Person[] => [
+      {
+        age: 30,
+        id: "1",
+        name
+      },
+      people[1] as Person
+    ];
+
+    const view = (rows: Person[]) => (
+      <StrictMode>
+        <MantineProvider>
+          <DataTable
+            columns={columns}
+            data={rows}
+            editingRowId="1"
+            editMode="row"
+            getRowId={person => person.id}
+            handleRef={handle}
+            onEditingRowIdChange={vi.fn()}
+            onRowEditCommit={({ values }) => {
+              committed.push(values);
+            }}
+          />
+        </MantineProvider>
+      </StrictMode>
+    );
+
+    const { rerender } = render(view(named("Carol")));
+
+    await waitFor(() => expect(editorInputs()).toHaveLength(2));
+    fireEvent.change(editorInputs()[0] as HTMLInputElement, { target: { value: "First" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+    expect(committed).toHaveLength(1);
+
+    // The write lands in the data...
+    rerender(view(named("First")));
+    await waitFor(() => expect((editorInputs()[0] as HTMLInputElement).value).toBe("First"));
+
+    // ...and is then reverted by somebody else. That is the data's own value now, not ours
+    // resurfacing because it happens to match what the write departed from.
+    rerender(view(named("Carol")));
+
+    await waitFor(() => expect((editorInputs()[0] as HTMLInputElement).value).toBe("Carol"));
+
+    fireEvent.change(editorInputs()[1] as HTMLInputElement, { target: { value: "31" } });
+    act(() => handle.current?.stopEditing({ commit: true }));
+
+    expect(committed).toHaveLength(2);
+    expect(committed[1]).toEqual({ age: 31, name: "Carol" });
+  });
+
   it("commits a draft whose column was hidden mid-edit", async () => {
     const handle = createRef<DataTableHandle<Person>>();
     const onRowEditCommit = vi.fn();
