@@ -1,13 +1,27 @@
 import type { ReactNode } from "react";
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { startTransition, StrictMode, Suspense, useState } from "react";
+import type { SliceSetter } from "./use-slice";
+
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { startTransition, StrictMode, Suspense, useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useSlice } from "./use-slice";
 
 function wrapper({ children }: { children: ReactNode }) {
   return <StrictMode>{children}</StrictMode>;
+}
+
+/**
+ * React flushes transitions synchronously inside `act`. A test about when a transition has *not*
+ * committed yet has to step outside it.
+ */
+const ACT_ENVIRONMENT = "IS_REACT_ACT_ENVIRONMENT";
+
+const actEnvironmentFlag = (): unknown => Reflect.get(globalThis, ACT_ENVIRONMENT);
+
+function setActEnvironmentFlag(enabled: unknown) {
+  Reflect.set(globalThis, ACT_ENVIRONMENT, enabled);
 }
 
 function Slice({ value, onChange }: { value: number; onChange: (next: number) => void }) {
@@ -30,6 +44,76 @@ function Slice({ value, onChange }: { value: number; onChange: (next: number) =>
 }
 
 describe("useSlice", () => {
+  it("runs uncontrolled from defaultValue and resolves functional updaters", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => useSlice<number[]>({
+      value: undefined,
+      defaultValue: [1],
+      onChange,
+      fallback: []
+    }));
+
+    expect(result.current[0]).toEqual([1]);
+
+    act(() => result.current[1](previous => [...previous, 2]));
+
+    expect(result.current[0]).toEqual([1, 2]);
+    // The observer receives the resolved value, never the updater function.
+    expect(onChange).toHaveBeenCalledWith([1, 2]);
+  });
+
+  it("falls back when neither value nor defaultValue is given", () => {
+    const { result } = renderHook(() => useSlice<string>({
+      value: undefined,
+      defaultValue: undefined,
+      onChange: undefined,
+      fallback: "fallback"
+    }));
+
+    expect(result.current[0]).toBe("fallback");
+  });
+
+  it("follows the controlled value and still reports resolved values", () => {
+    const onChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ value }: { value: number }) => useSlice<number>({
+        value,
+        defaultValue: undefined,
+        onChange,
+        fallback: 0
+      }),
+      { initialProps: { value: 5 } }
+    );
+
+    expect(result.current[0]).toBe(5);
+
+    act(() => result.current[1](previous => previous + 1));
+
+    expect(onChange).toHaveBeenCalledWith(6);
+    // Controlled: the rendered value only moves when the prop moves.
+    expect(result.current[0]).toBe(5);
+
+    rerender({ value: 6 });
+
+    expect(result.current[0]).toBe(6);
+  });
+
+  it("resolves chained updaters within one event against fresh state", () => {
+    const { result } = renderHook(() => useSlice<number>({
+      value: undefined,
+      defaultValue: 0,
+      onChange: undefined,
+      fallback: 0
+    }));
+
+    act(() => {
+      result.current[1](previous => previous + 1);
+      result.current[1](previous => previous + 1);
+    });
+
+    expect(result.current[0]).toBe(2);
+  });
+
   it("resolves an updater against the value on screen, not one a discarded render named", () => {
     const blocker = Promise.withResolvers<void>();
     let unblocked = false;
@@ -135,41 +219,43 @@ describe("useSlice", () => {
     expect(screen.getByTestId("value").textContent).toBe("5");
   });
 
-  it("resolves updaters chained inside one event against each other", () => {
-    const onChange = vi.fn();
+  it("keeps an uncontrolled base alive across a transition that has not committed", async () => {
+    const setter: { current: SliceSetter<number> | null } = { current: null };
 
-    function Chained() {
+    function Deferred() {
       const [current, set] = useSlice<number>({
         value: undefined,
         defaultValue: 0,
-        onChange,
+        onChange: undefined,
         fallback: 0
       });
 
-      return (
-        <>
-          <span data-testid="value">{String(current)}</span>
+      useEffect(() => {
+        setter.current = set;
+      }, [set]);
 
-          <button
-            type="button"
-            onClick={() => {
-              set(previous => previous + 1);
-              set(previous => previous + 1);
-            }}
-          >
-            twice
-          </button>
-        </>
-      );
+      return <span data-testid="value">{String(current)}</span>;
     }
 
-    render(<Chained />, { wrapper });
+    render(<Deferred />, { wrapper });
 
-    fireEvent.click(screen.getByRole("button", { name: "twice" }));
+    // `act` flushes transitions eagerly, and their scheduling is exactly what this is about: a
+    // transition renders on a task of React's own, so a microtask checkpoint arrives while the
+    // update is still only queued. The window runs outside `act`, the way a browser does.
+    const actEnvironment = actEnvironmentFlag();
+    setActEnvironmentFlag(false);
 
-    // The second updater has to see the first one's result, which only the synchronous mirror
-    // inside `set` can give it — the render it came from has not happened yet.
-    expect(onChange.mock.calls.map(call => call[0])).toEqual([1, 2]);
-    expect(screen.getByTestId("value").textContent).toBe("2");
+    try {
+      startTransition(() => setter.current?.(previous => previous + 1));
+
+      await Promise.resolve();
+
+      setter.current?.(previous => previous + 1);
+
+      // Both increments are updates React has accepted. Neither may be resolved away.
+      await waitFor(() => expect(screen.getByTestId("value").textContent).toBe("2"));
+    } finally {
+      setActEnvironmentFlag(actEnvironment);
+    }
   });
 });

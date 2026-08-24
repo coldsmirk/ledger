@@ -31,7 +31,7 @@ export function useSlice<T>({
   onSet,
   fallback
 }: UseSliceInput<T>): readonly [T, SliceSetter<T>] {
-  const [current, setCurrent] = useUncontrolled<T>({
+  const [current, setCurrent, controlled] = useUncontrolled<T>({
     value,
     defaultValue,
     finalValue: fallback,
@@ -50,14 +50,12 @@ export function useSlice<T>({
   const committedRef = useRef(current);
   const setCurrentRef = useRef(setCurrent);
   const onSetRef = useRef(onSet);
+  const controlledRef = useRef(controlled);
 
   /**
-   * The value this event has already asked for, so updaters chained inside one event resolve
-   * against each other instead of against the render-time snapshot. It is scoped to that event:
-   * `value` is controllable, and an owner may answer by leaving it exactly where it was — no
-   * render would then arrive to correct this, and every later event would go on departing from a
-   * value the owner declined. So it is dropped at the end of the batch, by a microtask queued
-   * when the burst starts, rather than left for whatever render happens along next.
+   * The value already asked for and not yet seen on screen, so updaters resolve against each
+   * other rather than against a snapshot the last one has already moved past. How long it may
+   * stand depends on who owns the state.
    */
   const requestedRef = useRef<{ value: T } | null>(null);
 
@@ -66,13 +64,24 @@ export function useSlice<T>({
     requestedRef.current = null;
     setCurrentRef.current = setCurrent;
     onSetRef.current = onSet;
+    controlledRef.current = controlled;
   });
 
   const set = useCallback<SliceSetter<T>>(updater => {
     const requested = requestedRef.current;
     const next = functionalUpdate(updater, requested ? requested.value : committedRef.current);
 
-    if (requested === null) {
+    // Uncontrolled state always takes the update. React renders it when it chooses — a
+    // transition renders on a task of its own — so the value stands until the render carrying it
+    // commits, and the insertion effect above is what ends it.
+    //
+    // A controlled owner may instead answer by leaving `value` exactly where it was, and nothing
+    // tells that refusal apart from an acceptance it has deferred: both look like silence. So
+    // there the value stands for the event that asked for it and no longer, dropped by a
+    // microtask queued when the burst starts. An owner deferring inside a transition therefore
+    // sees the next event depart from what is on screen rather than from what it has not applied
+    // — building on a value it may never take is the worse of the two mistakes.
+    if (requested === null && controlledRef.current) {
       queueMicrotask(() => {
         requestedRef.current = null;
       });
