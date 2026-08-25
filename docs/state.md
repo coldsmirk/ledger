@@ -94,7 +94,7 @@ const handle = useRef<DataTableHandle<Person>>(null);
 <DataTable handleRef={handle} … />
 ```
 
-`{ table, viewport, scrollToRow(rowId, options), startEditing(rowId, columnId), stopEditing({ commit? }) }` — see [api.md](api.md#imperative-handle).
+`{ table, viewport, scrollToRow(rowId, options), scrollToIndex(index, options), startEditing(rowId, columnId), stopEditing({ commit? }) }` — see [api.md](api.md#imperative-handle).
 
 ## Persisted state
 

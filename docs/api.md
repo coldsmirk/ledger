@@ -33,7 +33,7 @@ import "@coldsmirk/ledger-mantine/styles.css";
 
 Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell`, `Header`, `HeaderGroup` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape. Its methods are v9's — `accessor` / `display` / `group` / **`columns`**, the last being the variadic-tuple wrapper a `group`'s children need so each keeps its own `TValue` ([columns.md](columns.md#header-groups-and-footers)).
 
-ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerCheckboxEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
+ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditShorthand`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerCheckboxEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
 
 Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
@@ -161,7 +161,7 @@ interface ColumnMeta<TData, TValue> {
   truncate?: boolean;
   filter?: DataTableFilterVariant | DataTableFilterConfig
          | ((column: Column<TData, TValue>) => ReactNode);
-  edit?: DataTableEditVariant | DataTableEditConfig<TData, TValue>
+  edit?: DataTableEditShorthand | DataTableEditConfig<TData, TValue>
        | ((ctx: DataTableEditContext<TData, TValue>) => ReactNode);
   cellProps?: DataTableElementProps<TableTdProps, Cell<TData, TValue>>;
   headerCellProps?: DataTableElementProps<TableThProps, Header<TData, TValue>>;
@@ -176,6 +176,7 @@ interface ColumnMeta<TData, TValue> {
 
 ```ts
 type DataTableEditVariant = "text" | "number" | "select" | "checkbox";
+type DataTableEditShorthand = Exclude<DataTableEditVariant, "select">;   // what a bare string may name
 type DataTableEditTrigger = "double-click" | "click";
 type DataTableEditMode = "cell" | "row";
 
@@ -185,12 +186,12 @@ interface DataTableRowEditCommit<TData> {
   previousValues: Record<string, unknown>;
 }
 
-interface DataTableEditConfig<TData, TValue> {
-  variant: DataTableEditVariant;
-  options?: ComboboxData;                                        // select
-  enabled?: (row: Row<TData>) => boolean;                        // per-row gate
-  validate?: (value: TValue, row: Row<TData>) => string | null;  // non-null blocks the commit
-}
+// Both members also carry the shared gate and validation:
+//   enabled?: (row: Row<TData>) => boolean;                        // per-row gate
+//   validate?: (value: TValue, row: Row<TData>) => string | null;  // non-null blocks the commit
+type DataTableEditConfig<TData, TValue> =
+  | { variant: DataTableEditShorthand }
+  | { variant: "select"; options: ComboboxData };   // required: an editor has no facets to derive from
 
 interface DataTableEditContext<TData, TValue> {
   row: Row<TData>;
@@ -218,12 +219,15 @@ interface DataTableEditingCell { rowId: string; columnId: string }
 ```ts
 type DataTableFilterVariant = "text" | "select" | "multi-select" | "range" | "date-range";
 
-interface DataTableFilterConfig {
-  variant: DataTableFilterVariant;
-  options?: ComboboxData;   // client mode derives from faceted values; server mode requires it
-  placeholder?: string;
-}
+type DataTableFilterConfig =
+  | { variant: "text"; placeholder?: string }
+  | { variant: "select" | "multi-select";
+      options?: ComboboxData;   // client mode derives from faceted values; server mode requires it
+      placeholder?: string }
+  | { variant: "range" | "date-range" };
 ```
+
+Discriminated by `variant`, so each member carries exactly the keys its control reads: `options` belongs to the select family, and the bound inputs label themselves `filterRangeMin` / `filterRangeMax` rather than taking a `placeholder`. A configuration the renderer would ignore does not typecheck.
 
 Registered filter functions (usable as `filterFn` ids anywhere): every TanStack built-in under its conventional name, plus `ledger-one-of` (strict scalar/array set membership) and `ledger-date-range` (inclusive local calendar-date range) — see [filtering.md](filtering.md#variants). The first-class `filterFns` option merges custom ids beneath the two reserved implementations. Raw `ColumnDef.filterFn` retains TanStack's strict id typing (registered ids and functions typecheck; v9 replaced `FilterFns` declaration merging with registry slots).
 
@@ -249,7 +253,8 @@ Received through `handleRef` (`ref` stays the root element — the Mantine facto
 interface DataTableHandle<TData> {
   table: TableInstance<TData>;
   viewport: HTMLDivElement | null;   // the ScrollArea viewport
-  scrollToRow: (rowId: string | number, options?: DataTableScrollToRowOptions) => void;
+  scrollToRow: (rowId: string, options?: DataTableScrollToRowOptions) => void;
+  scrollToIndex: (index: number, options?: DataTableScrollToRowOptions) => void;  // the page's row model
   startEditing: (rowId: string, columnId?: string) => void;   // cell mode requires columnId; row mode focuses it
   stopEditing: (options?: { commit?: boolean }) => void;   // default commit: true
 }
@@ -259,6 +264,8 @@ interface DataTableScrollToRowOptions {
   behavior?: "auto" | "smooth";
 }
 ```
+
+Scrolling by id and scrolling by position are two methods rather than one parameter accepting both: `getRowId` may well return digits, and a table whose ids read `"5"` could not say which of the two a `string | number` meant.
 
 ## Compound components
 
@@ -329,7 +336,7 @@ interface LedgerCheckboxEditingController {
   checked: (rowId: string, columnId: string, source: unknown) => boolean;  // written, else source
   pending: (rowId: string, columnId: string) => boolean;                   // this cell's write is out
   error: (rowId: string, columnId: string) => string | null;
-  toggle: (cell: Cell<TData, unknown>) => void;                            // toggles and commits in one act
+  toggle: (rowId: string, columnId: string) => void;                       // toggles and commits in one act
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
 }
 

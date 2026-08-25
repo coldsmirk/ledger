@@ -35,7 +35,7 @@ Both auto-remove when emptied (clearing every option or both bounds removes the 
 
 ### Config and custom filter functions
 
-The string shorthand expands to a config; use the object form for options or a placeholder:
+The string shorthand expands to a config; use the object form for options or a placeholder. The config is discriminated by `variant`, so each one accepts exactly the keys its control reads — `options` on the select family, `placeholder` on everything with a single input, and neither on the bound pairs, whose inputs label themselves `filterRangeMin` / `filterRangeMax`:
 
 ```tsx
 meta: {

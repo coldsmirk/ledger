@@ -49,9 +49,9 @@ Row virtualization keeps the DOM small at any data size while remaining a **real
 - `loadingMore` renders a trailing loader row (`labels.loadingMore`).
 - Pagination and infinite loading are mutually exclusive; configuring both logs a dev-mode warning ([pagination.md](pagination.md)).
 
-## `scrollToRow`
+## `scrollToRow` and `scrollToIndex`
 
-The imperative handle scrolls to a row by id (or row-model index):
+The imperative handle scrolls to a row by id, or to a position in the page's own row model:
 
 ```tsx
 const handle = useRef<DataTableHandle<Person>>(null);
@@ -59,7 +59,10 @@ const handle = useRef<DataTableHandle<Person>>(null);
 <DataTable handleRef={handle} … />
 
 handle.current?.scrollToRow("person-42", { align: "center", behavior: "smooth" });
+handle.current?.scrollToIndex(0);
 ```
+
+Two methods rather than one parameter accepting `string | number`: `getRowId` may well return digits, and a table whose ids read `"5"` could not say which of the two was meant.
 
 Virtualized tables resolve the row through the **center** display-row list and delegate to the virtualizer; a top/bottom pinned target is already mounted at its edge and does not scroll. Non-virtualized tables fall back to `scrollIntoView`. `align` is `"start" | "center" | "end" | "auto"` (default `"auto"`). The handle also exposes the raw ScrollArea `viewport` element ([api.md](api.md#imperative-handle)).
 

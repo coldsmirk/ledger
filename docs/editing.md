@@ -28,6 +28,7 @@ const columns = [
 - `editMode`: `"cell"` (default) edits one cell at a time; `"row"` opens every editable cell of a row at once and commits atomically — see [Row mode](#row-mode).
 - Editable cells show a quiet inset outline on hover (`data-editable`) as the affordance.
 - A per-row gate refines eligibility: `meta.edit = { variant, enabled: row => … }`.
+- The config is discriminated by `variant`, so each variant accepts exactly its own keys. `select` is the one variant with no string shorthand: unlike its filter counterpart there are no faceted values to derive from, so `options` is required and only the config form can carry it.
 
 ## Variants
 
@@ -35,7 +36,7 @@ const columns = [
 | --- | --- | --- |
 | `text` | unstyled `TextInput` | Enter / blur commits |
 | `number` | unstyled `NumberInput` (`hideControls`); an emptied input commits `null` | Enter / blur commits |
-| `select` | unstyled `Select`, dropdown opens immediately | **picking an option commits at once** |
+| `select` | unstyled `Select`, dropdown opens immediately — declared in config form, since `options` is required | **picking an option commits at once** |
 | `checkbox` | none — the cell renders a live checkbox | **toggling commits immediately**, never enters edit mode; validation or rejection is shown inline, and async commits disable it while pending |
 
 Editors are borderless Mantine inputs filling the cell (a boxed input inside a table cell is visual noise) and focus automatically.

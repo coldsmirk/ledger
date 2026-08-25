@@ -6,14 +6,13 @@
  * re-exported here — never import from `@tanstack/*` directly.
  */
 
-/* Compound components (also available as DataTable.*) */
+// Ordered by module path, which is what the lint rule sorts on — grouping the exports by concept
+// is not available here, so the concepts are catalogued in docs/api.md instead.
 export { DataTableColumnsPanel } from "./columns-panel";
 export type { DataTableColumnsPanelProps } from "./columns-panel";
-/* Utilities */
 export { toCsv } from "./csv";
 
 export type { ToCsvOptions } from "./csv";
-/* Component + hook */
 export { DataTable } from "./data-table";
 export type {
   DataTableBaseProps,
@@ -38,13 +37,13 @@ export { DataTableSelectionBar } from "./selection-bar";
 
 export type { DataTableSelectionBarProps } from "./selection-bar";
 
-/* Public types (docs/api.md) */
 export type {
   DataTableEditCommit,
   DataTableEditConfig,
   DataTableEditContext,
   DataTableEditingCell,
   DataTableEditMode,
+  DataTableEditShorthand,
   DataTableEditTrigger,
   DataTableEditVariant,
   DataTableExportMeta,

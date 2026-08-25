@@ -127,9 +127,15 @@ describe("active row navigation", () => {
       };
     }
 
-    act(() => handle.current!.scrollToRow(0));
+    act(() => handle.current!.scrollToIndex(0));
 
     expect(scrolled).toEqual(["1"]);
+
+    // The id overload is the other half of the split: a table whose ids read as digits could not
+    // say which of the two a single `string | number` parameter meant.
+    act(() => handle.current!.scrollToRow("3"));
+
+    expect(scrolled).toEqual(["1", "3"]);
   });
 
   it("announces the row by its position in the rows on screen", () => {

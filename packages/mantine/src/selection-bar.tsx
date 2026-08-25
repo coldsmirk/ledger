@@ -41,6 +41,12 @@ export function DataTableSelectionBar<TData extends RowData>(props: DataTableSel
   );
 
   const resolved = resolveLabels(labels);
+  // The selection state's own count, deliberately — not `getSelectedRowModel().flatRows.length`.
+  // That model resolves the state against the rows the table actually holds, which under server
+  // pagination is one page: a bar counting it would drop everything selected on the pages that
+  // are no longer loaded, and the id-keyed state is precisely what survives paging
+  // (docs/selection.md). The corollary is that ids the data no longer holds still count, which is
+  // the same reason selection requires a stable `getRowId`.
   const count = Object.values(table.atoms.rowSelection.get()).filter(Boolean).length;
 
   if (count === 0) {

@@ -112,58 +112,17 @@ function VariantFilterControl<TData extends RowData>({
 }: VariantFilterControlProps<TData>) {
   const { labels } = useDataTableContext();
 
-  let { variant } = config;
-  let { options } = config;
-
-  if ((variant === "select" || variant === "multi-select") && !options) {
-    if (filterMode === "server") {
-      warnOnce(
-        `filter-options-${column.id}`,
-        `Column "${column.id}" uses a ${variant} filter in server mode without options — faceted values need client-side rows. Falling back to a text filter.`
-      );
-      variant = "text";
-    } else {
-      options = facetedOptions(column);
-    }
-  }
-
-  switch (variant) {
+  switch (config.variant) {
     case "text": {
       return <TextFilter column={column} name={name} placeholder={config.placeholder ?? labels.filterPlaceholder} />;
     }
 
     case "select": {
-      return (
-        <Select
-          clearable
-          searchable
-          aria-label={name}
-          clearButtonProps={{ "aria-label": labels.clearFilter }}
-          // Inside the filter popover the combobox must not portal out: a portal dropdown
-          // reads as an outside click and closes the popover mid-interaction.
-          comboboxProps={{ withinPortal: false }}
-          data={options}
-          placeholder={config.placeholder ?? labels.filterPlaceholder}
-          value={(column.getFilterValue() as string | undefined) ?? null}
-          onChange={value => column.setFilterValue(value ?? undefined)}
-        />
-      );
+      return <SelectFilter column={column} config={config} filterMode={filterMode} name={name} />;
     }
 
     case "multi-select": {
-      return (
-        <MultiSelect
-          clearable
-          searchable
-          aria-label={name}
-          clearButtonProps={{ "aria-label": labels.clearFilter }}
-          comboboxProps={{ withinPortal: false }}
-          data={options}
-          placeholder={config.placeholder ?? labels.filterPlaceholder}
-          value={(column.getFilterValue() as string[] | undefined) ?? []}
-          onChange={value => column.setFilterValue(value.length > 0 ? value : undefined)}
-        />
-      );
+      return <SelectFilter column={column} config={config} filterMode={filterMode} name={name} />;
     }
 
     case "range": {
@@ -174,6 +133,69 @@ function VariantFilterControl<TData extends RowData>({
       return <DateRangeFilter column={column} name={name} />;
     }
   }
+}
+
+/**
+ * The select family, whose two variants differ only in cardinality — one control, one option
+ * source, one degradation path.
+ */
+function SelectFilter<TData extends RowData>({
+  column,
+  config,
+  filterMode,
+  name
+}: {
+  column: Column<TData, unknown>;
+  config: Extract<DataTableFilterConfig, { variant: "select" | "multi-select" }>;
+  filterMode: "client" | "server";
+  name: string;
+}) {
+  const { labels } = useDataTableContext();
+  const placeholder = config.placeholder ?? labels.filterPlaceholder;
+  // Declared options win; client mode derives them from the faceted values, which server mode has
+  // no rows to compute. An explicitly empty list is a declaration like any other.
+  const options = config.options ?? (filterMode === "server" ? undefined : facetedOptions(column));
+
+  if (!options) {
+    warnOnce(
+      `filter-options-${column.id}`,
+      `Column "${column.id}" uses a ${config.variant} filter in server mode without options — faceted values need client-side rows. Falling back to a text filter.`
+    );
+
+    return <TextFilter column={column} name={name} placeholder={placeholder} />;
+  }
+
+  if (config.variant === "multi-select") {
+    return (
+      <MultiSelect
+        clearable
+        searchable
+        aria-label={name}
+        clearButtonProps={{ "aria-label": labels.clearFilter }}
+        comboboxProps={{ withinPortal: false }}
+        data={options}
+        placeholder={placeholder}
+        value={(column.getFilterValue() as string[] | undefined) ?? []}
+        onChange={value => column.setFilterValue(value.length > 0 ? value : undefined)}
+      />
+    );
+  }
+
+  return (
+    <Select
+      clearable
+      searchable
+      aria-label={name}
+      clearButtonProps={{ "aria-label": labels.clearFilter }}
+      // Inside the filter popover the combobox must not portal out: a portal dropdown
+      // reads as an outside click and closes the popover mid-interaction.
+      comboboxProps={{ withinPortal: false }}
+      data={options}
+      placeholder={placeholder}
+      value={(column.getFilterValue() as string | undefined) ?? null}
+      onChange={value => column.setFilterValue(value ?? undefined)}
+    />
+  );
 }
 
 function TextFilter<TData extends RowData>({

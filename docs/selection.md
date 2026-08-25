@@ -64,7 +64,7 @@ The selection column is an ordinary `ColumnDef`, so `selectionColumn` merges ove
 </DataTable.SelectionBar>
 ```
 
-The count comes from the full selection state (not just the visible page). `table.resetRowSelection()` backs the clear button; `toCsv(table, { scope: "selected" })` exports exactly the selected rows ([api.md](api.md#tocsv)).
+The count comes from the full selection state, not from `getSelectedRowModel()` — deliberately, because that model resolves the state against the rows the table actually holds, which under server pagination is a single page. Counting it would drop everything selected on pages that are no longer loaded, and surviving exactly that is the point of id-keyed state. The corollary is that an id the data no longer holds still counts, which is one more reason selection requires a stable `getRowId`. `table.resetRowSelection()` backs the clear button; `toCsv(table, { scope: "selected" })` exports the selected rows the table has ([api.md](api.md#tocsv)).
 
 ## State and instance API
 

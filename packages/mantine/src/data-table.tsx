@@ -262,7 +262,7 @@ export interface DataTableBaseProps<TData extends RowData>
   labels?: Partial<DataTableLabels>;
 
   /**
-   * Imperative handle: `{ table, viewport, scrollToRow, startEditing, stopEditing }`.
+   * Imperative handle: `{ table, viewport, scrollToRow, scrollToIndex, startEditing, stopEditing }`.
    */
   handleRef?: Ref<DataTableHandle<TData>>;
 }
@@ -477,7 +477,7 @@ export interface DisplaySnapshot<TData extends RowData> {
   topRows: Array<Row<TData>>;
   bottomRows: Array<Row<TData>>;
   /**
-   * The page's own row model — what a numeric `scrollToRow` index counts through.
+   * The page's own row model — what `scrollToIndex` counts through.
    */
   pageRows: Array<Row<TData>>;
   /**
@@ -995,18 +995,11 @@ function DataTableCore<TData extends RowData>({
   );
 
   const scrollRowIntoView = useEventCallback(
-    (rowId: string | number, options?: DataTableScrollToRowOptions) => {
-      const snapshot = displaySnapshot;
-      const id = typeof rowId === "number" ? snapshot.pageRows[rowId]?.id : rowId;
-
-      if (id === undefined) {
-        return;
-      }
-
+    (rowId: string, options?: DataTableScrollToRowOptions) => {
       const virtualizer = virtualizerRef.current;
 
       if (virtualizer) {
-        const index = resolveVirtualDisplayIndex(snapshot, id);
+        const index = resolveVirtualDisplayIndex(displaySnapshot, rowId);
 
         if (index !== null) {
           virtualizer.scrollToIndex(index, {
@@ -1018,13 +1011,27 @@ function DataTableCore<TData extends RowData>({
         return;
       }
 
-      const selector = `[data-row-id="${typeof CSS === "undefined" ? id.replaceAll("\"", String.raw`\"`) : CSS.escape(id)}"]`;
+      const selector = `[data-row-id="${typeof CSS === "undefined" ? rowId.replaceAll("\"", String.raw`\"`) : CSS.escape(rowId)}"]`;
       const rowElement = viewportRef.current?.querySelector<HTMLElement>(`:scope ${selector}`);
 
       rowElement?.scrollIntoView({
         behavior: options?.behavior,
         block: options?.align === undefined || options.align === "auto" ? "nearest" : options.align
       });
+    }
+  );
+
+  /**
+   * The index counts through the page's own row model — the rows the table holds, before the
+   * display order interleaves pinned rows and detail panels around them.
+   */
+  const scrollIndexIntoView = useEventCallback(
+    (index: number, options?: DataTableScrollToRowOptions) => {
+      const rowId = displaySnapshot.pageRows[index]?.id;
+
+      if (rowId !== undefined) {
+        scrollRowIntoView(rowId, options);
+      }
     }
   );
 
@@ -1037,6 +1044,7 @@ function DataTableCore<TData extends RowData>({
           return viewportRef.current;
         },
         scrollToRow: scrollRowIntoView,
+        scrollToIndex: scrollIndexIntoView,
         startEditing: (rowId, columnId) => {
           const editing = table.options.meta?.ledger?.editing;
 
@@ -1063,7 +1071,7 @@ function DataTableCore<TData extends RowData>({
         }
       };
     },
-    [table, scrollRowIntoView]
+    [table, scrollRowIntoView, scrollIndexIntoView]
   );
 
   /* ---- active row keyboard (docs/rows.md): the body viewport is the focus stop ---- */

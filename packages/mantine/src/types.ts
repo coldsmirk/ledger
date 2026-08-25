@@ -70,14 +70,24 @@ export type HeaderGroup<TData extends RowData> = TanStackHeaderGroup<LedgerFeatu
 
 export type DataTableFilterVariant = "text" | "select" | "multi-select" | "range" | "date-range";
 
-export interface DataTableFilterConfig {
-  variant: DataTableFilterVariant;
-  /**
-   * Omitted in client mode → derived from faceted values; server mode requires it.
-   */
-  options?: ComboboxData;
-  placeholder?: string;
-}
+/**
+ * Per-variant configuration, discriminated by `variant`: each member carries exactly the keys its
+ * control reads. A union rather than one optional-everything object because the alternative type-
+ * checks configurations the renderer then ignores — `{ variant: "text", options }` has nowhere to
+ * put the options, and `{ variant: "range", placeholder }` no input to put one on (the bounds
+ * carry `filterRangeMin` / `filterRangeMax` instead).
+ */
+export type DataTableFilterConfig
+  = | { variant: "text"; placeholder?: string }
+    | {
+      variant: "select" | "multi-select";
+      /**
+       * Omitted in client mode → derived from faceted values; server mode requires it.
+       */
+      options?: ComboboxData;
+      placeholder?: string;
+    }
+    | { variant: "range" | "date-range" };
 
 // ------------------------------------------------------------------------------------------------
 // Inline editing
@@ -85,12 +95,15 @@ export interface DataTableFilterConfig {
 
 export type DataTableEditVariant = "text" | "number" | "select" | "checkbox";
 
-export interface DataTableEditConfig<TData extends RowData, TValue> {
-  variant: DataTableEditVariant;
-  /**
-   * `select` options.
-   */
-  options?: ComboboxData;
+/**
+ * The variants a bare string can name. `select` is missing on purpose: unlike its filter
+ * counterpart there is nothing to derive its options from — an editor has no faceted values —
+ * so a bare `edit: "select"` could only ever open an empty dropdown. It is declared in config
+ * form, where `options` is required.
+ */
+export type DataTableEditShorthand = Exclude<DataTableEditVariant, "select">;
+
+interface DataTableEditConfigBase<TData extends RowData, TValue> {
   /**
    * Per-row gate on top of the table-level `enableEditing`.
    */
@@ -100,6 +113,15 @@ export interface DataTableEditConfig<TData extends RowData, TValue> {
    */
   validate?: (value: TValue, row: Row<TData>) => string | null;
 }
+
+/**
+ * Per-variant editor configuration, discriminated by `variant` for the reason
+ * `DataTableFilterConfig` is — `options` belongs to `select` and to nothing else, and there it is
+ * required rather than optional.
+ */
+export type DataTableEditConfig<TData extends RowData, TValue>
+  = | (DataTableEditConfigBase<TData, TValue> & { variant: DataTableEditShorthand })
+    | (DataTableEditConfigBase<TData, TValue> & { variant: "select"; options: ComboboxData });
 
 export interface DataTableEditContext<TData extends RowData, TValue> {
   row: Row<TData>;
@@ -366,7 +388,16 @@ export interface DataTableHandle<TData extends RowData> {
    * The ScrollArea viewport element.
    */
   viewport: HTMLDivElement | null;
-  scrollToRow: (rowId: string | number, options?: DataTableScrollToRowOptions) => void;
+  /**
+   * Scrolls the row with this id into view. Separate from `scrollToIndex` rather than one
+   * parameter accepting both: `getRowId` may well return digits, and a table whose ids read
+   * `"5"` could not say which of the two it meant.
+   */
+  scrollToRow: (rowId: string, options?: DataTableScrollToRowOptions) => void;
+  /**
+   * Scrolls the row at this position in the page's own row model into view.
+   */
+  scrollToIndex: (index: number, options?: DataTableScrollToRowOptions) => void;
   /**
    * Cell mode requires `columnId`; row mode takes the id of any editable column to focus, or
    * none.
@@ -612,10 +643,11 @@ declare module "@tanstack/react-table" {
       | DataTableFilterConfig
       | ((column: Column<TData, TValue>) => ReactNode);
     /**
-     * Inline cell editing: a variant shorthand, a config, or a fully custom editor.
+     * Inline cell editing: a variant shorthand, a config, or a fully custom editor. The shorthand
+     * omits `select`, which needs the `options` only its config form carries.
      */
     edit?:
-      | DataTableEditVariant
+      | DataTableEditShorthand
       | DataTableEditConfig<TData, TValue>
       | ((ctx: DataTableEditContext<TData, TValue>) => ReactNode);
     /**
@@ -651,9 +683,3 @@ declare module "@tanstack/react-table" {
     ledger?: LedgerMeta<TData>;
   }
 }
-
-/**
- * Re-exported so consumers can type app-side helpers without reaching into internals.
- */
-
-export { type DataTableLabels } from "./labels";
