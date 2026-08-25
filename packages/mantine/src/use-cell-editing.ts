@@ -491,7 +491,7 @@ export function useCellEditing<TData extends RowData>({
     pendingCommit.current = { promise, session };
 
     return promise;
-  }) as () => boolean | Promise<boolean>;
+  });
 
   /**
    * Losing eligibility mid-session cancels it, and the loss latches: reopening the gate is the
@@ -582,17 +582,19 @@ export function useCellEditing<TData extends RowData>({
       return;
     }
 
-    const committed = commit();
+    // Not named `committed`: that is the snapshot reader this whole module decides with, and a
+    // local shadowing it inside the one function that also commits is a trap for the next reader.
+    const outcome = commit();
 
-    if (typeof committed === "boolean") {
-      if (committed && requestRef.current === request) {
+    if (typeof outcome === "boolean") {
+      if (outcome && requestRef.current === request) {
         setEditingCell(target);
       }
 
       return;
     }
 
-    void Promise.resolve(committed).then(
+    void Promise.resolve(outcome).then(
       success => {
         if (success && requestRef.current === request) {
           setEditingCell(target);
@@ -819,7 +821,7 @@ export function useCellEditing<TData extends RowData>({
     const order = committed.visibleColumnIds();
 
     return order.find(columnId => committed.canEdit(rowId, columnId) && (!skipCheckbox || !committed.isCheckbox(columnId))) ?? null;
-  }) as (rowId: string, skipCheckbox: boolean) => string | null;
+  });
 
   return useMemo(
     () => {

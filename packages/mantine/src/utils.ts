@@ -52,7 +52,20 @@ export function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLik
 
 /**
  * Stable-identity event callback (the classic useEvent shape) for handlers stored in table meta.
+ *
+ * Two shapes, because most call sites wrap a handler that always exists: those keep the result
+ * type they wrote, while wrapping a consumer's optional prop widens it with the `undefined` a
+ * missing handler answers with. One overload each, so a caller never has to assert the widening
+ * away — the assertions that used to do it were the only thing standing between an internal
+ * session's `boolean | Promise<boolean>` contract and the type system agreeing with it.
  */
+export function useEventCallback<Args extends unknown[], Result>(
+  handler: (...args: Args) => Result
+): (...args: Args) => Result;
+export function useEventCallback<Args extends unknown[], Result>(
+  handler: ((...args: Args) => Result) | undefined
+): (...args: Args) => Result | undefined;
+
 export function useEventCallback<Args extends unknown[], Result>(
   handler: ((...args: Args) => Result) | undefined
 ): (...args: Args) => Result | undefined {
