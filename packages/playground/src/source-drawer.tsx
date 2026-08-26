@@ -1,5 +1,5 @@
 import { CodeHighlightTabs } from "@mantine/code-highlight";
-import { Drawer } from "@mantine/core";
+import { Drawer, ScrollArea } from "@mantine/core";
 import { useMemo } from "react";
 
 import { useCopy } from "./i18n";
@@ -46,11 +46,32 @@ export function SourceDrawer({
       opened={opened}
       padding="md"
       position="right"
+      scrollAreaComponent={ScrollArea.Autosize}
       size="xl"
       title={t.title}
+      // ScrollArea's inner wrapper is `display: table`, so it shrink-wraps to the widest line of
+      // code and the WHOLE drawer scrolls horizontally. Zeroing the body's intrinsic width pins
+      // it to the viewport, and long lines scroll inside the code block's own scroll area.
+      styles={{
+        title: { fontWeight: 600 },
+        body: { width: 0, minWidth: "100%" }
+      }}
       onClose={onClose}
     >
-      <CodeHighlightTabs withBorder code={files} copiedLabel={t.copied} copyLabel={t.copy} radius="sm" />
+      <CodeHighlightTabs
+        withBorder
+        withLineNumbers
+        code={files}
+        copiedLabel={t.copied}
+        copyLabel={t.copy}
+        radius="sm"
+        // Landing mid-file after a switch is disorienting — every file starts from its top.
+        onTabChange={() => {
+          document
+            .querySelector(".mantine-Drawer-content .mantine-ScrollArea-viewport")
+            ?.scrollTo({ top: 0 });
+        }}
+      />
     </Drawer>
   );
 }

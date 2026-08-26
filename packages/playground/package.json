@@ -18,7 +18,8 @@
     "@mantine/hooks": "^9.5.1",
     "dayjs": "^1.11.23",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "shiki": "^4.4.3"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
