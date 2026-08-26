@@ -582,7 +582,9 @@ function LoaderRow({ colSpan, ariaRowIndex }: { colSpan: number; ariaRowIndex?: 
     <MantineTable.Tr aria-rowindex={ariaRowIndex} role="row" {...getStyles("loaderRow")}>
       <MantineTable.Td colSpan={colSpan} role="cell">
         <div {...getStyles("loaderRowContent")}>
-          <Loader size="xs" />
+          {/* dots, not the oval arc: the arc's ink orbits its box, so at rest sizes it reads as
+              misaligned against the text in any single frame; the dots' mass never moves. */}
+          <Loader size="xs" type="dots" />
           <span>{labels.loadingMore}</span>
         </div>
       </MantineTable.Td>
