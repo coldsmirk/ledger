@@ -268,6 +268,9 @@
    * The paint site is the CELL, never the <tr>: Mantine ships an unlayered
    * `tr { background-color: transparent }`, and unlayered author styles defeat any layered
    * row-level paint regardless of specificity.
+   * Ancestry and extra state in these selectors is wrapped in :where() so every rule stays at
+   * (0,2,0) — SOURCE ORDER alone is the precedence ladder: stripes < hover < selected/active <
+   * their hover step < the cursor inside a selection < pinned < the editing row (below).
    * ------------------------------------------------------------------------------------------ */
   .ledger-row {
     --ledger-pinned-bg: var(--ledger-row-bg, var(--mantine-color-body));
@@ -277,24 +280,32 @@
     background-color: var(--ledger-row-bg, transparent);
   }
 
-  .ledger-root[data-striped="odd"] .ledger-tbody .ledger-row[data-parity="odd"],
-  .ledger-root[data-striped="even"] .ledger-tbody .ledger-row[data-parity="even"] {
+  :where(.ledger-root[data-striped="odd"] .ledger-tbody) .ledger-row[data-parity="odd"],
+  :where(.ledger-root[data-striped="even"] .ledger-tbody) .ledger-row[data-parity="even"] {
     --ledger-row-bg: var(--ledger-striped-color, var(--mantine-color-default-hover));
   }
 
-  .ledger-root[data-highlight-on-hover] .ledger-tbody .ledger-row:hover {
+  :where(.ledger-root[data-highlight-on-hover] .ledger-tbody) .ledger-row:hover {
     --ledger-row-bg: var(--ledger-hover-color, var(--mantine-color-default-hover));
   }
 
+  /* Selection and the active (keyboard-cursor) row rest at Mantine's calm light step; hovering
+     either takes the light-hover step — hover deepens a state, it never replaces it. */
   .ledger-row[data-selected] {
     --ledger-row-bg: var(--mantine-primary-color-light);
   }
 
-  /* The active (current) row is the keyboard cursor: exactly one row ever carries it, so it
-     takes the heavier of Mantine's two light steps and selection keeps the calmer one. That is
-     what separates the two states — including inside a block of selected rows, where the cursor
-     still has to be findable — and it needs no accent bar to say it. */
   .ledger-row[data-active] {
+    --ledger-row-bg: var(--mantine-primary-color-light);
+  }
+
+  :where(.ledger-root[data-highlight-on-hover] .ledger-tbody) .ledger-row:where([data-selected], [data-active]):hover {
+    --ledger-row-bg: var(--mantine-primary-color-light-hover);
+  }
+
+  /* The cursor inside a selected block rests one step deeper — exactly one row is ever current,
+     and it has to stay findable there without an accent bar. */
+  .ledger-row[data-active]:where([data-selected]) {
     --ledger-row-bg: var(--mantine-primary-color-light-hover);
   }
 
