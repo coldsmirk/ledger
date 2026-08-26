@@ -565,7 +565,9 @@
   }
 
   .ledger-columns-panel-header {
-    padding: 2px 4px 8px;
+    padding: 4px 6px 10px;
+    margin-block-end: 6px;
+    border-block-end: 1px solid var(--mantine-color-default-border);
   }
 
   .ledger-columns-panel-list {
@@ -582,16 +584,21 @@
     gap: 2px;
   }
 
-  /* Zones are drag boundaries (a column sorts only among its own kind), so consecutive ones get
-     a visible seam. Nothing pinned means one zone and zero chrome. */
+  /* Pinned zones are shelves: the tinted slab marks the drag boundary (a column sorts only
+     among its own kind) the way the pinned columns' own opaque background marks them in the
+     table. Nothing pinned means one flat list and zero chrome. */
+  .ledger-columns-panel-zone[data-pinned] {
+    padding: 4px;
+    background-color: var(--mantine-color-gray-light);
+    border-radius: var(--mantine-radius-sm);
+  }
+
   .ledger-columns-panel-zone + .ledger-columns-panel-zone {
-    padding-block-start: 6px;
-    margin-block-start: 6px;
-    border-block-start: 1px solid var(--mantine-color-default-border);
+    margin-block-start: 8px;
   }
 
   .ledger-columns-panel-zone-label {
-    padding: 2px 6px 0;
+    padding: 2px 6px 4px;
   }
 
   .ledger-columns-panel-item {
@@ -615,7 +622,7 @@
   /* A translucent grip is enough of a "this list reorders" hint; the hovered row sharpens it. */
   .ledger-columns-panel-handle {
     cursor: grab;
-    opacity: 0.4;
+    opacity: 0.3;
     transition: opacity 120ms ease;
   }
 
@@ -669,9 +676,9 @@
     inset-block: 0;
     inset-inline-end: 0;
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
-    padding-inline: 4px 6px;
+    padding-inline: 8px;
     pointer-events: none;
     background-color: var(--mantine-color-default-hover);
     border-start-end-radius: var(--mantine-radius-sm);
@@ -683,8 +690,8 @@
   .ledger-columns-panel-controls::before {
     position: absolute;
     inset-block: 0;
-    inset-inline-start: -14px;
-    width: 14px;
+    inset-inline-start: -24px;
+    width: 24px;
     content: "";
     background: linear-gradient(to right, transparent, var(--mantine-color-default-hover));
   }
@@ -697,6 +704,19 @@
   .ledger-columns-panel-item:focus-within .ledger-columns-panel-controls {
     pointer-events: auto;
     opacity: 1;
+  }
+
+  /* The pin segments show a glyph each; the accessible name rides a visually hidden span. */
+  .ledger-columns-panel-pin-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Widths are numbers the table's own cells would show right-aligned and tabular. */
+  .ledger-columns-panel-width-input {
+    font-variant-numeric: tabular-nums;
+    text-align: end;
   }
 
   /* ------------------------------------------------------------------------------------------

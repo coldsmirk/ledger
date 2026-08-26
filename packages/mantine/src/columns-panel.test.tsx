@@ -68,7 +68,15 @@ function Panel(options: Partial<UseDataTableOptions<Person>>) {
 
 const rows = () => [...document.querySelectorAll<HTMLElement>(".ledger-columns-panel-item")];
 
-const rowFor = (title: string) => rows().find(row => row.textContent?.includes(title))!;
+/**
+ * The column name a row shows — read from the checkbox label, not the row's `textContent`: the
+ * pin segments carry visually hidden accessible names that would leak into the latter.
+ */
+const titleOf = (row: HTMLElement) => row.querySelector(".ledger-columns-panel-label")?.textContent;
+
+const titles = () => rows().map(row => titleOf(row));
+
+const rowFor = (title: string) => rows().find(row => titleOf(row)?.includes(title))!;
 
 const visibilityBox = (title: string) => within(rowFor(title)).getByRole<HTMLInputElement>("checkbox");
 
@@ -78,7 +86,7 @@ describe("DataTable.ColumnsPanel", () => {
   it("renders bare, keeps hidden columns listed, and never lists ledger's injected columns", () => {
     render(<Panel enableRowSelection defaultColumnVisibility={{ email: false }} />, { wrapper });
 
-    expect(rows().map(row => row.textContent)).toEqual(["Name", "Email", "Age"]);
+    expect(titles()).toEqual(["Name", "Email", "Age"]);
     expect(document.body.innerHTML).not.toContain(SELECTION_COLUMN_ID);
 
     // The trap door this panel exists to close: a hidden column stays listed, so it can come
@@ -136,7 +144,7 @@ describe("DataTable.ColumnsPanel", () => {
   it("lists the pinned zones ahead of the centre, in the table's display order", () => {
     render(<Panel defaultColumnPinning={{ start: ["age"], end: ["name"] }} />, { wrapper });
 
-    expect(rows().map(row => row.textContent)).toEqual(["Age", "Email", "Name"]);
+    expect(titles()).toEqual(["Age", "Email", "Name"]);
   });
 
   it("captions the pinned zones, and shows no captions while nothing is pinned", () => {
@@ -232,7 +240,7 @@ describe("DataTable.ColumnsPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
 
-    await waitFor(() => expect(rows().map(row => row.textContent)).toEqual(["Name", "Email", "Age"]));
+    await waitFor(() => expect(titles()).toEqual(["Name", "Email", "Age"]));
   });
 });
 

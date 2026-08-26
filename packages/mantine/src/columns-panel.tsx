@@ -34,8 +34,10 @@ import {
   Group,
   NumberInput,
   Popover,
+  SegmentedControl,
   Text,
-  useProps
+  useProps,
+  VisuallyHidden
 } from "@mantine/core";
 import clsx from "clsx";
 
@@ -101,15 +103,30 @@ const zoneCaptionKeys = {
 
 /**
  * The three-state position control, one segment per TanStack `ColumnPinningPosition`. `key`
- * addresses both registries — the icon slots are named for their label keys.
+ * addresses both registries — the icon slots are named for their label keys. `value` stands in
+ * for the position inside the SegmentedControl, whose values must be strings ("center" is the
+ * zone name for TanStack's `false`).
  */
 const pinSegments: Array<{
   position: ColumnPinningPosition;
+  value: "start" | "center" | "end";
   key: "pinStart" | "unpin" | "pinEnd";
 }> = [
-  { position: "start", key: "pinStart" },
-  { position: false, key: "unpin" },
-  { position: "end", key: "pinEnd" }
+  {
+    position: "start",
+    value: "start",
+    key: "pinStart"
+  },
+  {
+    position: false,
+    value: "center",
+    key: "unpin"
+  },
+  {
+    position: "end",
+    value: "end",
+    key: "pinEnd"
+  }
 ];
 
 const columnsPanelDefaultProps = {} satisfies Partial<DataTableColumnsPanelProps<RowData>>;
@@ -248,7 +265,7 @@ function ColumnsPanelContent<TData extends RowData>({
           {zones
             .filter(zone => zone.columns.length > 0)
             .map(zone => (
-              <div key={zone.id} className="ledger-columns-panel-zone">
+              <div key={zone.id} className="ledger-columns-panel-zone" data-pinned={zone.id !== "center" || undefined}>
                 {zone.id !== "center" && (
                   <Text c="dimmed" className="ledger-columns-panel-zone-label" fw={500} size="xs">
                     {labels[zoneCaptionKeys[zone.id]]}
@@ -400,6 +417,7 @@ function ColumnsPanelItem<TData extends RowData>({
             <NumberInput
               hideControls
               aria-label={labels.columnWidth}
+              classNames={{ input: "ledger-columns-panel-width-input" }}
               max={column.columnDef.maxSize}
               min={column.columnDef.minSize}
               placeholder={declaredWidth === undefined ? labels.columnWidthAuto : String(declaredWidth)}
@@ -416,33 +434,37 @@ function ColumnsPanelItem<TData extends RowData>({
               aria-pressed={grouped}
               size="input-xs"
               title={grouped ? labels.ungroupColumn : labels.groupByColumn}
-              variant={grouped ? "light" : "default"}
+              variant={grouped ? "light" : "subtle"}
               onClick={() => column.toggleGrouping()}
             >
               <icons.groupByColumn />
             </ActionIcon>
           )}
 
+          {/* One radio group, not three toggle buttons: the pin state is a single choice of
+              position, and the selected segment says which without a tooltip. */}
           {canPin && (
-            <ActionIcon.Group>
-              {pinSegments.map(({ position, key }) => {
+            <SegmentedControl
+              classNames={{ label: "ledger-columns-panel-pin-label" }}
+              size="xs"
+              value={pinSegments.find(segment => segment.position === pinned)?.value ?? "center"}
+              data={pinSegments.map(({ value, key }) => {
                 const Glyph = icons[key];
 
-                return (
-                  <ActionIcon
-                    key={key}
-                    aria-label={labels[key]}
-                    aria-pressed={pinned === position}
-                    size="input-xs"
-                    title={labels[key]}
-                    variant={pinned === position ? "light" : "default"}
-                    onClick={() => column.pin(position)}
-                  >
-                    <Glyph />
-                  </ActionIcon>
-                );
+                return {
+                  value,
+                  label: (
+                    <>
+                      <Glyph size={14} />
+                      <VisuallyHidden>{labels[key]}</VisuallyHidden>
+                    </>
+                  )
+                };
               })}
-            </ActionIcon.Group>
+              onChange={value => {
+                column.pin(pinSegments.find(segment => segment.value === value)?.position ?? false);
+              }}
+            />
           )}
         </div>
       )}
