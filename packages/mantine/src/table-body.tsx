@@ -730,7 +730,12 @@ export function TableBody({
     estimateSize,
     getItemKey,
     getScrollElement: () => viewportRef.current,
-    overscan: virtualization?.overscan ?? DEFAULT_OVERSCAN
+    overscan: virtualization?.overscan ?? DEFAULT_OVERSCAN,
+    // The upstream React 19 compatibility setting: with it on, a row measured as its ref
+    // attaches (a scrollToIndex landing in unmeasured territory) has the virtualizer calling
+    // flushSync inside React's commit — React noops it to a batched update and warns, so the
+    // sync flush never actually happened on that path anyway.
+    useFlushSync: false
   });
 
   const virtualEnabled = virtualization !== null;
