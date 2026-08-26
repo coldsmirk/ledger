@@ -13,7 +13,6 @@ const copy = {
     mode: "Selection mode",
     multiple: "Bulk actions (multi)",
     single: "Assign an owner (single)",
-    assign: "Owner",
     exportCsv: "Export selected as CSV",
     owner: (name: string) => `Current owner: ${name}`,
     noOwner: "No owner assigned yet (suspended members cannot be picked)"
@@ -22,7 +21,6 @@ const copy = {
     mode: "选择模式",
     multiple: "批量操作（多选）",
     single: "指派负责人（单选）",
-    assign: "指派",
     exportCsv: "导出所选为 CSV",
     owner: (name: string) => `当前负责人：${name}`,
     noOwner: "尚未指派负责人（已停用的成员不可选）"
@@ -41,9 +39,7 @@ function downloadCsv(content: string, filename: string) {
 /**
  * Two selection shapes from one switch. `enableMultiRowSelection: false` turns the injected
  * column's checkboxes into a real radio group (one shared `name`), and its select-all header
- * renders nothing — "select all" means nothing when only one row can be chosen. That blank is
- * what `selectionColumn` is for here: the merge keeps ledger's cell renderer and reserved id
- * while the application supplies the heading it wants.
+ * renders nothing — "select all" means nothing when only one row can be chosen.
  */
 export function SelectionDemo() {
   const t = useCopy(copy);
@@ -65,17 +61,7 @@ export function SelectionDemo() {
       pageSize: 20
     },
     rowSelection,
-    onRowSelectionChange: setRowSelection,
-    selectionColumn: multiple
-      ? undefined
-      : {
-          size: 64,
-          header: () => (
-            <Text c="dimmed" fw={500} size="xs">
-              {t.assign}
-            </Text>
-          )
-        }
+    onRowSelectionChange: setRowSelection
   });
 
   const owner = Object.keys(rowSelection)[0];
