@@ -1,6 +1,7 @@
 import type { RowData } from "@tanstack/react-table";
 import type { CSSProperties, ReactNode } from "react";
 
+import type { DataTableIcons } from "./icons";
 import type { DataTableLabels } from "./labels";
 import type { TableInstance } from "./types";
 
@@ -11,12 +12,13 @@ import type { TableInstance } from "./types";
 import { Button, Group, Text, useProps } from "@mantine/core";
 import clsx from "clsx";
 
-import { IconX } from "./icons";
+import { resolveIcons } from "./icons";
 import { resolveLabels } from "./labels";
 
 export interface DataTableSelectionBarProps<TData extends RowData> {
   table: TableInstance<TData>;
   labels?: Partial<DataTableLabels>;
+  icons?: Partial<DataTableIcons>;
   /**
    * Bulk actions, rendered after the count and clear control.
    */
@@ -31,6 +33,7 @@ export function DataTableSelectionBar<TData extends RowData>(props: DataTableSel
   const {
     table,
     labels,
+    icons,
     children,
     className,
     style
@@ -41,6 +44,7 @@ export function DataTableSelectionBar<TData extends RowData>(props: DataTableSel
   );
 
   const resolved = resolveLabels(labels);
+  const resolvedIcons = resolveIcons(icons);
   // The selection state's own count, deliberately — not `getSelectedRowModel().flatRows.length`.
   // That model resolves the state against the rows the table actually holds, which under server
   // pagination is one page: a bar counting it would drop everything selected on the pages that
@@ -60,7 +64,7 @@ export function DataTableSelectionBar<TData extends RowData>(props: DataTableSel
       </Text>
 
       <Button
-        leftSection={<IconX />}
+        leftSection={<resolvedIcons.clearSelection />}
         size="compact-xs"
         variant="subtle"
         onClick={() => table.resetRowSelection()}

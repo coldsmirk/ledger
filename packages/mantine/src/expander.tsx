@@ -9,10 +9,13 @@ import type { Row, TableInstance } from "./types";
 import { ActionIcon } from "@mantine/core";
 
 import { useDataTableContext } from "./context";
-import { IconChevronRight } from "./icons";
 
 export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
-  const { labels, expansion } = useDataTableContext();
+  const {
+    labels,
+    icons,
+    expansion
+  } = useDataTableContext();
 
   // Expand-all only makes sense over a tree; a master–detail table opens panels one at a time.
   if (!table.options.getSubRows) {
@@ -33,13 +36,17 @@ export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: Ta
         expansion?.toggleAll(!allExpanded, canSomeExpand);
       }}
     >
-      <IconChevronRight />
+      <icons.expandRow />
     </ActionIcon>
   );
 }
 
 export function ExpanderCell<TData extends RowData>({ row }: { row: Row<TData> }) {
-  const { labels, expansion } = useDataTableContext();
+  const {
+    labels,
+    icons,
+    expansion
+  } = useDataTableContext();
   const canExpand = row.getCanExpand();
 
   if (!canExpand) {
@@ -60,7 +67,7 @@ export function ExpanderCell<TData extends RowData>({ row }: { row: Row<TData> }
         expansion?.toggle(row.id, expanded, canExpand);
       }}
     >
-      <IconChevronRight />
+      <icons.expandRow />
     </ActionIcon>
   );
 }

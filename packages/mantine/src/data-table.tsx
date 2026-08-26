@@ -13,6 +13,7 @@ import type { ComponentProps, JSX, MouseEvent, KeyboardEvent as ReactKeyboardEve
 
 import type { DataTableContextValue } from "./context";
 import type { DataAttributes, DataTableElementProps } from "./element-props";
+import type { DataTableIcons } from "./icons";
 import type { DataTableLabels } from "./labels";
 import type { VirtualizationConfig } from "./table-body";
 import type {
@@ -55,7 +56,7 @@ import { DataTableColumnsPanel } from "./columns-panel";
 import { DataTableProvider } from "./context";
 import { mergeElementProps } from "./element-props";
 import { warnOnce } from "./env";
-import { IconAlertTriangle, IconInbox, IconRefresh, IconSearch } from "./icons";
+import { resolveIcons } from "./icons";
 import { resolveLabels } from "./labels";
 import { ledgerCommands } from "./ledger-commands";
 import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from "./pagination-bar";
@@ -260,6 +261,12 @@ export interface DataTableBaseProps<TData extends RowData>
   viewportProps?: Omit<ComponentProps<"div">, "ref"> & DataAttributes;
 
   labels?: Partial<DataTableLabels>;
+
+  /**
+   * Replacements for the chrome's glyphs, merged over the defaults per slot — `lucide-react`
+   * components slot in as-is (docs/styling.md#icons).
+   */
+  icons?: Partial<DataTableIcons>;
 
   /**
    * Imperative handle: `{ table, viewport, scrollToRow, scrollToIndex, startEditing, stopEditing }`.
@@ -570,6 +577,7 @@ function DataTableCore<TData extends RowData>({
     footerRowProps,
     viewportProps,
     labels: labelsProp,
+    icons: iconsProp,
     handleRef,
     ref: rootRef,
     classNames,
@@ -622,6 +630,7 @@ function DataTableCore<TData extends RowData>({
   const stylesRevision = useStylesRevision(getStyles, STYLE_SELECTORS);
 
   const labels = useMemo(() => resolveLabels(labelsProp), [labelsProp]);
+  const icons = useMemo(() => resolveIcons(iconsProp), [iconsProp]);
 
   /* ---- viewport ---- */
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -716,6 +725,7 @@ function DataTableCore<TData extends RowData>({
         instanceId,
         getStyles: stylesRevision,
         labels,
+        icons,
         filterMode,
         virtualized: virtualEnabled,
         withColumnHeaders: columnHeadersVisible,
@@ -737,6 +747,7 @@ function DataTableCore<TData extends RowData>({
       instanceId,
       stylesRevision,
       labels,
+      icons,
       filterMode,
       virtualEnabled,
       columnHeadersVisible,
@@ -1404,10 +1415,10 @@ function DataTableCore<TData extends RowData>({
                     styles={EMPTY_STATE_STYLES}
                     title={filtersActive ? labels.noResults : labels.empty}
                     // The indicator forces the svg to 1em (40px at `sm`), so the stroke is set for
-                    // that scale — the Icon default (1.5, drawn for 16px glyphs) turns chunky here.
+                    // that scale — the default (2, drawn for Lucide's 24px grid) turns chunky here.
                     icon={filtersActive
-                      ? <IconSearch size={40} strokeWidth={1} />
-                      : <IconInbox size={40} strokeWidth={1} />}
+                      ? <icons.noResults size={40} strokeWidth={1.5} />
+                      : <icons.empty size={40} strokeWidth={1.5} />}
                   />
                 )}
               </div>
@@ -1422,14 +1433,14 @@ function DataTableCore<TData extends RowData>({
               >
                 <EmptyState
                   withIndicatorBackground
-                  icon={<IconAlertTriangle size={40} strokeWidth={1} />}
+                  icon={<icons.error size={40} strokeWidth={1.5} />}
                   size="sm"
                   styles={EMPTY_STATE_STYLES}
                   title={error === true ? labels.error : error}
                 >
                   {onRetry && (
                     <Button
-                      leftSection={<IconRefresh size={14} />}
+                      leftSection={<icons.retry size={14} />}
                       size="xs"
                       variant="light"
                       onClick={onRetry}

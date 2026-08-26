@@ -20,7 +20,6 @@ import { columnEnableResizing, isInternalColumn } from "./build-columns";
 import { useDataTableContext } from "./context";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { FilterPopover } from "./filter-popover";
-import { IconChevronDown, IconChevronUp, IconSortable } from "./icons";
 import { ledgerCommands } from "./ledger-commands";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { syncTruncationTitle } from "./truncate";
@@ -96,7 +95,11 @@ function HeaderCell<TData extends RowData>({
   columnWidths,
   columnSizing
 }: HeaderCellProps<TData>) {
-  const { getStyles, labels } = useDataTableContext();
+  const {
+    getStyles,
+    labels,
+    icons
+  } = useDataTableContext();
   const { column } = header;
   const { meta } = column.columnDef;
   const internal = isInternalColumn(column.id);
@@ -205,9 +208,9 @@ function HeaderCell<TData extends RowData>({
                         <span data-truncate onPointerEnter={syncTruncationTitle}>{label}</span>
 
                         <span {...getStyles("sortIndicator")} data-sorted={sorted || undefined}>
-                          {sorted === "asc" && <IconChevronUp size={14} />}
-                          {sorted === "desc" && <IconChevronDown size={14} />}
-                          {sorted === false && <IconSortable size={14} />}
+                          {sorted === "asc" && <icons.sortAsc size={14} />}
+                          {sorted === "desc" && <icons.sortDesc size={14} />}
+                          {sorted === false && <icons.sortable size={14} />}
                           {sorted !== false && sortCount > 1 && sortIndex >= 0 && <sup>{sortIndex + 1}</sup>}
                         </span>
                       </button>

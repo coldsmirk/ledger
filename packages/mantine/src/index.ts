@@ -22,6 +22,8 @@ export type {
   DataTableStylesNames
 } from "./data-table";
 export type { DataTableElementProps } from "./element-props";
+export { defaultIcons } from "./icons";
+export type { DataTableIconComponent, DataTableIconProps, DataTableIcons } from "./icons";
 export { defaultLabels } from "./labels";
 export type { DataTableLabels } from "./labels";
 // TanStack surface, curated — knowledge and code transfer directly. Object types are

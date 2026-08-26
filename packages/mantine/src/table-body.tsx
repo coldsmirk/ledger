@@ -22,7 +22,6 @@ import { useDataTableContext } from "./context";
 import { cellValue } from "./edit-meta";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
-import { IconChevronRight, IconRefresh } from "./icons";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { syncTruncationTitle } from "./truncate";
 import { usePinnedRowOffsets } from "./use-pinned-row-offsets";
@@ -116,7 +115,11 @@ export function countDisplayRows<TData extends RowData>(rows: Array<Row<TData>>,
  * Grouped cell: expander, the grouped value, and the group size.
  */
 function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
-  const { labels, expansion } = useDataTableContext();
+  const {
+    labels,
+    icons,
+    expansion
+  } = useDataTableContext();
   const { row } = cell;
   const expandedGroup = row.getIsExpanded();
   const canExpandGroup = row.getCanExpand();
@@ -134,7 +137,7 @@ function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
           expansion?.toggle(row.id, expandedGroup, canExpandGroup);
         }}
       >
-        <IconChevronRight size={12} />
+        <icons.expandRow size={12} />
       </ActionIcon>
 
       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -598,7 +601,11 @@ function LoadMoreErrorRow({
   ariaRowIndex?: number;
   onRetry?: () => void;
 }) {
-  const { getStyles, labels } = useDataTableContext();
+  const {
+    getStyles,
+    labels,
+    icons
+  } = useDataTableContext();
 
   return (
     <MantineTable.Tr data-error aria-rowindex={ariaRowIndex} role="row" {...getStyles("loaderRow")}>
@@ -611,7 +618,7 @@ function LoadMoreErrorRow({
           {onRetry && (
             <Button
               color="gray"
-              leftSection={<IconRefresh size={14} />}
+              leftSection={<icons.retry size={14} />}
               size="compact-xs"
               variant="subtle"
               onClick={onRetry}

@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 
 import type { DataTableFactory } from "./data-table";
 import type { DataTableElementProps } from "./element-props";
+import type { DataTableIcons } from "./icons";
 import type { DataTableLabels } from "./labels";
 import type { HeaderGroup, Row } from "./types";
 import type { LedgerExpansionController, LedgerSelectionController } from "./use-row-commands";
@@ -31,6 +32,7 @@ export interface DataTableContextValue {
   instanceId: string;
   getStyles: GetStylesApi<DataTableFactory>;
   labels: DataTableLabels;
+  icons: DataTableIcons;
   filterMode: "client" | "server";
   /**
    * Row virtualization active — rows must then carry aria-rowindex (header rows included).

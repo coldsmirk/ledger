@@ -3,6 +3,7 @@ import type { PopoverProps } from "@mantine/core";
 import type { ColumnPinningPosition, RowData } from "@tanstack/react-table";
 import type { CSSProperties, ReactElement } from "react";
 
+import type { DataTableIcons } from "./icons";
 import type { DataTableLabels } from "./labels";
 import type { Column, TableInstance } from "./types";
 
@@ -40,7 +41,7 @@ import clsx from "clsx";
 
 import { columnEnableResizing, columnHeaderText, isInternalColumn, rawColumnSizing } from "./build-columns";
 import { applyCenterOrder, resolveColumnOrder } from "./column-order";
-import { IconGripVertical, IconGroup, IconPinLeft, IconPinRight, IconRestore, IconUnpin } from "./icons";
+import { resolveIcons } from "./icons";
 import { resolveLabels } from "./labels";
 
 export interface DataTableColumnsPanelProps<TData extends RowData> {
@@ -56,6 +57,7 @@ export interface DataTableColumnsPanelProps<TData extends RowData> {
    */
   popoverProps?: Omit<PopoverProps, "children">;
   labels?: Partial<DataTableLabels>;
+  icons?: Partial<DataTableIcons>;
   className?: string;
   style?: CSSProperties;
 }
@@ -98,28 +100,16 @@ const zoneCaptionKeys = {
 } satisfies Partial<Record<ColumnZone, keyof DataTableLabels>>;
 
 /**
- * The three-state position control, one segment per TanStack `ColumnPinningPosition`.
+ * The three-state position control, one segment per TanStack `ColumnPinningPosition`. `key`
+ * addresses both registries — the icon slots are named for their label keys.
  */
 const pinSegments: Array<{
   position: ColumnPinningPosition;
-  labelKey: "pinStart" | "unpin" | "pinEnd";
-  Glyph: typeof IconPinLeft;
+  key: "pinStart" | "unpin" | "pinEnd";
 }> = [
-  {
-    position: "start",
-    labelKey: "pinStart",
-    Glyph: IconPinLeft
-  },
-  {
-    position: false,
-    labelKey: "unpin",
-    Glyph: IconUnpin
-  },
-  {
-    position: "end",
-    labelKey: "pinEnd",
-    Glyph: IconPinRight
-  }
+  { position: "start", key: "pinStart" },
+  { position: false, key: "unpin" },
+  { position: "end", key: "pinEnd" }
 ];
 
 const columnsPanelDefaultProps = {} satisfies Partial<DataTableColumnsPanelProps<RowData>>;
@@ -130,6 +120,7 @@ export function DataTableColumnsPanel<TData extends RowData>(props: DataTableCol
     children,
     popoverProps,
     labels,
+    icons,
     className,
     style
   } = useProps("DataTableColumnsPanel", columnsPanelDefaultProps, props);
@@ -137,6 +128,7 @@ export function DataTableColumnsPanel<TData extends RowData>(props: DataTableCol
   const content = (
     <ColumnsPanelContent
       className={className}
+      icons={resolveIcons(icons)}
       labels={resolveLabels(labels)}
       style={style}
       table={table}
@@ -166,6 +158,7 @@ export function DataTableColumnsPanel<TData extends RowData>(props: DataTableCol
 interface ColumnsPanelContentProps<TData extends RowData> {
   table: TableInstance<TData>;
   labels: DataTableLabels;
+  icons: DataTableIcons;
   className?: string;
   style?: CSSProperties;
 }
@@ -173,6 +166,7 @@ interface ColumnsPanelContentProps<TData extends RowData> {
 function ColumnsPanelContent<TData extends RowData>({
   table,
   labels,
+  icons,
   className,
   style
 }: ColumnsPanelContentProps<TData>) {
@@ -241,7 +235,7 @@ function ColumnsPanelContent<TData extends RowData>({
 
           <Button
             color="gray"
-            leftSection={<IconRestore size={14} />}
+            leftSection={<icons.resetColumns size={14} />}
             size="compact-xs"
             variant="subtle"
             onClick={handleReset}
@@ -265,6 +259,7 @@ function ColumnsPanelContent<TData extends RowData>({
                   <ColumnsPanelItem
                     key={column.id}
                     column={column}
+                    icons={icons}
                     index={index}
                     labels={labels}
                     orderable={orderable}
@@ -284,6 +279,7 @@ interface ColumnsPanelItemProps<TData extends RowData> {
   column: Column<TData, unknown>;
   table: TableInstance<TData>;
   labels: DataTableLabels;
+  icons: DataTableIcons;
   index: number;
   zone: ColumnZone;
   orderable: boolean;
@@ -293,6 +289,7 @@ function ColumnsPanelItem<TData extends RowData>({
   column,
   table,
   labels,
+  icons,
   index,
   zone,
   orderable
@@ -367,7 +364,7 @@ function ColumnsPanelItem<TData extends RowData>({
           title={labels.reorderColumn}
           variant="subtle"
         >
-          <IconGripVertical />
+          <icons.reorderColumn />
         </ActionIcon>
       )}
 
@@ -392,7 +389,7 @@ function ColumnsPanelItem<TData extends RowData>({
           real controls sit inline and already say the same thing. */}
       {(grouped || width !== undefined) && (
         <div className="ledger-columns-panel-indicators">
-          {grouped && <IconGroup size={12} />}
+          {grouped && <icons.groupByColumn size={12} />}
           {width !== undefined && <Text size="xs">{width}</Text>}
         </div>
       )}
@@ -422,29 +419,29 @@ function ColumnsPanelItem<TData extends RowData>({
               variant={grouped ? "light" : "default"}
               onClick={() => column.toggleGrouping()}
             >
-              <IconGroup />
+              <icons.groupByColumn />
             </ActionIcon>
           )}
 
           {canPin && (
             <ActionIcon.Group>
-              {pinSegments.map(({
-                position,
-                labelKey,
-                Glyph
-              }) => (
-                <ActionIcon
-                  key={labelKey}
-                  aria-label={labels[labelKey]}
-                  aria-pressed={pinned === position}
-                  size="input-xs"
-                  title={labels[labelKey]}
-                  variant={pinned === position ? "light" : "default"}
-                  onClick={() => column.pin(position)}
-                >
-                  <Glyph />
-                </ActionIcon>
-              ))}
+              {pinSegments.map(({ position, key }) => {
+                const Glyph = icons[key];
+
+                return (
+                  <ActionIcon
+                    key={key}
+                    aria-label={labels[key]}
+                    aria-pressed={pinned === position}
+                    size="input-xs"
+                    title={labels[key]}
+                    variant={pinned === position ? "light" : "default"}
+                    onClick={() => column.pin(position)}
+                  >
+                    <Glyph />
+                  </ActionIcon>
+                );
+              })}
             </ActionIcon.Group>
           )}
         </div>

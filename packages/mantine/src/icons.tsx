@@ -1,9 +1,19 @@
-/**
- * The handful of glyphs the table chrome needs, drawn as primitive strokes — no icon-library
- * dependency, no locked icon set. All follow the host text color via `currentColor`.
- */
-import type { SVGProps } from "react";
+import type { ComponentType, SVGProps } from "react";
 
+/**
+ * The table chrome's glyphs and the `icons` registry that swaps them (docs/styling.md#icons).
+ *
+ * The defaults are vendored from Lucide (https://lucide.dev): path data copied verbatim from
+ * `lucide-static` v1.34.0, so there is no icon-library dependency and the set is a default, not
+ * a lock — any component satisfying `DataTableIconProps` slots in, and `lucide-react` components
+ * satisfy it as-is.
+ *
+ * License of the vendored path data — ISC, Copyright (c) 2026 Lucide Icons and Contributors:
+ * permission to use, copy, modify, and/or distribute this software for any purpose with or
+ * without fee is hereby granted, provided that the above copyright notice and this permission
+ * notice appear in all copies. The chevron, search and x glyphs are derived from Feather
+ * (MIT, Copyright (c) 2013-present Cole Bemis).
+ */
 interface IconProps extends SVGProps<SVGSVGElement> {
   size?: number;
 }
@@ -21,8 +31,8 @@ function Icon({
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth={1.5}
-      viewBox="0 0 16 16"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
       width={size}
       {...others}
     >
@@ -31,174 +41,248 @@ function Icon({
   );
 }
 
-export function IconInbox(props: IconProps) {
+// Glyphs, named for their Lucide source icons. Module-private: components reach them through
+// the resolved registry, never directly.
+
+function IconInbox(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M2.5 3.5h11v9h-11z" />
-      <path d="M2.5 9.5H6l1 1.5h2l1-1.5h3.5" />
+      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
     </Icon>
   );
 }
 
-export function IconAlertTriangle(props: IconProps) {
+function IconTriangleAlert(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M8 2.5 1.9 13a.6.6 0 0 0 .52.9h11.16a.6.6 0 0 0 .52-.9z" />
-      <path d="M8 6.5v3.2" />
-      <path d="M8 12h.01" />
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
     </Icon>
   );
 }
 
-export function IconChevronUp(props: IconProps) {
+function IconChevronUp(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M4 10l4-4 4 4" />
+      <path d="m18 15-6-6-6 6" />
     </Icon>
   );
 }
 
-export function IconChevronDown(props: IconProps) {
+function IconChevronDown(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M4 6l4 4 4-4" />
+      <path d="m6 9 6 6 6-6" />
     </Icon>
   );
 }
 
-export function IconChevronRight(props: IconProps) {
+function IconChevronRight(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M6 4l4 4-4 4" />
+      <path d="m9 18 6-6-6-6" />
     </Icon>
   );
 }
 
-/**
- * Neutral sortable affordance: both directions, quiet.
- */
-export function IconSortable(props: IconProps) {
+function IconChevronsUpDown(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M5 6.5L8 3.5l3 3" />
-      <path d="M5 9.5l3 3 3-3" />
+      <path d="m7 15 5 5 5-5" />
+      <path d="m7 9 5-5 5 5" />
     </Icon>
   );
 }
 
-export function IconFilter(props: IconProps) {
+function IconFunnel(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M2.5 3.5h11l-4.25 5v3.5l-2.5 1.5v-5z" />
+      <path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z" />
     </Icon>
   );
 }
 
-/**
- * Drag affordance: the universal two-by-three grip.
- */
-export function IconGripVertical(props: IconProps) {
+function IconGripVertical(props: IconProps) {
   return (
     <Icon {...props}>
-      <circle cx="6" cy="4" fill="currentColor" r="0.85" stroke="none" />
-      <circle cx="10" cy="4" fill="currentColor" r="0.85" stroke="none" />
-      <circle cx="6" cy="8" fill="currentColor" r="0.85" stroke="none" />
-      <circle cx="10" cy="8" fill="currentColor" r="0.85" stroke="none" />
-      <circle cx="6" cy="12" fill="currentColor" r="0.85" stroke="none" />
-      <circle cx="10" cy="12" fill="currentColor" r="0.85" stroke="none" />
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="9" cy="5" r="1" />
+      <circle cx="9" cy="19" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="15" cy="5" r="1" />
+      <circle cx="15" cy="19" r="1" />
     </Icon>
   );
 }
 
 /**
- * The three pin states speak one language — where the column sits relative to the table's edges.
- * A rotated pushpin was tried first and rejected: at 16px nobody, including its author, could
- * tell which way it pointed.
+ * The three pin states speak one language — where the column sits relative to the table's edges
+ * (a pushpin cannot say start from end, which is why `pin` / `pin-off` were passed over).
  */
-export function IconPinLeft(props: IconProps) {
+function IconArrowLeftToLine(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M3 3v10" />
-      <path d="M13.5 8H6.5" />
-      <path d="M9 5.5L6.5 8l2.5 2.5" />
+      <path d="M3 19V5" />
+      <path d="m13 6-6 6 6 6" />
+      <path d="M7 12h14" />
     </Icon>
   );
 }
 
-export function IconPinRight(props: IconProps) {
+function IconArrowRightToLine(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M13 3v10" />
-      <path d="M2.5 8h7" />
-      <path d="M7 5.5L9.5 8l-2.5 2.5" />
+      <path d="M17 12H3" />
+      <path d="m11 18 6-6-6-6" />
+      <path d="M21 5v14" />
     </Icon>
   );
 }
 
 /**
- * Neither edge: the column floats free between them.
+ * Neither edge: the column moves with the scroll again.
  */
-export function IconUnpin(props: IconProps) {
+function IconMoveHorizontal(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M3 3v10" />
-      <path d="M13 3v10" />
-      <path d="M6.5 8h3" />
+      <path d="m18 8 4 4-4 4" />
+      <path d="M2 12h20" />
+      <path d="m6 8-4 4 4 4" />
     </Icon>
   );
 }
 
 /**
- * "Put it back the way it was": three quarters of a circle travelled counter-clockwise, with the
- * arrowhead on the tangent where it closes.
+ * "Put it back the way it was": counter-clockwise is the industry's undo, clockwise its
+ * refresh — the table shows both, so they must not be the same glyph.
  */
-export function IconRestore(props: IconProps) {
+function IconRotateCcw(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M3 8a5 5 0 1 0 5-5" />
-      <path d="M10 1.5L8 3l2 1.5" />
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+    </Icon>
+  );
+}
+
+function IconRotateCw(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+    </Icon>
+  );
+}
+
+function IconSearch(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m21 21-4.34-4.34" />
+      <circle cx="11" cy="11" r="8" />
+    </Icon>
+  );
+}
+
+function IconX(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </Icon>
+  );
+}
+
+function IconListTree(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M8 5h13" />
+      <path d="M13 12h8" />
+      <path d="M13 19h8" />
+      <path d="M3 10a2 2 0 0 0 2 2h3" />
+      <path d="M3 5v12a2 2 0 0 0 2 2h3" />
     </Icon>
   );
 }
 
 /**
- * "Try that again": the same three-quarter circle as `IconRestore`, mirrored so it travels
- * clockwise. That direction is the industry's refresh and the counter-clockwise one its undo —
- * the table shows both, so they must not be the same glyph.
+ * What a replacement icon receives — the two knobs the chrome actually turns. Lucide icons are
+ * drawn on a 24px grid at stroke 2; a custom component is free to ignore either.
  */
-export function IconRefresh(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M13 8a5 5 0 1 1-5-5" />
-      <path d="M6 1.5L8 3l-2 1.5" />
-    </Icon>
-  );
+export interface DataTableIconProps {
+  /**
+   * Rendered width and height in px. The chrome passes 12–16 for controls and 40 for the
+   * empty/error indicators.
+   */
+  size?: number;
+  strokeWidth?: number;
 }
 
-export function IconSearch(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <circle cx="7" cy="7" r="4" />
-      <path d="M10 10l3.5 3.5" />
-    </Icon>
-  );
+export type DataTableIconComponent = ComponentType<DataTableIconProps>;
+
+/**
+ * Every glyph the table chrome renders, one slot per affordance. Slots are named for the
+ * `DataTableLabels` key of the same affordance where one exists (`pinStart`, `retry`,
+ * `clearSelection`, …), so the two registries read as one vocabulary.
+ */
+export interface DataTableIcons {
+  /* Header */
+  sortAsc: DataTableIconComponent;
+  sortDesc: DataTableIconComponent;
+  /**
+   * The neutral both-directions affordance an unsorted sortable column shows.
+   */
+  sortable: DataTableIconComponent;
+  filterColumn: DataTableIconComponent;
+
+  /* Rows — one chevron, rotated open by the stylesheet (expand-all and groups included). */
+  expandRow: DataTableIconComponent;
+
+  /* States */
+  empty: DataTableIconComponent;
+  noResults: DataTableIconComponent;
+  error: DataTableIconComponent;
+  retry: DataTableIconComponent;
+
+  /* Global search */
+  search: DataTableIconComponent;
+
+  /* Selection */
+  clearSelection: DataTableIconComponent;
+
+  /* Columns panel */
+  resetColumns: DataTableIconComponent;
+  reorderColumn: DataTableIconComponent;
+  /**
+   * Both the group toggle and the grouped rest-state mark.
+   */
+  groupByColumn: DataTableIconComponent;
+  pinStart: DataTableIconComponent;
+  unpin: DataTableIconComponent;
+  pinEnd: DataTableIconComponent;
 }
 
-export function IconX(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M4 4l8 8M12 4l-8 8" />
-    </Icon>
-  );
-}
+export const defaultIcons: DataTableIcons = {
+  sortAsc: IconChevronUp,
+  sortDesc: IconChevronDown,
+  sortable: IconChevronsUpDown,
+  filterColumn: IconFunnel,
+  expandRow: IconChevronRight,
+  empty: IconInbox,
+  noResults: IconSearch,
+  error: IconTriangleAlert,
+  retry: IconRotateCw,
+  search: IconSearch,
+  clearSelection: IconX,
+  resetColumns: IconRotateCcw,
+  reorderColumn: IconGripVertical,
+  groupByColumn: IconListTree,
+  pinStart: IconArrowLeftToLine,
+  unpin: IconMoveHorizontal,
+  pinEnd: IconArrowRightToLine
+};
 
-export function IconGroup(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <path d="M3 4.5h10" />
-      <path d="M5.5 8h7.5" />
-      <path d="M5.5 11.5h7.5" />
-      <path d="M3 6.75V12l1.5-1" />
-    </Icon>
-  );
+export function resolveIcons(icons: Partial<DataTableIcons> | undefined): DataTableIcons {
+  return icons ? { ...defaultIcons, ...icons } : defaultIcons;
 }

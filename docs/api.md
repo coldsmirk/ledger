@@ -13,6 +13,7 @@ The complete public surface of `@coldsmirk/ledger-mantine`, as implemented. Feat
 - [Compound components](#compound-components)
 - [`toCsv`](#tocsv)
 - [Labels](#labels)
+- [Icons](#icons)
 - [`meta.ledger`](#metaledger)
 
 ## Entry points and re-exports
@@ -23,6 +24,7 @@ import {
   useDataTable,         // options → bare TanStack Table instance
   toCsv,                // CSV export over a table instance
   defaultLabels,        // English label set
+  defaultIcons,         // vendored Lucide glyph set
   createColumnHelper,   // TanStack, re-exported
   flexRender            // TanStack, re-exported
 } from "@coldsmirk/ledger-mantine";
@@ -33,7 +35,7 @@ import "@coldsmirk/ledger-mantine/styles.css";
 
 Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell`, `Header`, `HeaderGroup` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape. Its methods are v9's — `accessor` / `display` / `group` / **`columns`**, the last being the variadic-tuple wrapper a `group`'s children need so each keeps its own `TValue` ([columns.md](columns.md#header-groups-and-footers)).
 
-ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditShorthand`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerCheckboxEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
+ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableIcons`, `DataTableIconProps`, `DataTableIconComponent`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditShorthand`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerCheckboxEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
 
 Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
@@ -147,6 +149,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `headerRowProps` / `footerRowProps` | `TableTrProps \| (headerGroup) => TableTrProps \| undefined` | — | DOM props per header / footer row |
 | `viewportProps` | `ComponentProps<"div">` | — | DOM props for the scroll viewport (`onScroll`, …) |
 | `labels` | `Partial<DataTableLabels>` | `defaultLabels` | [i18n.md](i18n.md) |
+| `icons` | `Partial<DataTableIcons>` | `defaultIcons` | Per-slot glyph replacement ([Icons](#icons)) |
 | `aria-label` / `aria-labelledby` / `aria-describedby` | `string` | — | Routed to the ARIA table (`.ledger-main`), not the root wrapper |
 
 Styles API selector names (`DataTableStylesNames`) and the `vars` surface (`DataTableCssVariables`: root `--ledger-striped-color` / `--ledger-hover-color` / `--ledger-border-color`) are catalogued in [styling.md](styling.md).
@@ -273,10 +276,10 @@ All take the `table` instance, compose anywhere, and are individually themeable 
 
 | Component | Props | Notes |
 | --- | --- | --- |
-| `DataTable.Search` | `{ table, debounce?: number /* 200 */, labels? }` + every `TextInputProps` except the value trio | Global filter input; clear/external reset cancels pending input ([filtering.md](filtering.md#global-filter)) |
-| `DataTable.ColumnsPanel` | `{ table, children?, popoverProps?, labels?, className?, style? }` | Order / visibility / pinning / width / grouping. `children` is the trigger and the panel opens from it in a Popover; without one it renders bare ([columns.md](columns.md#the-columns-panel)) |
+| `DataTable.Search` | `{ table, debounce?: number /* 200 */, labels?, icons? }` + every `TextInputProps` except the value trio | Global filter input; clear/external reset cancels pending input ([filtering.md](filtering.md#global-filter)) |
+| `DataTable.ColumnsPanel` | `{ table, children?, popoverProps?, labels?, icons?, className?, style? }` | Order / visibility / pinning / width / grouping. `children` is the trigger and the panel opens from it in a Popover; without one it renders bare ([columns.md](columns.md#the-columns-panel)) |
 | `DataTable.Pagination` | `{ table, pageSizeOptions?, labels?, className?, style? }` | Standalone bar ([pagination.md](pagination.md)) |
-| `DataTable.SelectionBar` | `{ table, labels?, children?, className?, style? }` | Renders only while rows are selected; `children` = bulk actions ([selection.md](selection.md)) |
+| `DataTable.SelectionBar` | `{ table, labels?, icons?, children?, className?, style? }` | Renders only while rows are selected; `children` = bulk actions ([selection.md](selection.md)) |
 
 Each is also exported standalone (`DataTableSearch`, …) for tree-shaken imports.
 
@@ -302,6 +305,44 @@ Per-column control rides `meta.export`: `false` excludes the column entirely; `{
 ## Labels
 
 `DataTableLabels` (all keys and defaults in [i18n.md](i18n.md)); `defaultLabels` is the English set; `zhCN` ships from `@coldsmirk/ledger-mantine/locales`; `labels` props take partials.
+
+## Icons
+
+```ts
+interface DataTableIconProps {
+  size?: number;         // 12–16 in the controls, 40 in the empty/error indicators
+  strokeWidth?: number;
+}
+type DataTableIconComponent = ComponentType<DataTableIconProps>;
+
+interface DataTableIcons {
+  /* Header */
+  sortAsc: DataTableIconComponent;
+  sortDesc: DataTableIconComponent;
+  sortable: DataTableIconComponent;        // neutral affordance while unsorted
+  filterColumn: DataTableIconComponent;
+  /* Rows — one chevron, rotated open by the stylesheet (groups and expand-all included) */
+  expandRow: DataTableIconComponent;
+  /* States */
+  empty: DataTableIconComponent;
+  noResults: DataTableIconComponent;
+  error: DataTableIconComponent;
+  retry: DataTableIconComponent;
+  /* Global search */
+  search: DataTableIconComponent;
+  /* Selection */
+  clearSelection: DataTableIconComponent;
+  /* Columns panel */
+  resetColumns: DataTableIconComponent;
+  reorderColumn: DataTableIconComponent;
+  groupByColumn: DataTableIconComponent;   // toggle and grouped rest-state mark
+  pinStart: DataTableIconComponent;
+  unpin: DataTableIconComponent;
+  pinEnd: DataTableIconComponent;
+}
+```
+
+`defaultIcons` is the built-in set — Lucide glyphs with their path data vendored into the package (no icon-library dependency). Slots are named for the `DataTableLabels` key of the same affordance where one exists; `icons` props take partials, merged per slot. `lucide-react` components satisfy `DataTableIconComponent` as-is — see [styling.md](styling.md#icons).
 
 ## `meta.ledger`
 

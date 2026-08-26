@@ -1,6 +1,7 @@
 import type { TextInputProps } from "@mantine/core";
 import type { RowData } from "@tanstack/react-table";
 
+import type { DataTableIcons } from "./icons";
 import type { DataTableLabels } from "./labels";
 import type { TableInstance } from "./types";
 
@@ -12,7 +13,7 @@ import { CloseButton, TextInput, useProps } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import { useEffect, useState } from "react";
 
-import { IconSearch } from "./icons";
+import { resolveIcons } from "./icons";
 import { resolveLabels } from "./labels";
 
 export interface DataTableSearchProps<TData extends RowData>
@@ -23,6 +24,7 @@ export interface DataTableSearchProps<TData extends RowData>
    */
   debounce?: number;
   labels?: Partial<DataTableLabels>;
+  icons?: Partial<DataTableIcons>;
 }
 
 const searchDefaultProps = { debounce: 200 } satisfies Partial<DataTableSearchProps<RowData>>;
@@ -32,6 +34,7 @@ export function DataTableSearch<TData extends RowData>(props: DataTableSearchPro
     table,
     debounce,
     labels,
+    icons,
     placeholder,
     ...others
   } = useProps(
@@ -41,6 +44,7 @@ export function DataTableSearch<TData extends RowData>(props: DataTableSearchPro
   );
 
   const resolved = resolveLabels(labels);
+  const resolvedIcons = resolveIcons(icons);
   const globalFilter = (table.atoms.globalFilter.get() as string | undefined) ?? "";
   const [value, setValue] = useState(globalFilter);
 
@@ -73,7 +77,7 @@ export function DataTableSearch<TData extends RowData>(props: DataTableSearchPro
       // A placeholder is not a label — it disappears the moment there is a value. The visible
       // text doubles as the name so the two never disagree; `others` lets a caller override it.
       aria-label={resolvedPlaceholder}
-      leftSection={<IconSearch />}
+      leftSection={<resolvedIcons.search />}
       placeholder={resolvedPlaceholder}
       rightSectionPointerEvents="all"
       value={value}

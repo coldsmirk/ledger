@@ -39,7 +39,7 @@ ledger is a Mantine-native `<DataTable>` built on TanStack Table v9 (headless ta
 - **Adaptive sizing** — `.ledger-root` fills the parent (`width/height: 100%`, `min-width/min-height: 0`, `overflow: hidden`) and degrades to content height under indefinite parents; the internal ScrollArea is the only elastic region and owns all overflow. Never require a fixed pixel height for anything, virtualization included (TanStack Virtual tracks the scroll element with ResizeObserver).
 - **Layered stylesheet** (`packages/mantine/src/styles.css`): everything in the `ledger` layer, consuming only Mantine CSS variables (dark mode and RTL come from the host theme). Classes are kebab-case under `ledger-`; state is data-attributes, never state classes; row background flows through `--ledger-row-bg` so pinned cells cover stripes/hover correctly.
 - **ledger-private config and editing state ride `table.options.meta.ledger`** (TanStack's sanctioned extension point) — `useDataTable` has no wrapper type, and hook mode loses nothing. Internal state reads go through `table.atoms.<slice>.get()`, never `table.state` (which exists only on the hook's wrapper, not on the core instance header renderers receive).
-- **All UI copy goes through `labels`** (English defaults; the `zhCN` preset ships from `./locales`); never hardcode a locale string in a component.
+- **All UI copy goes through `labels`** (English defaults; the `zhCN` preset ships from `./locales`); never hardcode a locale string in a component. Chrome glyphs follow the same rule through the `icons` registry (`icons.tsx`, vendored Lucide defaults) — never render a glyph component directly.
 - **Injected columns (selection checkbox, expander) stop propagation** so they never trigger `onRowClick`.
 
 ## Conventions

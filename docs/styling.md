@@ -146,6 +146,37 @@ to fill a `<th>` (`Table variant="vertical"`):
 A single fixed value is the trap here — `--ledger-header-bg: #f8f9fa` reads as a blown-out white
 band in dark mode.
 
+## Icons
+
+Every glyph the chrome renders — sort and filter indicators, the expander chevron, the pin
+segments, the empty/error states — comes from one registry, `DataTableIcons`, one slot per
+affordance ([api.md](api.md#icons) lists them all). The defaults are Lucide glyphs with their
+path data vendored into the package, so replacing none costs no dependency; `icons` replaces any
+subset:
+
+```tsx
+import { ArrowDownWideNarrow, ArrowUpNarrowWide } from "lucide-react";
+
+<DataTable
+  icons={{ sortAsc: ArrowUpNarrowWide, sortDesc: ArrowDownWideNarrow }}
+  {...rest}
+/>;
+```
+
+A slot is any component accepting `DataTableIconProps` — `size` (12–16 in the controls, 40 in
+the empty/error indicators) and `strokeWidth` — which `lucide-react` components satisfy as-is;
+so does any icon set or hand-rolled `<svg>` that follows `currentColor`. Slot names mirror the
+`DataTableLabels` key of the same affordance where one exists (`pinStart`, `retry`,
+`clearSelection`, …), so the two registries read as one vocabulary.
+
+The compound components rendered outside the table's tree take their own `icons` prop, exactly
+like `labels`: `DataTable.Search` (`search`), `DataTable.ColumnsPanel` (the panel slots),
+`DataTable.SelectionBar` (`clearSelection`). App-wide replacement goes through theme
+`defaultProps` — the next section's mechanism.
+
+One behavioral contract: the `expandRow` chevron is rotated open by the stylesheet (a `rotate`
+on the button's `svg`), so a replacement should point right at rest.
+
 ## Theme-level defaults
 
 ```tsx
