@@ -85,7 +85,7 @@ Sized columns are fixed pixels; unsized columns grow to share the leftover viewp
 <DataTable enableColumnResizing … />
 ```
 
-- Off by default. When on, every resizable column gets a handle on its trailing edge; per-column opt-out is TanStack's own `enableResizing: false` on the def.
+- Off by default. When on, every resizable column gets a handle on its trailing edge; per-column opt-out is TanStack's own `enableResizing: false` on the def. On a table without `withColumnBorders`, each handle marks itself with a faint mid-height tick (column borders already say where columns end); hovering it swaps in the full primary-colored line and, after a pause, the drag/double-click tooltip.
 - Drags are live and **exactly 1:1**: the pointer session starts from the width the engine actually rendered ([sizing.md](sizing.md#resizing-interplay)), updates are CSS variables, so a drag **never re-renders row components**, and the result is clamped to the column's `minSize`/`maxSize`.
 - **Escape or a pointercancel cancels** an in-flight drag, restoring the pre-drag width.
 - **Double-click fits the column to its content**: the header cell, every rendered body cell (under virtualization that is the current window — unrendered rows have no boxes to measure) and the column's footer cell are measured, and the result is clamped like a drag. A footer that spans columns is skipped — it says nothing about the width of any one of them. The definition width stays reachable through the columns panel's width reset.

@@ -235,8 +235,19 @@
     border-radius: 1px;
   }
 
+  /* Resting tick, only where the handle would otherwise be invisible: a borderless table marks
+     each resizable boundary with a faint mid-height line (precedent: MUI DataGrid's header
+     separators), so finding the handle takes no guessing. Column borders already say where
+     columns end, so bordered tables skip it; hover and drag swap in the taller primary line
+     either way — a two-step tell, like the Tooltip's delay. */
+  :where(.ledger-root:not([data-with-column-borders])) .ledger-resizer::after {
+    inset-block: 30%;
+    background-color: var(--mantine-color-default-border);
+  }
+
   .ledger-resizer:hover::after,
   .ledger-resizer[data-resizing]::after {
+    inset-block: 15%;
     background-color: var(--mantine-primary-color-filled);
   }
 
