@@ -63,7 +63,7 @@ The interaction is ledger's own pointer session end to end, so TanStack's `colum
 
 With `enableColumnResizing` on, each row of the [columns panel](columns.md#the-columns-panel) also carries a width field — the same `columnSizing` entry, reached numerically instead of by drag, clamped to the column's `minSize`/`maxSize` exactly as the handle is.
 
-The field holds the **override**, and empty means there is none: clearing it *drops* the entry rather than zeroing it, returning the column to whatever its definition prescribes. The placeholder says which that is — the author's `size`, or `labels.columnWidthAuto` (`Auto`) for a column that declares none and therefore grows. So a `size: 130` column reads `130` when unset, never a made-up "auto".
+The field holds the **override**, and empty means there is none: clearing it *drops* the entry rather than zeroing it, returning the column to whatever its definition prescribes. The placeholder says which that is — the author's `size`, or `labels.columnWidthAuto` (`Auto`) for a column that declares none and therefore grows. So a `size: 130` column reads `130` when unset, never a made-up "auto". The field keeps `NumberInput`'s stepper buttons at a step of 10 (typing stays free-form), and stepping an empty field starts from that same declared width (`startValue`), so the first click materializes the current default as the override rather than jumping to `minSize`.
 
 ### `tableMinWidth`
 

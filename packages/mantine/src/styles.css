@@ -564,9 +564,14 @@
     padding: var(--mantine-spacing-xs);
   }
 
+  /* No inline padding: the title and the reset button align to the zone slabs' edges below,
+     which are the panel's visual frame — the rows' own 8px inset is interior to that frame. */
+
+  /* The gap under the hairline repeats the panel's own padding token, so the content block
+     sits at the same distance from all four of its frame edges. */
   .ledger-columns-panel-header {
-    padding: 4px 6px 10px;
-    margin-block-end: 6px;
+    padding: 4px 0 10px;
+    margin-block-end: var(--mantine-spacing-xs);
     border-block-end: 1px solid var(--mantine-color-default-border);
   }
 
@@ -586,26 +591,41 @@
 
   /* Pinned zones are shelves: the tinted slab marks the drag boundary (a column sorts only
      among its own kind) the way the pinned columns' own opaque background marks them in the
-     table. Nothing pinned means one flat list and zero chrome. */
+     table. Nothing pinned means one flat list and zero chrome. Block padding only — inline
+     padding would shift the rows' handle/checkbox/name columns off the center zone's. */
   .ledger-columns-panel-zone[data-pinned] {
-    padding: 4px;
+    padding-block: 4px;
     background-color: var(--mantine-color-gray-light);
-    border-radius: var(--mantine-radius-sm);
+    border-radius: var(--mantine-radius-default);
   }
 
   .ledger-columns-panel-zone + .ledger-columns-panel-zone {
     margin-block-start: 8px;
   }
 
+  /* The caption pairs the zone's pin glyph with its name, tying the shelf to the same vocabulary
+     the row's pin segments speak. It is a ledger-owned div (Mantine's unlayered Text reset would
+     zero a padding set here), so its type and color live here too; line-height 1 collapses the
+     text's line box onto the glyph's 12px so flex centering aligns their midlines exactly. */
   .ledger-columns-panel-zone-label {
-    padding: 2px 6px 4px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 8px;
+    font-size: var(--mantine-font-size-xs);
+    font-weight: 500;
+    line-height: 1;
+    color: var(--mantine-color-dimmed);
   }
 
+  /* Radii across the panel — the tinted shelves, this hover pill, and the toolbar backdrop —
+     follow the theme's default radius, the same token the toolbar's Mantine controls resolve
+     with no radius prop, so the whole cluster rounds as one under any host theme. */
   .ledger-columns-panel-item {
     position: relative;
     min-height: 36px;
-    padding: 2px 6px;
-    border-radius: var(--mantine-radius-sm);
+    padding: 2px 8px;
+    border-radius: var(--mantine-radius-default);
   }
 
   /* focus-within matches :hover because the toolbar below reveals on both. */
@@ -681,8 +701,8 @@
     padding-inline: 8px;
     pointer-events: none;
     background-color: var(--mantine-color-default-hover);
-    border-start-end-radius: var(--mantine-radius-sm);
-    border-end-end-radius: var(--mantine-radius-sm);
+    border-start-end-radius: var(--mantine-radius-default);
+    border-end-end-radius: var(--mantine-radius-default);
     opacity: 0;
     transition: opacity 120ms ease;
   }
@@ -704,13 +724,6 @@
   .ledger-columns-panel-item:focus-within .ledger-columns-panel-controls {
     pointer-events: auto;
     opacity: 1;
-  }
-
-  /* The pin segments show a glyph each; the accessible name rides a visually hidden span. */
-  .ledger-columns-panel-pin-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   /* Widths are numbers the table's own cells would show right-aligned and tabular. */

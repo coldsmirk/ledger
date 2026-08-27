@@ -12,7 +12,7 @@ import type { ResizerSpec } from "./use-column-resize";
  * layout — order, visibility, pinning, width, grouping — belongs to `DataTable.ColumnsPanel`,
  * not to the header (docs/columns.md).
  */
-import { Table as MantineTable } from "@mantine/core";
+import { Table as MantineTable, Tooltip } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 
 import { autosizeColumn } from "./autosize-column";
@@ -228,32 +228,34 @@ function HeaderCell<TData extends RowData>({
                 )}
 
                 {canResize && (
-                  <div
-                    // A pointer-only affordance, hidden from assistive tech on purpose: it takes
-                    // no focus and answers no key, and the keyboard route to the same
-                    // `columnSizing` entry is the columns panel's width field
-                    // (docs/accessibility.md). Announcing an inoperable control would be worse
-                    // than announcing nothing; the `title` stays for the mouse.
-                    aria-hidden
-                    data-ledger-no-drag
-                    data-ledger-resizer
-                    data-resizing={resizing || undefined}
-                    title={labels.resizeColumn}
-                    onClick={event => event.stopPropagation()}
-                    onDoubleClick={event => {
-                      const main = event.currentTarget.closest<HTMLElement>(".ledger-main");
+                  <Tooltip disabled={resizing} label={labels.resizeColumn} openDelay={500}>
+                    <div
+                      // A pointer-only affordance, hidden from assistive tech on purpose: it
+                      // takes no focus and answers no key, and the keyboard route to the same
+                      // `columnSizing` entry is the columns panel's width field
+                      // (docs/accessibility.md). Announcing an inoperable control would be worse
+                      // than announcing nothing; the hint rides a hover Tooltip for the mouse,
+                      // disabled mid-drag so it never chases the handle.
+                      aria-hidden
+                      data-ledger-no-drag
+                      data-ledger-resizer
+                      data-resizing={resizing || undefined}
+                      onClick={event => event.stopPropagation()}
+                      onDoubleClick={event => {
+                        const main = event.currentTarget.closest<HTMLElement>(".ledger-main");
 
-                      if (main) {
-                        autosizeColumn(
-                          table.setColumnSizing,
-                          { ...resizerSpec, hasFilter: meta?.filter !== undefined },
-                          main
-                        );
-                      }
-                    }}
-                    {...resize.getResizerProps(resizerSpec)}
-                    {...getStyles("resizer")}
-                  />
+                        if (main) {
+                          autosizeColumn(
+                            table.setColumnSizing,
+                            { ...resizerSpec, hasFilter: meta?.filter !== undefined },
+                            main
+                          );
+                        }
+                      }}
+                      {...resize.getResizerProps(resizerSpec)}
+                      {...getStyles("resizer")}
+                    />
+                  </Tooltip>
                 )}
               </>
             )}

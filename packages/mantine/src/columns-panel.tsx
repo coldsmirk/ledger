@@ -30,12 +30,14 @@ import { useSortable } from "@dnd-kit/react/sortable";
 import {
   ActionIcon,
   Button,
+  Center,
   Checkbox,
   Group,
   NumberInput,
   Popover,
   SegmentedControl,
   Text,
+  Tooltip,
   useProps,
   VisuallyHidden
 } from "@mantine/core";
@@ -94,12 +96,44 @@ function resolveZones<TData extends RowData>(table: TableInstance<TData>): Array
 }
 
 /**
- * The pinned zones caption themselves; the center is the default territory and stays unlabeled.
+ * The pinned zones caption themselves — the zone's pin glyph beside its name, the same pair the
+ * row's pin segments speak; the center is the default territory and stays unlabeled.
  */
-const zoneCaptionKeys = {
-  start: "pinnedStart",
-  end: "pinnedEnd"
-} satisfies Partial<Record<ColumnZone, keyof DataTableLabels>>;
+const zoneCaptions = {
+  start: {
+    label: "pinnedStart",
+    icon: "pinStart"
+  },
+  end: {
+    label: "pinnedEnd",
+    icon: "pinEnd"
+  }
+} satisfies Partial<Record<ColumnZone, { label: keyof DataTableLabels; icon: keyof DataTableIcons }>>;
+
+interface ZoneCaptionProps {
+  zone: keyof typeof zoneCaptions;
+  labels: DataTableLabels;
+  icons: DataTableIcons;
+}
+
+function ZoneCaption({
+  zone,
+  labels,
+  icons
+}: ZoneCaptionProps) {
+  const caption = zoneCaptions[zone];
+  const Glyph = icons[caption.icon];
+
+  // A ledger-owned div, not <Text>: the host may load Mantine's stylesheet unlayered, where the
+  // Text reset (`padding: 0` on its <p>) beats anything the ledger layer declares — the caption's
+  // box, type, and color all live in the stylesheet instead.
+  return (
+    <div className="ledger-columns-panel-zone-label">
+      <Glyph size={12} />
+      {labels[caption.label]}
+    </div>
+  );
+}
 
 /**
  * The three-state position control, one segment per TanStack `ColumnPinningPosition`. `key`
@@ -266,11 +300,7 @@ function ColumnsPanelContent<TData extends RowData>({
             .filter(zone => zone.columns.length > 0)
             .map(zone => (
               <div key={zone.id} className="ledger-columns-panel-zone" data-pinned={zone.id !== "center" || undefined}>
-                {zone.id !== "center" && (
-                  <Text c="dimmed" className="ledger-columns-panel-zone-label" fw={500} size="xs">
-                    {labels[zoneCaptionKeys[zone.id]]}
-                  </Text>
-                )}
+                {zone.id !== "center" && <ZoneCaption icons={icons} labels={labels} zone={zone.id} />}
 
                 {zone.columns.map((column, index) => (
                   <ColumnsPanelItem
@@ -372,17 +402,18 @@ function ColumnsPanelItem<TData extends RowData>({
       wrap="nowrap"
     >
       {orderable && (
-        <ActionIcon
-          ref={handleRef}
-          aria-label={labels.reorderColumn}
-          className="ledger-columns-panel-handle"
-          color="gray"
-          size="sm"
-          title={labels.reorderColumn}
-          variant="subtle"
-        >
-          <icons.reorderColumn />
-        </ActionIcon>
+        <Tooltip label={labels.reorderColumn} openDelay={500}>
+          <ActionIcon
+            ref={handleRef}
+            aria-label={labels.reorderColumn}
+            className="ledger-columns-panel-handle"
+            color="gray"
+            size="sm"
+            variant="subtle"
+          >
+            <icons.reorderColumn />
+          </ActionIcon>
+        </Tooltip>
       )}
 
       {/* miw={0} is load-bearing: a flex item defaults to `min-width: auto`, so the nowrap title
@@ -407,21 +438,27 @@ function ColumnsPanelItem<TData extends RowData>({
       {(grouped || width !== undefined) && (
         <div className="ledger-columns-panel-indicators">
           {grouped && <icons.groupByColumn size={12} />}
-          {width !== undefined && <Text size="xs">{width}</Text>}
+          {/* lh=1 collapses the line box onto the digits, so flex centering lands the mark on the
+              row's true midline instead of the taller line box's. */}
+          {width !== undefined && <Text lh={1} size="xs">{`${width}px`}</Text>}
         </div>
       )}
 
       {(canResize || canGroup || canPin) && (
         <div className="ledger-columns-panel-controls">
+          {/* startValue mirrors the placeholder: stepping an empty field materializes the
+              declared width as the override and counts on from there, instead of jumping to
+              minSize the way the default (0, clamped) would. */}
           {canResize && (
             <NumberInput
-              hideControls
               aria-label={labels.columnWidth}
               classNames={{ input: "ledger-columns-panel-width-input" }}
               max={column.columnDef.maxSize}
               min={column.columnDef.minSize}
               placeholder={declaredWidth === undefined ? labels.columnWidthAuto : String(declaredWidth)}
               size="xs"
+              startValue={declaredWidth}
+              step={10}
               value={width ?? ""}
               w={72}
               onChange={handleWidthChange}
@@ -429,23 +466,27 @@ function ColumnsPanelItem<TData extends RowData>({
           )}
 
           {canGroup && (
-            <ActionIcon
-              aria-label={grouped ? labels.ungroupColumn : labels.groupByColumn}
-              aria-pressed={grouped}
-              size="input-xs"
-              title={grouped ? labels.ungroupColumn : labels.groupByColumn}
-              variant={grouped ? "light" : "subtle"}
-              onClick={() => column.toggleGrouping()}
-            >
-              <icons.groupByColumn />
-            </ActionIcon>
+            <Tooltip label={grouped ? labels.ungroupColumn : labels.groupByColumn} openDelay={500}>
+              <ActionIcon
+                aria-label={grouped ? labels.ungroupColumn : labels.groupByColumn}
+                aria-pressed={grouped}
+                size="input-xs"
+                variant={grouped ? "light" : "subtle"}
+                onClick={() => column.toggleGrouping()}
+              >
+                <icons.groupByColumn />
+              </ActionIcon>
+            </Tooltip>
           )}
 
           {/* One radio group, not three toggle buttons: the pin state is a single choice of
-              position, and the selected segment says which without a tooltip. */}
+              position, and the selected segment says which without a tooltip. Each glyph rides a
+              <Center> (Mantine's own recipe for icon segments): left inline, the svg would sit on
+              the text baseline and hang above the segment's midline by the descender's height.
+              The label key serves twice — the visually hidden accessible name and the Tooltip
+              label. */}
           {canPin && (
             <SegmentedControl
-              classNames={{ label: "ledger-columns-panel-pin-label" }}
               size="xs"
               value={pinSegments.find(segment => segment.position === pinned)?.value ?? "center"}
               data={pinSegments.map(({ value, key }) => {
@@ -454,10 +495,14 @@ function ColumnsPanelItem<TData extends RowData>({
                 return {
                   value,
                   label: (
-                    <>
-                      <Glyph size={14} />
-                      <VisuallyHidden>{labels[key]}</VisuallyHidden>
-                    </>
+                    <Tooltip label={labels[key]} openDelay={500}>
+                      {/* h=18: the 14px glyph alone would size the control at 26px next to the
+                          width input's 30 — 18 plus the segment's own chrome lands both at 30. */}
+                      <Center h={18}>
+                        <Glyph size={14} />
+                        <VisuallyHidden>{labels[key]}</VisuallyHidden>
+                      </Center>
+                    </Tooltip>
                   )
                 };
               })}

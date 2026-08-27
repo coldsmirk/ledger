@@ -98,6 +98,33 @@ describe("DataTable.ColumnsPanel", () => {
     expect(rowFor("Email").dataset.hidden).toBeUndefined();
   });
 
+  it("names a row from meta.label ahead of the header, and the id only as a last resort", () => {
+    const labelled: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { label: "Full name" }
+      },
+      // A render-function header has no text to fall back on — meta.label is the fix; without
+      // either, the raw column id leaks into the panel.
+      {
+        id: "email",
+        accessorKey: "email",
+        header: () => <span>Email</span>,
+        meta: { label: "Email address" }
+      },
+      {
+        id: "age",
+        accessorKey: "age",
+        header: () => <span>Age</span>
+      }
+    ];
+
+    render(<Panel columns={labelled} />, { wrapper });
+
+    expect(titles()).toEqual(["Full name", "Email address", "age"]);
+  });
+
   it("disables the checkbox of a column that declares it cannot hide", () => {
     const fixed: Array<ColumnDef<Person, any>> = [
       {
@@ -171,13 +198,13 @@ describe("DataTable.ColumnsPanel", () => {
     expect(onColumnSizingChange).toHaveBeenLastCalledWith({ name: 160 });
 
     // The override also survives at rest, as the row's dimmed width mark.
-    expect(within(rowFor("Name")).getByText("160")).toBeTruthy();
+    expect(within(rowFor("Name")).getByText("160px")).toBeTruthy();
 
     // Cleared means "no override", not zero: the entry is dropped entirely, so the width engine
     // reads the column as unsized again (docs/sizing.md) — and the mark goes with it.
     fireEvent.change(widthInput("Name"), { target: { value: "" } });
     expect(onColumnSizingChange).toHaveBeenLastCalledWith({});
-    expect(within(rowFor("Name")).queryByText("160")).toBeNull();
+    expect(within(rowFor("Name")).queryByText("160px")).toBeNull();
   });
 
   it("shows what an unset width actually falls back to, never a blanket Auto", () => {
