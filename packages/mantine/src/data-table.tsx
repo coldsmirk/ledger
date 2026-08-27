@@ -97,6 +97,8 @@ export type DataTableStylesNames
     | "expanderCell"
     | "detailPanel"
     | "cellEditor"
+    | "instantCell"
+    | "instantSpinner"
     | "footerRow"
     | "footerCell"
     | "empty"
@@ -134,6 +136,8 @@ const classes: Record<DataTableStylesNames, string> = {
   expanderCell: "ledger-expander-cell",
   detailPanel: "ledger-detail-panel",
   cellEditor: "ledger-cell-editor",
+  instantCell: "ledger-instant-cell",
+  instantSpinner: "ledger-instant-spinner",
   footerRow: "ledger-footer-row",
   footerCell: "ledger-footer-cell",
   empty: "ledger-empty",

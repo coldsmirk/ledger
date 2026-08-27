@@ -435,11 +435,6 @@
     color: var(--mantine-color-dimmed);
   }
 
-  /* Editing: a quiet affordance on hover, borderless editors filling the cell. */
-  .ledger-cell[data-editable]:hover {
-    box-shadow: inset 0 0 0 1px var(--mantine-color-default-border);
-  }
-
   .ledger-cell[data-editing] {
     padding-block: 2px;
   }
@@ -453,6 +448,23 @@
 
   .ledger-cell-editor[data-pending] {
     opacity: 0.7;
+  }
+
+  /* Instant columns: the live control keeps its place while its write is out — the pending
+     spinner hangs off the host, outside the flow the cell centers. */
+  .ledger-instant-cell {
+    position: relative;
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    vertical-align: middle;
+  }
+
+  .ledger-instant-spinner {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: calc(100% + 6px);
+    transform: translateY(-50%);
   }
 
   /* Row-mode editing: the whole row reads as one open form — a quiet primary wash plus a

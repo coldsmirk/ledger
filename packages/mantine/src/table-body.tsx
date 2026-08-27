@@ -161,7 +161,7 @@ function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
  * `onRowClick` out.
  */
 function InstantCell({ cell, render }: { cell: Cell<any, unknown>; render: DataTableInstantEditRenderer<any, unknown> }) {
-  const { labels } = useDataTableContext();
+  const { labels, getStyles } = useDataTableContext();
   const { table } = cell.getContext();
   const instant = table.options.meta?.ledger?.editing.instant;
   const rowId = cell.row.id;
@@ -192,6 +192,7 @@ function InstantCell({ cell, render }: { cell: Cell<any, unknown>; render: DataT
       data-pending={pending || undefined}
       onClick={event => event.stopPropagation()}
       onDoubleClick={event => event.stopPropagation()}
+      {...getStyles("instantCell")}
     >
       {render({
         row: cell.row,
@@ -203,7 +204,8 @@ function InstantCell({ cell, render }: { cell: Cell<any, unknown>; render: DataT
         label: labels.editColumn(columnHeaderText(cell.column))
       })}
 
-      {pending && <Loader aria-label={labels.editPending} size={12} />}
+      {/* Out of flow (`instantSpinner`): the control must not move while its write is out. */}
+      {pending && <Loader aria-label={labels.editPending} size={12} {...getStyles("instantSpinner")} />}
       {error && <span role="alert">{error}</span>}
     </span>
   );

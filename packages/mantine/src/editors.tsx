@@ -6,10 +6,9 @@ import type { DataTableEditRenderer, DataTableInstantEditRenderer } from "./type
  * The shipped editor renderers — conveniences, never the mechanism. Each is an ordinary
  * renderer over the public editing contexts (docs/editing.md#editors), which is the proof the
  * contexts suffice: anything these do, an application's own renderer can do the same way.
- * All are unstyled Mantine inputs filling the cell — a boxed input inside a table cell is
- * visual noise.
+ * All are default-variant Mantine inputs — the border marks the cell as an open editor.
  */
-import { NumberInput, Select, TextInput } from "@mantine/core";
+import { Checkbox, NumberInput, Select, TextInput } from "@mantine/core";
 
 const renderTextEditor: DataTableEditRenderer<any, any> = ({
   value,
@@ -26,7 +25,6 @@ const renderTextEditor: DataTableEditRenderer<any, any> = ({
     error={error}
     size="xs"
     value={value === null || value === undefined ? "" : String(value)}
-    variant="unstyled"
     onChange={event => setValue(event.currentTarget.value)}
   />
 );
@@ -54,7 +52,6 @@ const renderNumberEditor: DataTableEditRenderer<any, any> = ({
     error={error}
     size="xs"
     value={typeof value === "number" || typeof value === "string" ? value : ""}
-    variant="unstyled"
     onChange={next => setValue(next === "" ? null : next)}
   />
 );
@@ -92,7 +89,6 @@ export function selectEditor(options: ComboboxData): DataTableEditRenderer<any, 
       error={error}
       size="xs"
       value={value === null || value === undefined ? null : String(value)}
-      variant="unstyled"
       onChange={next => {
         setValue(next);
 
@@ -111,12 +107,13 @@ const renderCheckboxEditor: DataTableInstantEditRenderer<any, any> = ({
   error,
   label
 }) => (
-  <input
-    aria-invalid={error ? true : undefined}
+  <Checkbox
     aria-label={label}
     checked={Boolean(value)}
     disabled={pending}
-    type="checkbox"
+    // Styles only — the instant host renders the message in its own alert region.
+    error={Boolean(error)}
+    size="xs"
     onChange={event => void commit(event.currentTarget.checked)}
   />
 );

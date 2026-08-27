@@ -28,7 +28,7 @@ const columns = [
 - `enableEditing` (default `true`) is the table-level master switch — columns still opt in via `meta.edit`, and `enableEditing={false}` renders the same defs read-only.
 - `editTrigger`: `"double-click"` (default) or `"click"` starts editing on the corresponding cell event.
 - `editMode`: `"cell"` (default) edits one cell at a time; `"row"` opens every editable cell of a row at once and commits atomically — see [Row mode](#row-mode).
-- Editable cells show a quiet inset outline on hover (`data-editable`) as the affordance.
+- Editable cells carry `data-editable` for styling hooks; ledger draws no hover affordance of its own.
 - A per-row gate refines eligibility: `meta.edit = { render, enabled: row => … }`.
 
 ## Editors
@@ -73,13 +73,13 @@ The context is `DataTableEditContext`:
 
 ### The shipped editors
 
-Each is implemented purely on the public context above — proof the context suffices, and the reference for writing your own. All render borderless Mantine inputs filling the cell (a boxed input inside a table cell is visual noise) and honor `autoFocus`, `pending`, `error`, and `label`.
+Each is implemented purely on the public context above — proof the context suffices, and the reference for writing your own. All render default-variant Mantine inputs filling the cell (the border marks the cell as an open editor) and honor `autoFocus`, `pending`, `error`, and `label`.
 
 | Helper | Control | Commit behavior |
 | --- | --- | --- |
-| `textEditor()` | unstyled `TextInput` | Enter / blur commits |
-| `numberEditor()` | unstyled `NumberInput` (`hideControls`); an emptied input holds `null` | Enter / blur commits |
-| `selectEditor(options)` | unstyled `Select`; in cell mode the dropdown opens immediately | **picking an option commits at once** in cell mode; a draft-bound field in row mode |
+| `textEditor()` | `TextInput` | Enter / blur commits |
+| `numberEditor()` | `NumberInput` (`hideControls`); an emptied input holds `null` | Enter / blur commits |
+| `selectEditor(options)` | `Select`; in cell mode the dropdown opens immediately | **picking an option commits at once** in cell mode; a draft-bound field in row mode |
 | `checkboxEditor()` | a live checkbox — an **instant** renderer: `edit: { instant: checkboxEditor() }` | **each toggle commits immediately**; never enters edit mode |
 
 ## Validation and async commits
