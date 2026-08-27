@@ -8,6 +8,7 @@ import { createRef, StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable, resolveVirtualDisplayIndex } from "./data-table";
+import { textEditor } from "./editors";
 import { defaultLabels } from "./labels";
 
 interface Person {
@@ -381,7 +382,7 @@ describe("DataTable", () => {
       {
         accessorKey: "name",
         header: "Name",
-        meta: { filter: "text", edit: "text" }
+        meta: { filter: "text", edit: textEditor() }
       },
       {
         accessorKey: "age",
@@ -669,7 +670,7 @@ describe("DataTable", () => {
         accessorKey: "name",
         header: "Name",
         cell: context => `first:${context.getValue()}`,
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       }
     ];
     const secondColumns: Array<ColumnDef<Person, any>> = [
@@ -677,7 +678,7 @@ describe("DataTable", () => {
         accessorKey: "name",
         header: "Name",
         cell: context => `second:${context.getValue()}`,
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       }
     ];
 

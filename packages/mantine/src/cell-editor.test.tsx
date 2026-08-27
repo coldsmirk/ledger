@@ -8,6 +8,7 @@ import { createRef, startTransition, StrictMode, Suspense, useLayoutEffect, useS
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
+import { checkboxEditor, textEditor } from "./editors";
 import { useDataTable } from "./use-data-table";
 
 interface Person {
@@ -47,8 +48,8 @@ function nameColumn(validate?: (value: unknown) => string | null): Array<ColumnD
       header: "Name",
       meta: {
         edit: validate
-          ? { variant: "text", validate: value => validate(value) }
-          : "text"
+          ? { render: textEditor(), validate: value => validate(value) }
+          : textEditor()
       }
     }
   ];
@@ -59,7 +60,7 @@ function gatedNameColumn(enabled: boolean): Array<ColumnDef<Person, any>> {
     {
       accessorKey: "name",
       header: "Name",
-      meta: { edit: { variant: "text", enabled: () => enabled } }
+      meta: { edit: { render: textEditor(), enabled: () => enabled } }
     }
   ];
 }
@@ -87,7 +88,7 @@ function named(accessor: (person: Person) => string): Array<ColumnDef<Person, an
       id: "name",
       accessorFn: accessor,
       header: "Name",
-      meta: { edit: "text" }
+      meta: { edit: textEditor() }
     }
   ];
 }
@@ -113,12 +114,12 @@ const editableColumns: Array<ColumnDef<Person, any>> = [
   {
     accessorKey: "name",
     header: "Name",
-    meta: { edit: "text" }
+    meta: { edit: textEditor() }
   },
   {
     accessorKey: "id",
     header: "Id",
-    meta: { edit: "text" }
+    meta: { edit: textEditor() }
   }
 ];
 
@@ -988,12 +989,12 @@ describe("inline editing", () => {
       {
         accessorKey: "name",
         header: "Name",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       },
       {
         accessorKey: "active",
         header: "Active",
-        meta: { edit: "checkbox" }
+        meta: { edit: { instant: checkboxEditor() } }
       }
     ];
 
@@ -1239,7 +1240,7 @@ describe("inline editing", () => {
         meta: {
           edit: {
             enabled: () => gateOpen,
-            variant: "text"
+            render: textEditor()
           }
         }
       }
@@ -1637,7 +1638,7 @@ describe("inline editing", () => {
 
               return null;
             },
-            variant: "text"
+            render: textEditor()
           }
         }
       },
@@ -1759,7 +1760,7 @@ describe("inline editing", () => {
       {
         accessorKey: "name",
         header: "Name",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       }
     ];
 
@@ -1889,17 +1890,17 @@ describe("inline editing", () => {
       {
         accessorKey: "name",
         header: "Name",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       },
       {
         accessorKey: "id",
         header: "Id",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       },
       {
         accessorKey: "active",
         header: "Active",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       }
     ];
 
@@ -2080,7 +2081,7 @@ describe("inline editing", () => {
           {
             accessorKey: "active",
             header: "Active",
-            meta: { edit: "checkbox" }
+            meta: { edit: { instant: checkboxEditor() } }
           }
         ]}
         onEditCommit={onEditCommit}
@@ -2105,7 +2106,7 @@ describe("inline editing", () => {
         header: "Name",
         meta: {
           edit: {
-            variant: "text",
+            render: textEditor(),
             validate: value => value === "invalid" ? "invalid name" : null
           }
         }
@@ -2113,7 +2114,7 @@ describe("inline editing", () => {
       {
         accessorKey: "id",
         header: "ID",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       }
     ];
 
@@ -2149,17 +2150,17 @@ describe("inline editing", () => {
       {
         accessorKey: "name",
         header: "Name",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       },
       {
         accessorKey: "active",
         header: "Active",
-        meta: { edit: { variant: "checkbox" } }
+        meta: { edit: { instant: checkboxEditor() } }
       },
       {
         accessorKey: "id",
         header: "ID",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       }
     ];
 
@@ -2195,7 +2196,7 @@ describe("inline editing", () => {
           {
             accessorKey: "active",
             header: "Active",
-            meta: { edit: { variant: "checkbox" } }
+            meta: { edit: { instant: checkboxEditor() } }
           }
         ]}
         onEditCommit={() => Promise.reject(new Error("toggle failed"))}
@@ -2226,7 +2227,7 @@ describe("inline editing", () => {
             header: "Active",
             meta: {
               edit: {
-                variant: "checkbox",
+                instant: checkboxEditor(),
                 validate: () => "toggle not allowed"
               }
             }
@@ -2243,5 +2244,70 @@ describe("inline editing", () => {
 
     expect(screen.getByRole("alert").textContent).toBe("toggle not allowed");
     expect(onEditCommit).not.toHaveBeenCalled();
+  });
+});
+
+describe("the session context", () => {
+  it("hands a custom renderer the mode, focus hint and accessible name, and runs its config validate", () => {
+    const seen: Array<{ autoFocus: boolean; label: string; mode: string }> = [];
+    const onEditCommit = vi.fn();
+
+    render(
+      <DataTable
+        data={people}
+        editingCell={{ columnId: "name", rowId: "1" }}
+        getRowId={getRowId}
+        columns={[
+          {
+            accessorKey: "name",
+            header: "Name",
+            meta: {
+              edit: {
+                render: ctx => {
+                  seen.push({
+                    autoFocus: ctx.autoFocus,
+                    label: ctx.label,
+                    mode: ctx.mode
+                  });
+
+                  return (
+                    <>
+                      <input
+                        aria-label={ctx.label}
+                        value={ctx.value === null || ctx.value === undefined ? "" : String(ctx.value)}
+                        onChange={event => ctx.setValue(event.currentTarget.value)}
+                      />
+
+                      {ctx.error && <span role="alert">{ctx.error}</span>}
+                    </>
+                  );
+                },
+                validate: value => value === "" ? "Name is required" : null
+              }
+            }
+          }
+        ]}
+        onEditCommit={onEditCommit}
+        onEditingCellChange={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    // The context names the session, not the control: which mode hosts it, whether to take
+    // focus, and the localized accessible name the column resolves to.
+    expect(seen[0]).toEqual({
+      autoFocus: true,
+      label: "Edit Name",
+      mode: "cell"
+    });
+
+    const input = screen.getByLabelText<HTMLInputElement>("Edit Name");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    // `validate` rides the config for ANY renderer — custom ones included, which the old
+    // variant shapes never offered — so the empty draft never reaches the application.
+    expect(onEditCommit).not.toHaveBeenCalled();
+    expect(screen.getByText("Name is required")).toBeTruthy();
   });
 });

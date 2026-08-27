@@ -57,7 +57,7 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 | `align` | `"start" \| "center" \| "end"` | Logical text alignment for header, cells, and footer — RTL-correct by construction |
 | `truncate` | `boolean` | Single-line ellipsis, plus a `title` tooltip **when the text is actually clipped** (host vocabulary: `Text.truncate`) |
 | `filter` | variant \| config \| render function | Header filter UI — see [filtering.md](filtering.md) |
-| `edit` | variant \| config \| render function | Inline cell editing — see [editing.md](editing.md) |
+| `edit` | renderer \| config \| instant config | Inline cell editing — the renderer is the application's; see [editing.md](editing.md) |
 | `cellProps` | `TableTdProps \| (cell) => TableTdProps \| undefined` | DOM props for this column's `<td>`s — see [DOM props](styling.md#dom-props) |
 | `headerCellProps` | `TableThProps \| (header) => TableThProps \| undefined` | DOM props for this column's `<th>` |
 | `footerCellProps` | `TableThProps \| (footer) => TableThProps \| undefined` | DOM props for this column's footer cell |

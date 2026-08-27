@@ -1,15 +1,16 @@
 import type { KeyboardEvent } from "react";
 
-import type { Cell, DataTableEditConfig } from "./types";
+import type { Cell } from "./types";
 
 /**
  * The editor hosts, for both modes. Each is a view of its session plus a keyboard surface: the
  * draft, the validation, the in-flight commit and the failure all belong to the controller, so
  * that a hidden column or a virtual scroll unmounting an editor takes nothing with it
- * (docs/architecture.md). Editors are unstyled Mantine inputs filling the cell — a boxed input
- * inside a table cell is visual noise.
+ * (docs/architecture.md). The host renders no control of its own — the renderer the column
+ * declared does (docs/editing.md#editors) — it supplies the context, the keyboard map, the blur
+ * commit, and the pending presentation around it.
  */
-import { Loader, NumberInput, Select, TextInput } from "@mantine/core";
+import { Loader } from "@mantine/core";
 import { useLayoutEffect, useReducer, useRef } from "react";
 
 import { columnHeaderText } from "./build-columns";
@@ -18,8 +19,6 @@ import { cellValue, normalizeEdit } from "./edit-meta";
 import { useEventCallback } from "./utils";
 
 export { canEditCell } from "./edit-meta";
-
-type CommitResult = boolean | Promise<boolean>;
 
 export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
   const { labels, getStyles } = useDataTableContext();
@@ -45,7 +44,9 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     [register, rowId, columnId, redrawFromSession]
   );
 
-  if (!normalized || !editing) {
+  // An instant column has no session for this host to draw — a change in the cell is the commit
+  // (docs/editing.md#instant-editing) — so a programmatic `startEditing` on one renders nothing.
+  if (!normalized || normalized.kind === "instant" || !editing) {
     return null;
   }
 
@@ -86,29 +87,19 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     }
   };
 
-  const editor
-    = normalized.kind === "custom"
-      ? normalized.render({
-          row: cell.row,
-          column: cell.column,
-          value: draft,
-          setValue,
-          commit: () => editing.commit(),
-          cancel: () => editing.cancel(),
-          error: editError,
-          pending
-        })
-      : (
-          <VariantEditor
-            config={normalized.config}
-            draft={draft}
-            error={editError}
-            name={labels.editColumn(columnHeaderText(cell.column))}
-            pending={pending}
-            onCommit={() => editing.commit()}
-            onValueChange={setValue}
-          />
-        );
+  const editor = normalized.render({
+    row: cell.row,
+    column: cell.column,
+    value: draft,
+    setValue,
+    commit: () => editing.commit(),
+    cancel: () => editing.cancel(),
+    error: editError,
+    pending,
+    mode: "cell",
+    autoFocus: true,
+    label: labels.editColumn(columnHeaderText(cell.column))
+  });
 
   return (
     <div
@@ -205,9 +196,27 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
     }
   };
 
+  const label = labels.editColumn(columnHeaderText(cell.column));
+
   const editor
-    = normalized.kind === "custom"
+    = normalized.kind === "instant"
       ? normalized.render({
+          row: cell.row,
+          column: cell.column,
+          value: draft,
+          // In row mode an instant control joins the row like any other editor: its commit
+          // stages the value in the row draft, and the atomic row commit owns the write
+          // (docs/editing.md#instant-editing).
+          commit: (value: unknown) => {
+            setValue(value);
+
+            return true;
+          },
+          error: editError,
+          pending,
+          label
+        })
+      : normalized.render({
           row: cell.row,
           column: cell.column,
           value: draft,
@@ -218,21 +227,11 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
           commit: () => editing.row.commit(),
           cancel: () => editing.row.stop({ commit: false }),
           error: editError,
-          pending
-        })
-      : (
-          <VariantEditor
-            autoFocus={autoFocus}
-            config={normalized.config}
-            draft={draft}
-            error={editError}
-            mode="row"
-            name={labels.editColumn(columnHeaderText(cell.column))}
-            pending={pending}
-            onCommit={() => true}
-            onValueChange={setValue}
-          />
-        );
+          pending,
+          mode: "row",
+          autoFocus,
+          label
+        });
 
   return (
     <div
@@ -249,113 +248,4 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
       {pending && <Loader size={12} />}
     </div>
   );
-}
-
-interface VariantEditorProps {
-  config: DataTableEditConfig<any, unknown>;
-  draft: unknown;
-  error: string | null;
-  pending: boolean;
-  /**
-   * Cell mode focuses (and for selects, opens) its single editor; row mode focuses only the
-   * cell the session started from, never auto-opens, and never commits from a select change.
-   */
-  mode?: "cell" | "row";
-  autoFocus?: boolean;
-  /**
-   * Accessible name: an editor is one of many identical controls in the grid, and the column it
-   * edits is what tells them apart.
-   */
-  name: string;
-  onValueChange: (value: unknown) => void;
-  onCommit: () => CommitResult;
-}
-
-function VariantEditor({
-  config,
-  draft,
-  error,
-  pending,
-  mode = "cell",
-  autoFocus = true,
-  name,
-  onValueChange,
-  onCommit
-}: VariantEditorProps) {
-  switch (config.variant) {
-    case "text": {
-      return (
-        <TextInput
-          aria-label={name}
-          autoFocus={autoFocus}
-          disabled={pending}
-          error={error}
-          size="xs"
-          value={draft === null || draft === undefined ? "" : String(draft)}
-          variant="unstyled"
-          onChange={event => onValueChange(event.currentTarget.value)}
-        />
-      );
-    }
-
-    case "number": {
-      return (
-        <NumberInput
-          hideControls
-          aria-label={name}
-          autoFocus={autoFocus}
-          disabled={pending}
-          error={error}
-          size="xs"
-          value={typeof draft === "number" || typeof draft === "string" ? draft : ""}
-          variant="unstyled"
-          onChange={value => onValueChange(value === "" ? null : value)}
-        />
-      );
-    }
-
-    case "select": {
-      return (
-        <Select
-          aria-label={name}
-          autoFocus={autoFocus}
-          comboboxProps={{ withinPortal: true }}
-          data={config.options}
-          defaultDropdownOpened={mode === "cell"}
-          disabled={pending}
-          error={error}
-          size="xs"
-          value={draft === null || draft === undefined ? null : String(draft)}
-          variant="unstyled"
-          onChange={value => {
-            onValueChange(value);
-
-            if (mode === "cell") {
-              onCommit();
-            }
-          }}
-        />
-      );
-    }
-
-    case "checkbox": {
-      if (mode === "row") {
-        // Row mode binds the checkbox to the draft like any other editor — the atomic commit
-        // owns the write.
-        return (
-          <input
-            aria-label={name}
-            checked={Boolean(draft)}
-            disabled={pending}
-            type="checkbox"
-            onChange={event => onValueChange(event.currentTarget.checked)}
-          />
-        );
-      }
-
-      // Cell mode: the checkbox variant never enters edit mode (it commits on toggle in the
-      // cell itself); reaching here means startEditing was called programmatically.
-      return null;
-    }
-  }
 }

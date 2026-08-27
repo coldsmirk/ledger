@@ -2,7 +2,7 @@ import type { Row, TableInstance } from "@coldsmirk/ledger-mantine";
 
 import type { Person } from "../data";
 
-import { createColumnHelper, DataTable } from "@coldsmirk/ledger-mantine";
+import { createColumnHelper, DataTable, numberEditor, selectEditor, textEditor } from "@coldsmirk/ledger-mantine";
 import { Button, Code, Group, Text } from "@mantine/core";
 import { useMemo, useState } from "react";
 
@@ -108,7 +108,7 @@ export function RowEditingDemo() {
       size: 130,
       meta: {
         edit: {
-          variant: "text",
+          render: textEditor(),
           validate: value => String(value).trim() === "" ? t.nameRequired : null
         }
       }
@@ -117,7 +117,7 @@ export function RowEditingDemo() {
       header: t.role,
       size: 170,
       // The editor has to offer exactly the roles the data is drawn from, in this language.
-      meta: { edit: { variant: "select", options: roleOptions(lang) } }
+      meta: { edit: selectEditor(roleOptions(lang)) }
     }),
     helper.accessor("age", {
       header: t.age,
@@ -125,7 +125,7 @@ export function RowEditingDemo() {
       meta: {
         align: "end",
         edit: {
-          variant: "number",
+          render: numberEditor(),
           validate: value => typeof value === "number" && value >= 16 && value <= 70 ? null : t.ageRange
         }
       }
@@ -135,7 +135,7 @@ export function RowEditingDemo() {
       meta: {
         truncate: true,
         edit: {
-          variant: "text",
+          render: textEditor(),
           validate: value => String(value).includes("@") ? null : t.emailInvalid
         }
       }

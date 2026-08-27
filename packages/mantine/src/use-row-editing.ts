@@ -663,14 +663,14 @@ export function useRowEditing<TData extends RowData>({
     for (const columnId of editableColumnIds) {
       const normalized = normalizeEdit(committed.edit(columnId));
 
-      if (normalized?.kind !== "variant" || !normalized.config.validate) {
+      if (!normalized?.validate) {
         continue;
       }
 
       let message: string | null;
 
       try {
-        message = normalized.config.validate(values[columnId], row);
+        message = normalized.validate(values[columnId], row);
       } catch (error) {
         message = editErrorMessage(error);
       }

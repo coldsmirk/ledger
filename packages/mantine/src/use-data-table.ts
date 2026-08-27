@@ -40,8 +40,8 @@ import { buildLedgerFeatures } from "./ledger-features";
 import { readPersistedState, usePersistWriter } from "./persist";
 import { nextSorting } from "./toggle-fns";
 import { useCellEditing } from "./use-cell-editing";
-import { useCheckboxEditing } from "./use-checkbox-editing";
 import { useCommittedTable } from "./use-committed-table";
+import { useInstantEditing } from "./use-instant-editing";
 import { useResponsiveColumns } from "./use-responsive-columns";
 import { useRowCommands } from "./use-row-commands";
 import { useRowEditing } from "./use-row-editing";
@@ -249,10 +249,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     setEditingCell
   });
 
-  // The checkbox variant commits on toggle instead of opening an editor, but what a toggle
-  // leaves behind — a write still out, its failure, the value the application now holds —
-  // outlives the control just as a session outlives its editor (docs/architecture.md).
-  const checkboxSession = useCheckboxEditing<TData>({
+  // An instant column commits on change instead of opening an editor, but what a commit leaves
+  // behind — a write still out, its failure, the value the application now holds — outlives the
+  // control just as a session outlives its editor (docs/architecture.md).
+  const instantSession = useInstantEditing<TData>({
     committed,
     onEditCommit
   });
@@ -347,7 +347,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
           },
           register: cellSession.register,
           firstEditable: cellSession.firstEditable,
-          checkbox: checkboxSession,
+          instant: instantSession,
           // The slice is the hook's, the session is the controller's — spread so the two cannot
           // drift out of the shape `LedgerRowEditingController` declares.
           row: { id: editingRowId, ...rowSession }
@@ -379,7 +379,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       processedColumns,
       editingCell,
       cellSession,
-      checkboxSession,
+      instantSession,
       editMode,
       editingRowId,
       rowSession,

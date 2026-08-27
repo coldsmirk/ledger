@@ -8,6 +8,7 @@ import { createRef, startTransition, StrictMode, Suspense, useLayoutEffect, useS
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
+import { checkboxEditor, numberEditor, textEditor } from "./editors";
 
 interface Person {
   id: string;
@@ -38,12 +39,12 @@ const columns: Array<ColumnDef<Person, any>> = [
   {
     accessorKey: "name",
     header: "Name",
-    meta: { edit: "text" }
+    meta: { edit: textEditor() }
   },
   {
     accessorKey: "age",
     header: "Age",
-    meta: { edit: "number" }
+    meta: { edit: numberEditor() }
   },
   { accessorKey: "id", header: "Id" }
 ];
@@ -134,7 +135,7 @@ describe("keyboard entry into editing", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -281,7 +282,7 @@ describe("keyboard entry into editing", () => {
       {
         accessorKey: "active",
         header: "Active",
-        meta: { edit: "checkbox" }
+        meta: { edit: { instant: checkboxEditor() } }
       }
     ];
 
@@ -311,7 +312,7 @@ describe("keyboard entry into editing", () => {
       {
         accessorKey: "active",
         header: "Active",
-        meta: { edit: "checkbox" }
+        meta: { edit: { instant: checkboxEditor() } }
       }
     ];
 
@@ -410,7 +411,7 @@ describe("row editing mode", () => {
         header: "Name",
         meta: {
           edit: {
-            variant: "text",
+            render: textEditor(),
             validate: value => value === "" ? "Name is required" : null
           }
         }
@@ -418,7 +419,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -743,7 +744,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -1016,7 +1017,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -1202,7 +1203,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "name",
         header: "Name",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       },
       { accessorKey: "id", header: "Id" }
     ];
@@ -1345,7 +1346,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -1397,14 +1398,14 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
     const nameOnly: Array<ColumnDef<Person, any>> = [
       {
         accessorKey: "name",
         header: "Name",
-        meta: { edit: "text" }
+        meta: { edit: textEditor() }
       }
     ];
     const readOnlyName: Array<ColumnDef<Person, any>> = [{ accessorKey: "name", header: "Name" }];
@@ -1448,7 +1449,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -1629,15 +1630,15 @@ describe("row editing mode", () => {
         header: "Name",
         meta: {
           edit: {
-            validate: value => String(value ?? "").length > 0 ? null : "Name is required",
-            variant: "text"
+            render: textEditor(),
+            validate: value => String(value ?? "").length > 0 ? null : "Name is required"
           }
         }
       },
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -1835,7 +1836,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -1910,8 +1911,8 @@ describe("row editing mode", () => {
         header: "Age",
         meta: {
           edit: {
-            validate: value => Number(value) > 0 ? null : "Age must be positive",
-            variant: "number"
+            render: numberEditor(),
+            validate: value => Number(value) > 0 ? null : "Age must be positive"
           }
         }
       }
@@ -2063,12 +2064,12 @@ describe("row editing mode", () => {
       {
         accessorKey: "name",
         header: "Name",
-        meta: { edit: { enabled: () => gateOpen, variant: "text" } }
+        meta: { edit: { enabled: () => gateOpen, render: textEditor() } }
       },
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: { enabled: () => gateOpen, variant: "number" } }
+        meta: { edit: { enabled: () => gateOpen, render: numberEditor() } }
       }
     ];
 
@@ -2393,7 +2394,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       }
     ];
 
@@ -2443,7 +2444,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       },
       { accessorKey: "id", header: "Id" }
     ];
@@ -2492,7 +2493,7 @@ describe("row editing mode", () => {
       {
         accessorKey: "age",
         header: "Age",
-        meta: { edit: "number" }
+        meta: { edit: numberEditor() }
       },
       { accessorKey: "id", header: "Id" }
     ];

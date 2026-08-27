@@ -72,10 +72,10 @@ export interface CommittedTable {
    */
   onScreen: (rowId: string) => boolean;
   /**
-   * The committed definition's variant is `checkbox` — which the keyboard entry points need,
-   * because what a checkbox column *is* depends on the mode (docs/editing.md).
+   * The committed definition declares an instant-apply control — which the keyboard entry
+   * points need, because what an instant column *is* depends on the mode (docs/editing.md).
    */
-  isCheckbox: (columnId: string) => boolean;
+  isInstant: (columnId: string) => boolean;
   /**
    * Whether editing is possible at all: the table switch is on *and* the live mode has a handler
    * to send an edit to. Both are table-level facts, so this is answered without a row — which is
@@ -161,11 +161,7 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
   const onScreen = useCallback((rowId: string) => snapshot.current.displayRowIds.has(rowId), []);
   const visibleColumnIds = useCallback(() => snapshot.current.visibleColumnIds, []);
   const edit = useCallback((columnId: string) => snapshot.current.columns.get(columnId)?.columnDef.meta?.edit, []);
-  const isCheckbox = useCallback((columnId: string) => {
-    const normalized = normalizeEdit(snapshot.current.columns.get(columnId)?.columnDef.meta?.edit);
-
-    return normalized?.kind === "variant" && normalized.config.variant === "checkbox";
-  }, []);
+  const isInstant = useCallback((columnId: string) => normalizeEdit(snapshot.current.columns.get(columnId)?.columnDef.meta?.edit)?.kind === "instant", []);
   const tableGate = useCallback(() => snapshot.current.enableEditing && snapshot.current.hasCommitHandler, []);
 
   const value = useCallback((rowId: string, columnId: string) => {
@@ -199,7 +195,7 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
         columnIds,
         edit,
         has,
-        isCheckbox,
+        isInstant,
         onScreen,
         row,
         tableGate,
@@ -207,7 +203,7 @@ export function useCommittedTable<TData extends RowData>(): readonly [CommittedT
         visibleColumnIds
       };
     },
-    [canEdit, column, columnIds, edit, has, isCheckbox, onScreen, row, tableGate, value, visibleColumnIds]
+    [canEdit, column, columnIds, edit, has, isInstant, onScreen, row, tableGate, value, visibleColumnIds]
   );
 
   return [committed, capture] as const;

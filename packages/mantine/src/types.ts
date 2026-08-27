@@ -93,15 +93,22 @@ export type DataTableFilterConfig
 // Inline editing
 // ----------------------------------------------------------------------------------------------
 
-export type DataTableEditVariant = "text" | "number" | "select" | "checkbox";
+/**
+ * Renders a session editor into an editing cell. The host owns the session around it — the
+ * draft, the keyboard map, blur commit, pending state, and the whole lifecycle — the renderer
+ * only supplies the control (docs/editing.md#editors). The shipped `textEditor` / `numberEditor`
+ * / `selectEditor` helpers are renderers of exactly this shape.
+ */
+export type DataTableEditRenderer<TData extends RowData, TValue>
+  = (ctx: DataTableEditContext<TData, TValue>) => ReactNode;
 
 /**
- * The variants a bare string can name. `select` is missing on purpose: unlike its filter
- * counterpart there is nothing to derive its options from — an editor has no faceted values —
- * so a bare `edit: "select"` could only ever open an empty dropdown. It is declared in config
- * form, where `options` is required.
+ * Renders an instant-apply control living in the cell itself — no session and no trigger: each
+ * change the control reports through `ctx.commit(value)` is one commit
+ * (docs/editing.md#instant-editing). The shipped `checkboxEditor` helper is one of these.
  */
-export type DataTableEditShorthand = Exclude<DataTableEditVariant, "select">;
+export type DataTableInstantEditRenderer<TData extends RowData, TValue>
+  = (ctx: DataTableInstantEditContext<TData, TValue>) => ReactNode;
 
 interface DataTableEditConfigBase<TData extends RowData, TValue> {
   /**
@@ -115,13 +122,20 @@ interface DataTableEditConfigBase<TData extends RowData, TValue> {
 }
 
 /**
- * Per-variant editor configuration, discriminated by `variant` for the reason
- * `DataTableFilterConfig` is — `options` belongs to `select` and to nothing else, and there it is
- * required rather than optional.
+ * A session editor with its gates. The bare renderer form is this config with neither gate.
  */
-export type DataTableEditConfig<TData extends RowData, TValue>
-  = | (DataTableEditConfigBase<TData, TValue> & { variant: DataTableEditShorthand })
-    | (DataTableEditConfigBase<TData, TValue> & { variant: "select"; options: ComboboxData });
+export interface DataTableEditConfig<TData extends RowData, TValue> extends DataTableEditConfigBase<TData, TValue> {
+  render: DataTableEditRenderer<TData, TValue>;
+}
+
+/**
+ * An instant-apply control with its gates. Discriminated from the session config by its key:
+ * `instant` and `render` carry different contexts, so which one a column declares is which
+ * interaction model its cells get.
+ */
+export interface DataTableInstantEditConfig<TData extends RowData, TValue> extends DataTableEditConfigBase<TData, TValue> {
+  instant: DataTableInstantEditRenderer<TData, TValue>;
+}
 
 export interface DataTableEditContext<TData extends RowData, TValue> {
   row: Row<TData>;
@@ -130,18 +144,60 @@ export interface DataTableEditContext<TData extends RowData, TValue> {
   setValue: (value: TValue) => void;
   /**
    * Returns whether validation and the application commit succeeded. Async commits resolve to
-   * the same result; rejection is presented as an editor error rather than rethrown.
+   * the same result; rejection is presented as an editor error rather than rethrown. In row
+   * mode, `commit` and `cancel` operate on the whole row, matching the keyboard map.
    */
   commit: () => boolean | Promise<boolean>;
   cancel: () => void;
   error: string | null;
   /**
    * A write for this editor is still out — the cell's in cell mode, the whole row's in row mode.
-   * The built-in variants disable themselves for the duration; a custom editor is never disabled
-   * for it, because the host cannot know what to disable, so it decides for itself
-   * (docs/editing.md#custom-editors).
+   * The host cannot know what to disable, so the renderer reads the flag and decides for itself
+   * (docs/editing.md#editors).
    */
   pending: boolean;
+  /**
+   * Which session hosts the editor. A renderer may adapt — the select helper opens its dropdown
+   * immediately and commits on pick only in cell mode, where one cell is the whole session.
+   */
+  mode: DataTableEditMode;
+  /**
+   * Whether this editor should take focus as it mounts: always in cell mode; in row mode only
+   * the column the session was started from.
+   */
+  autoFocus: boolean;
+  /**
+   * Localized accessible name for the control (`labels.editColumn` over the column title) — an
+   * editor is one of many identical controls in the grid, told apart by the column it edits.
+   */
+  label: string;
+}
+
+export interface DataTableInstantEditContext<TData extends RowData, TValue> {
+  row: Row<TData>;
+  column: Column<TData, TValue>;
+  /**
+   * The value the cell holds as far as the application knows: the value this cell has already
+   * written while the data has not caught up with it, else the data's own.
+   */
+  value: TValue;
+  /**
+   * Commits `value` in one act — validation, the application handler, pending, and failure
+   * presentation all run exactly as a session commit's would. In row mode the control joins the
+   * row like any other editor: the call stages the value in the row draft, and the atomic row
+   * commit owns the write.
+   */
+  commit: (value: TValue) => boolean | Promise<boolean>;
+  /**
+   * This cell's own write is still out; the control should disable itself so a second change
+   * cannot race the first.
+   */
+  pending: boolean;
+  error: string | null;
+  /**
+   * Localized accessible name for the control (`labels.editColumn` over the column title).
+   */
+  label: string;
 }
 
 export interface DataTableEditCommit<TData extends RowData> {
@@ -454,7 +510,7 @@ export interface LedgerRowEditingController {
   stop: (options?: { commit?: boolean }) => void;
   /**
    * Commits the whole row and reports whether it went through — validation and the application's
-   * handler both. What a custom editor's `commit` returns (docs/editing.md#custom-editors).
+   * handler both. What an editor renderer's `commit` returns (docs/editing.md#editors).
    */
   commit: () => boolean | Promise<boolean>;
   /**
@@ -544,39 +600,39 @@ export interface LedgerEditingController {
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
   /**
    * Where F2 enters a row: its first editable cell in display order, as the render that reached
-   * the screen had it — the order, the gate and each column's variant all come from there rather
-   * than from the shared core, which carries whatever render pass ran last, committed or not
-   * (docs/architecture.md). `skipCheckbox` is the mode: cell mode has no editor to open on a
-   * checkbox, row mode does.
+   * the screen had it — the order, the gate and each column's editing kind all come from there
+   * rather than from the shared core, which carries whatever render pass ran last, committed or
+   * not (docs/architecture.md). `skipInstant` is the mode: cell mode has no editor to open on an
+   * instant column, row mode does.
    */
-  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null;
+  firstEditable: (rowId: string, skipInstant: boolean) => string | null;
   /**
-   * The checkbox variant's transient edits. Not a session: toggling *is* the commit, so there is
-   * nothing to open or close — but the write still out, the failure it came back with and the
-   * value the application now holds all outlive the control that sent them, and any number of
-   * cells can have one at once (docs/editing.md).
+   * The instant-apply controls' transient edits. Not a session: a change *is* the commit, so
+   * there is nothing to open or close — but the write still out, the failure it came back with
+   * and the value the application now holds all outlive the control that sent them, and any
+   * number of cells can have one at once (docs/editing.md).
    */
-  checkbox: LedgerCheckboxEditingController;
+  instant: LedgerInstantEditingController;
   /**
    * Row-mode surface; inert while `mode` is `"cell"`.
    */
   row: LedgerRowEditingController;
 }
 
-export interface LedgerCheckboxEditingController {
+export interface LedgerInstantEditingController {
   /**
-   * What the checkbox shows: the value this cell has written while the data has not moved past
+   * What the control shows: the value this cell has written while the data has not moved past
    * it, else the data's own.
    */
-  checked: (rowId: string, columnId: string, source: unknown) => boolean;
+  value: (rowId: string, columnId: string, source: unknown) => unknown;
   pending: (rowId: string, columnId: string) => boolean;
   error: (rowId: string, columnId: string) => string | null;
   /**
-   * Toggles and commits in one act, against what the application last knew the cell to hold.
+   * Commits one value in one act, against what the application last knew the cell to hold.
    * Addressed, not handed a `Cell`: the cell would carry the shared core with it, and everything
    * this decides with comes from the render that reached the screen.
    */
-  toggle: (rowId: string, columnId: string) => void;
+  commit: (rowId: string, columnId: string, value: unknown) => boolean | Promise<boolean>;
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
 }
 
@@ -649,13 +705,15 @@ declare module "@tanstack/react-table" {
       | DataTableFilterConfig
       | ((column: Column<TData, TValue>) => ReactNode);
     /**
-     * Inline cell editing: a variant shorthand, a config, or a fully custom editor. The shorthand
-     * omits `select`, which needs the `options` only its config form carries.
+     * Inline cell editing: a session-editor renderer (bare or in a config with gates), or an
+     * instant-apply control (docs/editing.md). Rendering always belongs to the application —
+     * the shipped `textEditor` / `numberEditor` / `selectEditor` / `checkboxEditor` helpers are
+     * renderers built on the same public contexts.
      */
     edit?:
-      | DataTableEditShorthand
+      | DataTableEditRenderer<TData, TValue>
       | DataTableEditConfig<TData, TValue>
-      | ((ctx: DataTableEditContext<TData, TValue>) => ReactNode);
+      | DataTableInstantEditConfig<TData, TValue>;
     /**
      * DOM props for this column's body cells — static, or per cell.
      */

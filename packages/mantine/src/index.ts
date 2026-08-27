@@ -21,6 +21,7 @@ export type {
   DataTableProps,
   DataTableStylesNames
 } from "./data-table";
+export { checkboxEditor, numberEditor, selectEditor, textEditor } from "./editors";
 export type { DataTableElementProps } from "./element-props";
 export { defaultIcons } from "./icons";
 export type { DataTableIconComponent, DataTableIconProps, DataTableIcons } from "./icons";
@@ -45,20 +46,22 @@ export type {
   DataTableEditContext,
   DataTableEditingCell,
   DataTableEditMode,
-  DataTableEditShorthand,
+  DataTableEditRenderer,
   DataTableEditTrigger,
-  DataTableEditVariant,
   DataTableExportMeta,
   DataTableFilterConfig,
   DataTableFilterVariant,
   DataTableHandle,
+  DataTableInstantEditConfig,
+  DataTableInstantEditContext,
+  DataTableInstantEditRenderer,
   DataTablePersistableSlice,
   DataTablePersistState,
   DataTableRowEditCommit,
   DataTableScrollToRowOptions,
   LedgerCellEditor,
-  LedgerCheckboxEditingController,
   LedgerEditingController,
+  LedgerInstantEditingController,
   LedgerMeta,
   LedgerRowEditingController,
   LedgerRowEditor,

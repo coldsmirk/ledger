@@ -8,6 +8,7 @@ import { startTransition, StrictMode, Suspense, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
+import { textEditor } from "./editors";
 import { useDataTable } from "./use-data-table";
 
 interface Person {
@@ -28,7 +29,7 @@ const editable: Array<ColumnDef<Person, any>> = [
   {
     accessorKey: "name",
     header: "Name",
-    meta: { edit: "text" }
+    meta: { edit: textEditor() }
   }
 ];
 

@@ -35,7 +35,7 @@ import "@coldsmirk/ledger-mantine/styles.css";
 
 Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell`, `Header`, `HeaderGroup` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape. Its methods are v9's — `accessor` / `display` / `group` / **`columns`**, the last being the variadic-tuple wrapper a `group`'s children need so each keeps its own `TValue` ([columns.md](columns.md#header-groups-and-footers)).
 
-ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableIcons`, `DataTableIconProps`, `DataTableIconComponent`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditVariant`, `DataTableEditShorthand`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerCheckboxEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`.
+ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableIcons`, `DataTableIconProps`, `DataTableIconComponent`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditRenderer`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableInstantEditRenderer`, `DataTableInstantEditConfig`, `DataTableInstantEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerInstantEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`. Value exports beyond the components: `toCsv`, `createColumnHelper`, `flexRender`, `defaultLabels`, `defaultIcons`, and the editor factories `textEditor` / `numberEditor` / `selectEditor` / `checkboxEditor`.
 
 Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
@@ -166,8 +166,8 @@ interface ColumnMeta<TData, TValue> {
   truncate?: boolean;
   filter?: DataTableFilterVariant | DataTableFilterConfig
          | ((column: Column<TData, TValue>) => ReactNode);
-  edit?: DataTableEditShorthand | DataTableEditConfig<TData, TValue>
-       | ((ctx: DataTableEditContext<TData, TValue>) => ReactNode);
+  edit?: DataTableEditRenderer<TData, TValue> | DataTableEditConfig<TData, TValue>
+       | DataTableInstantEditConfig<TData, TValue>;
   cellProps?: DataTableElementProps<TableTdProps, Cell<TData, TValue>>;
   headerCellProps?: DataTableElementProps<TableThProps, Header<TData, TValue>>;
   footerCellProps?: DataTableElementProps<TableThProps, Header<TData, TValue>>;
@@ -180,23 +180,17 @@ interface ColumnMeta<TData, TValue> {
 ## Editing types
 
 ```ts
-type DataTableEditVariant = "text" | "number" | "select" | "checkbox";
-type DataTableEditShorthand = Exclude<DataTableEditVariant, "select">;   // what a bare string may name
 type DataTableEditTrigger = "double-click" | "click";
 type DataTableEditMode = "cell" | "row";
 
-interface DataTableRowEditCommit<TData> {
-  row: Row<TData>;
-  values: Record<string, unknown>;           // every editable column, drafts merged in
-  previousValues: Record<string, unknown>;
-}
+type DataTableEditRenderer<TData, TValue> = (ctx: DataTableEditContext<TData, TValue>) => ReactNode;
+type DataTableInstantEditRenderer<TData, TValue> = (ctx: DataTableInstantEditContext<TData, TValue>) => ReactNode;
 
-// Both members also carry the shared gate and validation:
+// Both configs also carry the shared gate and validation — the session's, not the control's:
 //   enabled?: (row: Row<TData>) => boolean;                        // per-row gate
 //   validate?: (value: TValue, row: Row<TData>) => string | null;  // non-null blocks the commit
-type DataTableEditConfig<TData, TValue> =
-  | { variant: DataTableEditShorthand }
-  | { variant: "select"; options: ComboboxData };   // required: an editor has no facets to derive from
+interface DataTableEditConfig<TData, TValue>        { render: DataTableEditRenderer<TData, TValue> }
+interface DataTableInstantEditConfig<TData, TValue> { instant: DataTableInstantEditRenderer<TData, TValue> }
 
 interface DataTableEditContext<TData, TValue> {
   row: Row<TData>;
@@ -207,6 +201,25 @@ interface DataTableEditContext<TData, TValue> {
   cancel: () => void;
   error: string | null;
   pending: boolean;                          // a write is still out (the cell's; in row mode the row's)
+  mode: DataTableEditMode;                   // which session hosts the editor — a renderer may adapt
+  autoFocus: boolean;                        // take focus on mount: always in cell mode, entry column in row mode
+  label: string;                             // localized accessible name (labels.editColumn over the column title)
+}
+
+interface DataTableInstantEditContext<TData, TValue> {
+  row: Row<TData>;
+  column: Column<TData, TValue>;
+  value: TValue;                             // what the cell holds as far as the application knows
+  commit: (value: TValue) => boolean | Promise<boolean>;  // one change, one commit; stages the row draft in row mode
+  pending: boolean;
+  error: string | null;
+  label: string;
+}
+
+interface DataTableRowEditCommit<TData> {
+  row: Row<TData>;
+  values: Record<string, unknown>;           // every editable column, drafts merged in
+  previousValues: Record<string, unknown>;
 }
 
 interface DataTableEditCommit<TData> {
@@ -218,6 +231,8 @@ interface DataTableEditCommit<TData> {
 
 interface DataTableEditingCell { rowId: string; columnId: string }
 ```
+
+The shipped editors — `textEditor()`, `numberEditor()`, `selectEditor(options)`, and the instant `checkboxEditor()` — are exported renderer factories implemented on these public contexts ([editing.md](editing.md#the-shipped-editors)).
 
 ## Filter types
 
@@ -409,7 +424,7 @@ interface LedgerRowEditor {
 }
 ```
 
-`editing.checkbox` is not a session — the checkbox variant commits on toggle, so there is nothing to open or close. What it holds is per *target* and any number can be live at once: the write still out, the failure it came back with, and the value the application now holds. It is addressed by row and column for the same reason the stores above are, and for one more: hiding the column, a breakpoint removing it, or a virtual scroll takes the control off the screen, and none of those are the write landing ([editing.md](editing.md#the-checkbox-variant)).
+`editing.instant` is not a session — an instant column commits on change, so there is nothing to open or close. What it holds is per *target* and any number can be live at once: the write still out, the failure it came back with, and the value the application now holds. It is addressed by row and column for the same reason the stores above are, and for one more: hiding the column, a breakpoint removing it, or a virtual scroll takes the control off the screen, and none of those are the write landing ([editing.md](editing.md#instant-editing)).
 
 `moveTo` and `firstEditable` answer for the render that reached the screen rather than for the shared TanStack core, which v9 rewrites on every render pass — a discarded one included ([architecture.md](architecture.md#load-bearing-internals)). The keyboard entry points go through them, so a transition React threw away cannot decide where the caret goes, that a cell is read-only, or that the row is not there. Both read the display order (`start + center + end`), and `moveTo` picks its destination after its commit succeeds rather than when the key was pressed.
 

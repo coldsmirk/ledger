@@ -6,6 +6,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { EXPANDER_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
+import { numberEditor, textEditor } from "./editors";
 import { ledgerFilterFns } from "./filter-fns";
 import { useDataTable } from "./use-data-table";
 
@@ -42,12 +43,12 @@ const editableColumns: Array<ColumnDef<Person, any>> = [
   {
     accessorKey: "name",
     header: "Name",
-    meta: { edit: "text" }
+    meta: { edit: textEditor() }
   },
   {
     accessorKey: "age",
     header: "Age",
-    meta: { edit: "number" }
+    meta: { edit: numberEditor() }
   }
 ];
 
@@ -57,15 +58,15 @@ const validatedColumns: Array<ColumnDef<Person, any>> = [
     header: "Name",
     meta: {
       edit: {
-        validate: value => String(value ?? "").length > 0 ? null : "Name is required",
-        variant: "text"
+        render: textEditor(),
+        validate: value => String(value ?? "").length > 0 ? null : "Name is required"
       }
     }
   },
   {
     accessorKey: "age",
     header: "Age",
-    meta: { edit: "number" }
+    meta: { edit: numberEditor() }
   }
 ];
 

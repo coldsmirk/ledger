@@ -376,8 +376,8 @@ export function useCellEditing<TData extends RowData>({
     const normalized = normalizeEdit(committed.edit(columnId));
 
     try {
-      if (normalized?.kind === "variant" && normalized.config.validate) {
-        const validationError = normalized.config.validate(value, row);
+      if (normalized?.validate) {
+        const validationError = normalized.validate(value, row);
 
         if (validationError !== null) {
           setError(validationError);
@@ -747,10 +747,11 @@ export function useCellEditing<TData extends RowData>({
   const error = useCallback((rowId: string, columnId: string) => isSessionRef.current(rowId, columnId) ? store.current.error : null, []);
 
   /**
-   * The row's next editable cell in display order, skipping the checkbox variant — it commits on
-   * toggle and hosts no editor for a caret to land in (docs/editing.md). Resolved from the render
-   * that reached the screen: the order, the gate and each column's variant all come from there,
-   * so a render nobody saw cannot decide where the caret goes, or that there is nowhere to go.
+   * The row's next editable cell in display order, skipping instant columns — a change there is
+   * the commit and hosts no editor for a caret to land in (docs/editing.md). Resolved from the
+   * render that reached the screen: the order, the gate and each column's editing kind all come
+   * from there, so a render nobody saw cannot decide where the caret goes, or that there is
+   * nowhere to go.
    */
   const adjacentEditable = (rowId: string, columnId: string | null, backwards: boolean): string | null => {
     const order = committed.visibleColumnIds();
@@ -760,7 +761,7 @@ export function useCellEditing<TData extends RowData>({
     for (let index = from + step; index >= 0 && index < order.length; index += step) {
       const candidate = order[index];
 
-      if (candidate !== undefined && committed.canEdit(rowId, candidate) && !committed.isCheckbox(candidate)) {
+      if (candidate !== undefined && committed.canEdit(rowId, candidate) && !committed.isInstant(candidate)) {
         return candidate;
       }
     }
@@ -808,9 +809,10 @@ export function useCellEditing<TData extends RowData>({
 
   /**
    * The row's first editable cell — where F2 enters (docs/editing.md#keyboard-and-lifecycle).
-   * `skipCheckbox` is the mode: cell mode has no editor to open on one, row mode does.
+   * `skipInstant` is the mode: cell mode has no editor to open on an instant column, row mode
+   * does.
    */
-  const firstEditable = useEventCallback((rowId: string, skipCheckbox: boolean): string | null => {
+  const firstEditable = useEventCallback((rowId: string, skipInstant: boolean): string | null => {
     // On screen first: `canEdit` will answer for a row that is filtered out or on another page —
     // a session may legitimately name one — but F2 acts on the row the user is looking at, and
     // opening an editor nobody can see is not that.
@@ -820,7 +822,7 @@ export function useCellEditing<TData extends RowData>({
 
     const order = committed.visibleColumnIds();
 
-    return order.find(columnId => committed.canEdit(rowId, columnId) && (!skipCheckbox || !committed.isCheckbox(columnId))) ?? null;
+    return order.find(columnId => committed.canEdit(rowId, columnId) && (!skipInstant || !committed.isInstant(columnId))) ?? null;
   });
 
   return useMemo(

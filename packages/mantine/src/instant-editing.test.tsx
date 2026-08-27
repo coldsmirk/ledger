@@ -8,6 +8,7 @@ import { startTransition, StrictMode, Suspense, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
+import { checkboxEditor } from "./editors";
 import { useDataTable } from "./use-data-table";
 
 interface Item {
@@ -39,12 +40,12 @@ const columns: Array<ColumnDef<Item, any>> = [
   {
     accessorKey: "onSale",
     header: "On sale",
-    meta: { edit: "checkbox" }
+    meta: { edit: { instant: checkboxEditor() } }
   },
   {
     accessorKey: "archived",
     header: "Archived",
-    meta: { edit: "checkbox" }
+    meta: { edit: { instant: checkboxEditor() } }
   }
 ];
 
@@ -446,8 +447,8 @@ describe("checkbox transient editing", () => {
         meta: {
           edit: {
             enabled: () => gateOpen,
-            validate,
-            variant: "checkbox"
+            instant: checkboxEditor(),
+            validate
           }
         }
       }
@@ -538,7 +539,7 @@ describe("checkbox transient editing", () => {
       {
         accessorKey: "onSale",
         header: "On sale",
-        meta: { edit: "checkbox" }
+        meta: { edit: { instant: checkboxEditor() } }
       }
     ];
 
@@ -637,5 +638,60 @@ describe("checkbox transient editing", () => {
     // to draw what it now holds.
     fireEvent.click(box("Edit On sale"));
     expect(box("Edit On sale").checked).toBe(false);
+  });
+});
+
+describe("custom instant renderers", () => {
+  it("drives the same write lifecycle for whatever control the application renders", async () => {
+    // Nothing checkbox-shaped: a button appending to a string value. The lifecycle is the
+    // abstraction's, not the control's — the pending flag disables it, the settled write is
+    // what the cell then shows, and previousValue departs from what the application last knew.
+    const write = Promise.withResolvers<void>();
+    const commits: Array<{ previousValue: unknown; value: unknown }> = [];
+
+    render(
+      <DataTable
+        data={items}
+        getRowId={getRowId}
+        columns={[
+          {
+            accessorKey: "name",
+            header: "Name",
+            meta: {
+              edit: {
+                instant: ({
+                  value,
+                  commit,
+                  pending
+                }) => (
+                  <button disabled={pending} type="button" onClick={() => void commit(`${String(value)}!`)}>
+                    {String(value)}
+                  </button>
+                )
+              }
+            }
+          }
+        ]}
+        onEditCommit={change => {
+          commits.push({ previousValue: change.previousValue, value: change.value });
+
+          return write.promise;
+        }}
+      />,
+      { wrapper }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Wireless Mouse" }));
+
+    expect(commits).toEqual([{ previousValue: "Wireless Mouse", value: "Wireless Mouse!" }]);
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Wireless Mouse" }).disabled).toBe(true);
+
+    await act(async () => {
+      write.resolve();
+      await Promise.resolve();
+    });
+
+    // The record stands while the data has not moved: the control shows what this cell wrote.
+    expect(screen.getByRole("button", { name: "Wireless Mouse!" })).toBeTruthy();
   });
 });

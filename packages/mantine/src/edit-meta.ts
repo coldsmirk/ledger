@@ -7,13 +7,26 @@
  * (docs/architecture.md). The session controllers and the editors both need these, and a
  * controller must not depend on a view module to get them.
  */
-import type { ReactNode } from "react";
+import type { Cell, DataTableEditRenderer, DataTableInstantEditRenderer, Row } from "./types";
 
-import type { Cell, DataTableEditConfig, DataTableEditContext, Row } from "./types";
-
+/**
+ * One shape for every `meta.edit` form: which interaction model the column declared, its
+ * renderer, and the gates. `validate` and `enabled` ride any kind — they are the session's
+ * gate and gatekeeper, not properties of the control being rendered.
+ */
 export type NormalizedEdit
-  = | { kind: "variant"; config: DataTableEditConfig<any, unknown> }
-    | { kind: "custom"; render: (ctx: DataTableEditContext<any, unknown>) => ReactNode };
+  = | {
+    kind: "session";
+    render: DataTableEditRenderer<any, unknown>;
+    enabled?: (row: Row<any>) => boolean;
+    validate?: (value: unknown, row: Row<any>) => string | null;
+  }
+  | {
+    kind: "instant";
+    render: DataTableInstantEditRenderer<any, unknown>;
+    enabled?: (row: Row<any>) => boolean;
+    validate?: (value: unknown, row: Row<any>) => string | null;
+  };
 
 export function editErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -27,10 +40,24 @@ export function normalizeEdit(
   }
 
   if (typeof edit === "function") {
-    return { kind: "custom", render: edit };
+    return { kind: "session", render: edit };
   }
 
-  return { kind: "variant", config: typeof edit === "string" ? { variant: edit } : edit };
+  if ("instant" in edit) {
+    return {
+      kind: "instant",
+      render: edit.instant,
+      enabled: edit.enabled,
+      validate: edit.validate
+    };
+  }
+
+  return {
+    kind: "session",
+    render: edit.render,
+    enabled: edit.enabled,
+    validate: edit.validate as NormalizedEdit["validate"]
+  };
 }
 
 /**

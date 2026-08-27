@@ -1,6 +1,6 @@
 import type { Product } from "../data";
 
-import { createColumnHelper, DataTable } from "@coldsmirk/ledger-mantine";
+import { checkboxEditor, createColumnHelper, DataTable, numberEditor, selectEditor, textEditor } from "@coldsmirk/ledger-mantine";
 import { Code, Group, SegmentedControl, Text } from "@mantine/core";
 import { useMemo, useState } from "react";
 
@@ -71,7 +71,7 @@ export function EditingDemo() {
       minSize: 180,
       meta: {
         edit: {
-          variant: "text",
+          render: textEditor(),
           validate: value => String(value).trim() === "" ? t.nameRequired : null
         }
       }
@@ -82,7 +82,7 @@ export function EditingDemo() {
       meta: {
         align: "end",
         edit: {
-          variant: "number",
+          render: numberEditor(),
           enabled: onSale
         }
       }
@@ -92,8 +92,7 @@ export function EditingDemo() {
       size: 190,
       meta: {
         edit: {
-          variant: "select",
-          options: ["A-01", "A-02", "B-01", "B-02", "C-01"],
+          render: selectEditor(["A-01", "A-02", "B-01", "B-02", "C-01"]),
           enabled: onSale
         }
       }
@@ -101,7 +100,7 @@ export function EditingDemo() {
     helper.accessor("listed", {
       header: t.listed,
       size: 190,
-      meta: { align: "center", edit: "checkbox" }
+      meta: { align: "center", edit: { instant: checkboxEditor() } }
     }),
     helper.accessor("price", {
       header: t.price,

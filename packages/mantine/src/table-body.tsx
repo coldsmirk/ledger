@@ -2,7 +2,7 @@ import type { RowData } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent, ReactNode, RefObject } from "react";
 
-import type { Cell, ColumnDef, Row, TableInstance } from "./types";
+import type { Cell, ColumnDef, DataTableInstantEditRenderer, Row, TableInstance } from "./types";
 
 /**
  * The body: display-row synthesis (detail panels become synthetic rows so every <tr> is exactly
@@ -14,12 +14,12 @@ import type { Cell, ColumnDef, Row, TableInstance } from "./types";
 import { ActionIcon, Button, Loader, Table as MantineTable, Skeleton } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useReducer } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useReducer } from "react";
 
 import { columnHeaderText, EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
 import { useDataTableContext } from "./context";
-import { cellValue } from "./edit-meta";
+import { cellValue, normalizeEdit } from "./edit-meta";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
@@ -152,56 +152,60 @@ function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
 }
 
 /**
- * The cell-mode checkbox (docs/editing.md): toggling *is* the commit, so it never enters edit
- * mode. A view of its target in the controller, like the editor hosts are views of their session
- * — what a toggle leaves behind must survive the column being hidden, a breakpoint removing it,
- * or a virtual scroll taking the row off screen, none of which are the write landing.
+ * The instant-apply host (docs/editing.md#instant-editing): a change in the cell *is* the
+ * commit, so no session ever opens. A view of its target in the controller, like the editor
+ * hosts are views of their session — what a commit leaves behind must survive the column being
+ * hidden, a breakpoint removing it, or a virtual scroll taking the row off screen, none of
+ * which are the write landing. The column's own renderer supplies the control; the host owns
+ * the chrome around it — the pending loader, the failure alert, and the click fences that keep
+ * `onRowClick` out.
  */
-function CheckboxCell({ cell }: { cell: Cell<any, unknown> }) {
+function InstantCell({ cell, render }: { cell: Cell<any, unknown>; render: DataTableInstantEditRenderer<any, unknown> }) {
   const { labels } = useDataTableContext();
   const { table } = cell.getContext();
-  const checkbox = table.options.meta?.ledger?.editing.checkbox;
+  const instant = table.options.meta?.ledger?.editing.instant;
   const rowId = cell.row.id;
   const columnId = cell.column.id;
-  const errorId = useId();
 
   const [, redraw] = useReducer((token: number) => token + 1, 0);
   const redrawFromTarget = useEventCallback(() => redraw());
-  const register = checkbox?.register;
+  const register = instant?.register;
 
   // Layout, not passive: the registry is what "on screen right now" means to the target, and a
-  // toggle that unmounts this control is followed by microtasks — a settling write among them.
+  // commit that unmounts this control is followed by microtasks — a settling write among them.
   useLayoutEffect(
     () => register?.(rowId, columnId, { redraw: redrawFromTarget }),
     [register, rowId, columnId, redrawFromTarget]
   );
 
-  if (!checkbox) {
+  if (!instant) {
     return null;
   }
 
-  const checked = checkbox.checked(rowId, columnId, cellValue(cell));
-  const pending = checkbox.pending(rowId, columnId);
-  const error = checkbox.error(rowId, columnId);
+  const value = instant.value(rowId, columnId, cellValue(cell));
+  const pending = instant.pending(rowId, columnId);
+  const error = instant.error(rowId, columnId);
 
   return (
-    <>
-      <input
-        aria-busy={pending || undefined}
-        aria-describedby={error ? errorId : undefined}
-        aria-invalid={error ? true : undefined}
-        aria-label={labels.editColumn(columnHeaderText(cell.column))}
-        checked={checked}
-        disabled={pending}
-        type="checkbox"
-        onChange={() => checkbox.toggle(rowId, columnId)}
-        onClick={event => event.stopPropagation()}
-        onDoubleClick={event => event.stopPropagation()}
-      />
+    <span
+      aria-busy={pending || undefined}
+      data-pending={pending || undefined}
+      onClick={event => event.stopPropagation()}
+      onDoubleClick={event => event.stopPropagation()}
+    >
+      {render({
+        row: cell.row,
+        column: cell.column,
+        value,
+        commit: next => instant.commit(rowId, columnId, next),
+        pending,
+        error,
+        label: labels.editColumn(columnHeaderText(cell.column))
+      })}
 
       {pending && <Loader aria-label={labels.editPending} size={12} />}
-      {error && <span id={errorId} role="alert">{error}</span>}
-    </>
+      {error && <span role="alert">{error}</span>}
+    </span>
   );
 }
 
@@ -256,7 +260,8 @@ function DataCell({
   // gate reopens (docs/architecture.md).
   const cellEditorActive = editing && gateOpen;
   const rowEditorActive = rowEditing && gateOpen;
-  const checkboxVariant = meta?.edit === "checkbox" || (typeof meta?.edit === "object" && meta.edit.variant === "checkbox");
+  const normalizedEdit = normalizeEdit(meta?.edit);
+  const instantEdit = normalizedEdit?.kind === "instant" ? normalizedEdit : null;
 
   let content: ReactNode;
 
@@ -270,8 +275,8 @@ function DataCell({
     content = <CellEditor cell={cell} />;
   } else if (rowEditorActive) {
     content = <RowCellEditor cell={cell} />;
-  } else if (editable && checkboxVariant && editMode === "cell") {
-    content = <CheckboxCell cell={cell} />;
+  } else if (editable && instantEdit && editMode === "cell") {
+    content = <InstantCell cell={cell} render={instantEdit.render} />;
   } else {
     content = flexRender(column.columnDef.cell, cell.getContext());
 
@@ -285,7 +290,7 @@ function DataCell({
   }
 
   const startEditing
-    = editable && !rowEditorActive && (editMode === "row" || !checkboxVariant) && ledger
+    = editable && !rowEditorActive && (editMode === "row" || !instantEdit) && ledger
       ? (event: MouseEvent) => {
           event.stopPropagation();
 

@@ -32,7 +32,7 @@ Every control ledger renders carries an accessible name from [`labels`](i18n.md)
 | --- | --- |
 | Header filter trigger and the control inside it | `filterColumn(columnTitle)` — "Filter Amount" |
 | Range filter | The group is named; each input keeps `filterRangeMin` / `filterRangeMax` |
-| Inline editors (text, number, select, checkbox) | `editColumn(columnTitle)` — "Edit Name" |
+| Inline editors (`ctx.label`, applied by the shipped editors) | `editColumn(columnTitle)` — "Edit Name" |
 | Selection checkbox / radio | `selectRow`, `selectAllRows` |
 | Expander | `expandRow` / `collapseRow`, `expandAll` / `collapseAll` |
 | Global search | its placeholder, so the visible text and the name agree |
