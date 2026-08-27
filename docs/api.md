@@ -160,6 +160,8 @@ Declaration-merged into TanStack's `ColumnMeta` — see [columns.md](columns.md#
 
 ```ts
 interface ColumnMeta<TData, TValue> {
+  label?: string;                   // plain-text name for the columns panel, CSV headers, filter/editor
+                                    // field names; wins over a string `header`, defaults to it, then the id
   align?: "start" | "center" | "end";
   truncate?: boolean;
   filter?: DataTableFilterVariant | DataTableFilterConfig
@@ -296,7 +298,7 @@ interface ToCsvOptions {
 }
 ```
 
-RFC 4180 quoting, CRLF line ends. Exports accessor columns only, in their current visible order (internal columns excluded); header text comes from string `header`s, falling back to column ids. Values serialize as: `Date` → ISO string, objects → JSON, `null`/`undefined` → empty. Scopes read the live row models — a server-paginated table can only export the rows it has, and `"page"` is identical to `"filtered"` when pagination is off.
+RFC 4180 quoting, CRLF line ends. Exports accessor columns only, in their current visible order (internal columns excluded); header text comes from `meta.label`, then string `header`s, falling back to column ids. Values serialize as: `Date` → ISO string, objects → JSON, `null`/`undefined` → empty. Scopes read the live row models — a server-paginated table can only export the rows it has, and `"page"` is identical to `"filtered"` when pagination is off.
 
 Per-column control rides `meta.export`: `false` excludes the column entirely; `{ header, value }` overrides the exported title or derives the exported value from the row (the result flows through the same serialization).
 

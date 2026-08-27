@@ -628,6 +628,12 @@ declare module "@tanstack/react-table" {
   // eslint-disable-next-line unused-imports/no-unused-vars -- declaration merging requires TanStack's exact type parameter list
   interface ColumnMeta<in out TFeatures extends TableFeatures, in out TData extends RowData, TValue extends CellData = CellData> {
     /**
+     * Plain-text column name for the chrome that cannot render the `header` — the columns panel,
+     * CSV headers, filter and editor field names. Defaults to the string `header`, then the
+     * column id; a column whose `header` is a render function should declare one.
+     */
+    label?: string;
+    /**
      * Logical text alignment — RTL-correct by construction.
      */
     align?: "start" | "center" | "end";

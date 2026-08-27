@@ -19,12 +19,15 @@ export function isInternalColumn(columnId: string): boolean {
 }
 
 /**
- * Human-readable column title where one is statically known — menus, CSV headers.
+ * Human-readable column title for every plain-text surface — the columns panel, CSV headers,
+ * filter and editor field names. An explicit `meta.label` wins; otherwise the string `header`;
+ * a render-function header falls back to the column id, which is why such columns should
+ * declare a `meta.label`.
  */
 export function columnHeaderText<TData extends RowData>(column: Column<TData, unknown>): string {
-  const { header } = column.columnDef;
+  const { header, meta } = column.columnDef;
 
-  return typeof header === "string" ? header : column.id;
+  return meta?.label ?? (typeof header === "string" ? header : column.id);
 }
 
 export interface BuildColumnsInput<TData extends RowData> {

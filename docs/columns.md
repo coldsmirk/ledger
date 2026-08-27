@@ -53,6 +53,7 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 
 | Key | Type | Effect |
 | --- | --- | --- |
+| `label` | `string` | Plain-text column name for every surface that cannot render the `header` — the columns panel, CSV headers, filter and editor field names. Wins over a string `header`; without either, those surfaces fall back to the column id, so a column whose `header` is a render function should declare one |
 | `align` | `"start" \| "center" \| "end"` | Logical text alignment for header, cells, and footer — RTL-correct by construction |
 | `truncate` | `boolean` | Single-line ellipsis, plus a `title` tooltip **when the text is actually clipped** (host vocabulary: `Text.truncate`) |
 | `filter` | variant \| config \| render function | Header filter UI — see [filtering.md](filtering.md) |
@@ -141,7 +142,7 @@ helper.accessor("note", {
 
 ## The columns panel
 
-`<DataTable.ColumnsPanel table={table} />` is the single surface for every column-layout decision. One row per leaf column, in the table's display order, each control appearing only when the column can actually do it:
+`<DataTable.ColumnsPanel table={table} />` is the single surface for every column-layout decision. One row per leaf column, in the table's display order, each control appearing only when the column can actually do it. A row is named by `meta.label`, then the string `header`, then the column id — a column whose `header` is a render function should declare a `meta.label` so its id never shows:
 
 | Control | Appears when | Writes |
 | --- | --- | --- |
@@ -153,11 +154,11 @@ helper.accessor("note", {
 
 **Hidden columns stay listed** — that is the point of the panel. Their checkbox is simply unchecked and their name dims, so a column can always come back.
 
-**At rest a row is identity, not machinery.** The resting panel shows the checkbox, the name, and dimmed marks only where the layout deviates from default — an overridden width as a small number, a grouped column's glyph, a hidden column's dimmed name. The controls themselves — drag handle, width field, pin position control, group toggle — reveal as a toolbar over the hovered or keyboard-focused row, so resting names get the full row width. The pin control is a segmented radio group (one choice of position — start, unpinned, end — with the current one visibly selected), not three toggle buttons. The reveal is stylesheet-only: every control is always in the DOM and the accessibility tree, and where hover does not exist (`hover: none` media) the toolbar sits inline permanently.
+**At rest a row is identity, not machinery.** The resting panel shows the checkbox, the name, and dimmed marks only where the layout deviates from default — an overridden width as a small `px` figure, a grouped column's glyph, a hidden column's dimmed name. The controls themselves — drag handle, width field, pin position control, group toggle — reveal as a toolbar over the hovered or keyboard-focused row, so resting names get the full row width. The pin control is a segmented radio group (one choice of position — start, unpinned, end — with the current one visibly selected), not three toggle buttons. The reveal is stylesheet-only: every control is always in the DOM and the accessibility tree, and where hover does not exist (`hover: none` media) the toolbar sits inline permanently.
 
 **Reset** restores order, visibility, pinning, and width — exactly the layout set `persistState` persists by default — to what the application declared through `defaultColumnOrder` / `defaultColumnVisibility` / `defaultColumnPinning` / `defaultColumnSizing`, falling back to the column definitions' own layout. Grouping is not layout and is left alone.
 
-Rows are grouped into three zones in display order — pinned start, unpinned, pinned end (TanStack v9's logical positions). An occupied pinned zone renders as a captioned, tinted shelf (the `pinnedStart` / `pinnedEnd` labels) — the same visual promise the pinned columns' opaque background makes in the table itself; nothing pinned means one flat list with no chrome at all. **Dragging reorders within a zone only**: a pinned column's position comes from its index in `columnPinning`, an unpinned one's from `columnOrder`, so the two are different edits. Moving a column between zones is what the pin controls are for.
+Rows are grouped into three zones in display order — pinned start, unpinned, pinned end (TanStack v9's logical positions). An occupied pinned zone renders as a captioned, tinted shelf — the zone's pin glyph beside its `pinnedStart` / `pinnedEnd` label, the same vocabulary the row's pin segments speak, and the same visual promise the pinned columns' opaque background makes in the table itself; nothing pinned means one flat list with no chrome at all. **Dragging reorders within a zone only**: a pinned column's position comes from its index in `columnPinning`, an unpinned one's from `columnOrder`, so the two are different edits. Moving a column between zones is what the pin controls are for.
 
 ### The trigger is yours
 

@@ -38,7 +38,7 @@ Every control ledger renders carries an accessible name from [`labels`](i18n.md)
 | Global search | its placeholder, so the visible text and the name agree |
 | Rows-per-page select | `aria-labelledby` the visible "Rows per page" text |
 
-Column titles come from the def's `header` when it is a string; a JSX header falls back to the column id, so give such columns a readable `id`.
+Column titles come from `meta.label`, then the def's `header` when it is a string; a JSX header with no `meta.label` falls back to the column id, so give such columns a `meta.label`.
 
 ## Keyboard
 
