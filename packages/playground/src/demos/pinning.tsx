@@ -30,9 +30,9 @@ const copy = {
 
 const helper = createColumnHelper<Person>();
 
-// The panel ships no trigger of its own, so the demo draws its cog: a toothed ring (a dashed
-// stroke — eight dashes, eight gaps) around a hub, in the same primitive-stroke language as the
-// library's built-in glyphs.
+// The panel ships no trigger of its own, so the demo brings the gear: Lucide's `settings`
+// glyph, vendored verbatim (lucide-static v1.34.0, ISC) — the same source and stroke language
+// as the library's built-in icons.
 function CogIcon() {
   return (
     <svg
@@ -40,11 +40,14 @@ function CogIcon() {
       fill="none"
       height={16}
       stroke="currentColor"
-      viewBox="0 0 16 16"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
       width={16}
     >
-      <circle cx="8" cy="8" r="2" strokeWidth={1.5} />
-      <circle cx="8" cy="8" r="5.25" strokeDasharray="2.47 1.65" strokeWidth={2} />
+      <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -68,6 +71,9 @@ export function PinningDemo() {
       id: "actions",
       size: 92,
       enableHiding: false,
+      // The header below is a render function, so plain-text surfaces (the columns panel) read
+      // the column's name from meta.label instead of falling back to the raw id.
+      meta: { label: t.actions },
       // A display column can never sort, so its header renders as a plain box — the one place a
       // trigger can live, since a sortable header IS a button and would end up nesting one. The
       // cell needs room for the title AND the cog: the label scaffolding clips its content.
