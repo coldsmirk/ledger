@@ -95,6 +95,30 @@ export interface DataTableLabels {
    */
   editColumn: (column: string) => string;
   editPending: string;
+
+  /* Row ordering (enableRowOrdering) */
+  /**
+   * Names every drag handle; the row a handle belongs to is evident from its position, so the
+   * label states the action, matching `selectRow` / `expandRow`.
+   */
+  reorderRow: string;
+  /**
+   * Why the handles are disabled — shown as their tooltip while sorting, a filter, a search or
+   * grouping controls the visible order.
+   */
+  rowOrderingUnavailable: string;
+  /**
+   * Announced when a drag lifts a row. The one place the keyboard drag model is spoken, so say
+   * what the keys do.
+   */
+  rowReorderLifted: (row: string) => string;
+  /**
+   * Announced as the drop target changes; `row` names the target the same way `currentRow`
+   * names rows (leading visible cell).
+   */
+  rowReorderTarget: (row: string, side: "before" | "after") => string;
+  rowReorderDropped: (row: string) => string;
+  rowReorderCanceled: string;
 }
 
 export const defaultLabels: DataTableLabels = {
@@ -146,7 +170,14 @@ export const defaultLabels: DataTableLabels = {
   loadMoreError: "Couldn't load more rows",
 
   editColumn: column => `Edit ${column}`,
-  editPending: "Saving"
+  editPending: "Saving",
+
+  reorderRow: "Drag to reorder row",
+  rowOrderingUnavailable: "Clear sorting, filters, and grouping to reorder rows",
+  rowReorderLifted: row => `${row} lifted — use the arrow keys to move, space to drop, escape to cancel`,
+  rowReorderTarget: (row, side) => side === "before" ? `Before ${row}` : `After ${row}`,
+  rowReorderDropped: row => `${row} dropped`,
+  rowReorderCanceled: "Reorder canceled"
 };
 
 export function resolveLabels(labels: Partial<DataTableLabels> | undefined): DataTableLabels {

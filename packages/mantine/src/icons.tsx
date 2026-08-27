@@ -238,6 +238,10 @@ export interface DataTableIcons {
 
   /* Rows — one chevron, rotated open by the stylesheet (expand-all and groups included). */
   expandRow: DataTableIconComponent;
+  /**
+   * The drag handle of the injected row-ordering column, and the ghost that follows a drag.
+   */
+  reorderRow: DataTableIconComponent;
 
   /* States */
   empty: DataTableIconComponent;
@@ -269,6 +273,7 @@ export const defaultIcons: DataTableIcons = {
   sortable: IconChevronsUpDown,
   filterColumn: IconFunnel,
   expandRow: IconChevronRight,
+  reorderRow: IconGripVertical,
   empty: IconInbox,
   noResults: IconSearch,
   error: IconTriangleAlert,

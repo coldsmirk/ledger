@@ -40,6 +40,33 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 - Focus stays on the viewport as the current row moves, so each change is announced through a polite live region (`labels.currentRow`, naming the row by its leading visible cell); the focus stop itself is *described* by `labels.rowNavigation` ([accessibility.md](accessibility.md)).
 - The current row renders `data-active` and `aria-current`, resting at Mantine's calm light step (`--mantine-primary-color-light`) exactly as selection does; with `highlightOnHover`, hovering either state deepens it to `--mantine-primary-color-light-hover` rather than replacing it with the gray hover color. Inside a block of selected rows the cursor rests one step deeper — exactly one row is ever current, so it stays findable without an accent bar.
 
+## Row ordering
+
+```tsx
+<DataTable
+  enableRowOrdering
+  data={steps}
+  getRowId={step => step.id}
+  onRowReorder={({ fromIndex, toIndex }) =>
+    setSteps(current => {
+      const next = [...current];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved!);
+
+      return next;
+    })}
+  …
+/>
+```
+
+Row order **is** data order — there is no order state, so a completed drag hands the move to the application and the application reorders `data`. `enableRowOrdering` (default `false`) plus an `onRowReorder` handler inject a drag-handle column (id `ledger:row-drag`, overridable via `rowDragColumn` on the same terms as `selectionColumn`); without the handler the switch is inert and nothing is injected.
+
+- **Payload**: `onRowReorder({ row, fromIndex, toIndex })` — indexes into the `data` array with `arrayMove` semantics (remove at `fromIndex`, insert at `toIndex`). Deliberately no reordered-array convenience: under server pagination the table only holds a page, and for client data the splice above is the whole of it.
+- **Pointer**: dragging a handle 5px lifts the row (it dims in place, a chip naming it follows the pointer); the target row draws a drop edge (`data-drop-side="before" | "after"`); dragging near the viewport edge auto-scrolls; `Escape` mid-drag cancels. A plain click does nothing.
+- **Keyboard**: the handle is a button — `Space`/`Enter` lifts, `↑`/`↓` move the insertion point one row (skipping the position that would change nothing), `Home`/`End` jump to the edges, `Space`/`Enter` drops, `Escape` cancels, and focus leaving the handle abandons the lift. Every step is announced through a polite live region (`labels.rowReorder*`, naming rows by the leading data column like the active row does).
+- **When order is not data order**: while sorting, a column filter, the global search, or grouping is active, a "reorder" has no data-order meaning — the handles disable and their tooltip says why (`labels.rowOrderingUnavailable`). Tree data (`getSubRows`) is not supported: the switch is ignored with a dev warning (reparenting needs a design of its own).
+- **Interplay**: pinned rows carry no handle and are never drop targets (their order is pinning state, not data order); a row's open detail panel travels with it, so "after" an expanded row draws the indicator below the panel; the injected column keeps the stop-propagation covenant — a drag never fires `onRowClick`.
+
 ## Master–detail panels
 
 ```tsx

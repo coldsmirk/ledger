@@ -6,6 +6,7 @@ import type { DataTableFactory } from "./data-table";
 import type { DataTableElementProps } from "./element-props";
 import type { DataTableIcons } from "./icons";
 import type { DataTableLabels } from "./labels";
+import type { RowReorderKeyboard } from "./row-reorder";
 import type { HeaderGroup, Row } from "./types";
 import type { LedgerExpansionController, LedgerSelectionController } from "./use-row-commands";
 
@@ -50,6 +51,11 @@ export interface DataTableContextValue {
    */
   activeRowEnabled: boolean;
   setActiveRow?: (rowId: string) => void;
+  /**
+   * The row-ordering keyboard session (docs/rows.md#row-ordering) — the handle cells drive it,
+   * `DataTable` owns it. The handlers are stable; only presence changes with the gate.
+   */
+  rowReorderKeyboard?: RowReorderKeyboard;
   /**
    * The row-state toggles the injected columns drive. Stable for the life of the instance, so a
    * cell reaches one without the route deciding anything (`use-row-commands.ts`).

@@ -58,5 +58,12 @@ export const zhCN: DataTableLabels = {
   loadMoreError: "加载更多失败",
 
   editColumn: column => `编辑${column}`,
-  editPending: "保存中"
+  editPending: "保存中",
+
+  reorderRow: "拖拽调整行顺序",
+  rowOrderingUnavailable: "清除排序、筛选和分组后才能调整行顺序",
+  rowReorderLifted: row => `已拿起 ${row} —— 方向键移动，空格放下，Esc 取消`,
+  rowReorderTarget: (row, side) => side === "before" ? `${row} 之前` : `${row} 之后`,
+  rowReorderDropped: row => `已放下 ${row}`,
+  rowReorderCanceled: "已取消调整"
 };

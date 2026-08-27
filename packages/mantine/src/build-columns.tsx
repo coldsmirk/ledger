@@ -9,13 +9,15 @@ import type { Column, ColumnDef, TableInstance } from "./types";
 
 import { ExpanderCell, ExpanderHeaderCell } from "./expander";
 import { filterFnByVariant } from "./filter-fns";
+import { RowDragCell } from "./row-reorder";
 import { SelectionCell, SelectionHeaderCell } from "./selection";
 
+export const ROW_DRAG_COLUMN_ID = "ledger:row-drag";
 export const SELECTION_COLUMN_ID = "ledger:select";
 export const EXPANDER_COLUMN_ID = "ledger:expander";
 
 export function isInternalColumn(columnId: string): boolean {
-  return columnId === SELECTION_COLUMN_ID || columnId === EXPANDER_COLUMN_ID;
+  return columnId === ROW_DRAG_COLUMN_ID || columnId === SELECTION_COLUMN_ID || columnId === EXPANDER_COLUMN_ID;
 }
 
 /**
@@ -33,8 +35,10 @@ export function columnHeaderText<TData extends RowData>(column: Column<TData, un
 export interface BuildColumnsInput<TData extends RowData> {
 
   columns: Array<ColumnDef<TData, any>>;
+  withRowDrag: boolean;
   withSelection: boolean;
   withExpander: boolean;
+  rowDragColumn?: Partial<ColumnDef<TData, unknown>>;
   selectionColumn?: Partial<ColumnDef<TData, unknown>>;
   expanderColumn?: Partial<ColumnDef<TData, unknown>>;
 }
@@ -89,12 +93,33 @@ function injectedColumn<TData extends RowData>(
 
 export function buildColumns<TData extends RowData>({
   columns,
+  withRowDrag,
   withSelection,
   withExpander,
+  rowDragColumn,
   selectionColumn,
   expanderColumn
 }: BuildColumnsInput<TData>): Array<ColumnDef<TData, any>> {
   const result: Array<ColumnDef<TData, any>> = [];
+
+  if (withRowDrag) {
+    result.push(injectedColumn<TData>({
+      id: ROW_DRAG_COLUMN_ID,
+      size: 36,
+      minSize: 36,
+      maxSize: 36,
+      enableSorting: false,
+      enableHiding: false,
+      enableResizing: false,
+      enableColumnFilter: false,
+      enableGlobalFilter: false,
+      enableGrouping: false,
+      // A header with nothing to say: the handles below explain themselves, and the drag
+      // column offers no all-rows action the way selection's header checkbox does.
+      header: () => null,
+      cell: ({ row, table }) => <RowDragCell row={row} table={table as TableInstance<TData>} />
+    }, rowDragColumn));
+  }
 
   if (withSelection) {
     result.push(injectedColumn<TData>({

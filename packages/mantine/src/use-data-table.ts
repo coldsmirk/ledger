@@ -94,6 +94,9 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     onEditCommit,
     onRowEditCommit,
     enableActiveRow = false,
+    enableRowOrdering = false,
+    onRowReorder,
+    rowDragColumn,
     persistState,
     defaultColumn,
     tableOptions
@@ -308,19 +311,37 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
   const selectAllScope: "page" | "all"
     = enablePagination || paginationMode === "server" ? "page" : "all";
 
-  /* ---- columns: breakpoint filter + injected selection/expander + meta.filter wiring ---- */
+  /* ---- columns: breakpoint filter + injected row-drag/selection/expander + meta.filter wiring ---- */
   const responsiveColumns = useResponsiveColumns(columns);
   const withExpander = Boolean(renderDetailPanel || getSubRows);
+  // The static row-ordering gate (docs/rows.md#row-ordering): without a handler nothing could
+  // apply a move — row order is data order — and tree data has no flat order to move within.
+  const withRowDrag = enableRowOrdering && onRowReorder !== undefined && !getSubRows;
+
+  if (isDev && enableRowOrdering && getSubRows) {
+    warnOnce("row-ordering-tree", "enableRowOrdering supports flat data only — getSubRows disables it (docs/rows.md#row-ordering).");
+  }
+
   const processedColumns = useMemo(
     () => buildColumns({
       columns: responsiveColumns,
+      withRowDrag,
       withSelection: Boolean(enableRowSelection),
       withExpander,
+      rowDragColumn,
       selectionColumn,
       expanderColumn
     }),
-    [responsiveColumns, enableRowSelection, withExpander, selectionColumn, expanderColumn]
+    [responsiveColumns, withRowDrag, enableRowSelection, withExpander, rowDragColumn, selectionColumn, expanderColumn]
   );
+
+  // The live half of the gate: while something else controls the visible order, a "reorder"
+  // has no data-order meaning — the handles disable and say why (labels.rowOrderingUnavailable).
+  const rowOrderable = withRowDrag
+    && sorting.length === 0
+    && columnFilters.length === 0
+    && !globalFilter
+    && grouping.length === 0;
 
   const ledger: LedgerInternalMeta<TData> = useMemo(
     () => {
@@ -369,7 +390,12 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         },
         enableColumnOrdering,
         enableColumnResizing,
-        enablePagination
+        enablePagination,
+        rowOrdering: {
+          enabled: withRowDrag,
+          orderable: rowOrderable,
+          onRowReorder
+        }
       };
     },
     [
@@ -396,7 +422,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
       setActiveRowId,
       enableColumnOrdering,
       enableColumnResizing,
-      enablePagination
+      enablePagination,
+      withRowDrag,
+      rowOrderable,
+      onRowReorder
     ]
   );
 

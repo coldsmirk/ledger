@@ -212,6 +212,17 @@ export interface DataTableEditingCell {
   columnId: string;
 }
 
+/**
+ * A completed row drag (docs/rows.md#row-ordering). Indexes address the `data` array — row
+ * order is data order — with `arrayMove` semantics: remove the row at `fromIndex`, insert it
+ * at `toIndex`.
+ */
+export interface DataTableRowReorder<TData extends RowData> {
+  row: Row<TData>;
+  fromIndex: number;
+  toIndex: number;
+}
+
 export type DataTableEditTrigger = "double-click" | "click";
 
 /**
@@ -352,6 +363,24 @@ export interface UseDataTableOptions<TData extends RowData> {
    * Enter fires `onRowClick`), independent from checkbox selection. Off by default.
    */
   enableActiveRow?: boolean;
+
+  /* Row ordering (docs/rows.md#row-ordering) */
+  /**
+   * Drag-and-drop row reordering through an injected handle column. Row order IS data order —
+   * there is no order state — so a completed drag hands the move to `onRowReorder` and the
+   * application reorders `data`. Handles disable while sorting, a filter, a search or grouping
+   * controls the visible order; flat data only (`getSubRows` is not supported). Off by default.
+   */
+  enableRowOrdering?: boolean;
+  /**
+   * A completed drag: apply the move to `data` (`arrayMove` semantics, `fromIndex` → `toIndex`).
+   * Without this handler the switch is inert and no handle column is injected.
+   */
+  onRowReorder?: (reorder: DataTableRowReorder<TData>) => void;
+  /**
+   * Overrides the injected drag-handle column, on the same terms as `selectionColumn`.
+   */
+  rowDragColumn?: Partial<ColumnDef<TData, unknown>>;
 
   /* State — one independent trio per slice; callbacks receive resolved values */
   sorting?: SortingState;
@@ -669,6 +698,17 @@ export interface LedgerMeta<TData extends RowData> {
    * Header drag-reorder affordance (ledger-owned; TanStack has state but no switch).
    */
   enableColumnOrdering: boolean;
+  /**
+   * Row drag reordering (docs/rows.md#row-ordering). `enabled` is the static gate — switch on,
+   * handler present, flat data — and decides the handle column; `orderable` is the live one —
+   * false while sorting, a filter, a search or grouping controls the visible order, which is
+   * when the handles disable.
+   */
+  rowOrdering: {
+    enabled: boolean;
+    orderable: boolean;
+    onRowReorder?: (reorder: DataTableRowReorder<TData>) => void;
+  };
   /**
    * Pagination master switch (ledger-owned; TanStack expresses it via row-model inclusion).
    */

@@ -60,6 +60,7 @@ import { resolveIcons } from "./icons";
 import { resolveLabels } from "./labels";
 import { ledgerCommands } from "./ledger-commands";
 import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from "./pagination-bar";
+import { RowReorderScope, useRowReorder } from "./row-reorder";
 import { DataTableSearch } from "./search";
 import { DataTableSelectionBar } from "./selection-bar";
 import { buildDisplayRows, countDisplayRows, TableBody } from "./table-body";
@@ -99,6 +100,8 @@ export type DataTableStylesNames
     | "cellEditor"
     | "instantCell"
     | "instantSpinner"
+    | "rowDragCell"
+    | "rowDragOverlay"
     | "footerRow"
     | "footerCell"
     | "empty"
@@ -138,6 +141,8 @@ const classes: Record<DataTableStylesNames, string> = {
   cellEditor: "ledger-cell-editor",
   instantCell: "ledger-instant-cell",
   instantSpinner: "ledger-instant-spinner",
+  rowDragCell: "ledger-row-drag-cell",
+  rowDragOverlay: "ledger-row-drag-overlay",
   footerRow: "ledger-footer-row",
   footerCell: "ledger-footer-cell",
   empty: "ledger-empty",
@@ -366,6 +371,9 @@ const OPTION_KEYS = [
   "renderDetailPanel",
   "selectionColumn",
   "expanderColumn",
+  "enableRowOrdering",
+  "onRowReorder",
+  "rowDragColumn",
   "sortingMode",
   "filterMode",
   "paginationMode",
@@ -718,53 +726,6 @@ function DataTableCore<TData extends RowData>({
 
   const instanceId = useId();
 
-  const contextValue = useMemo<DataTableContextValue>(
-    () => {
-      return {
-        activeRowEnabled,
-        setActiveRow,
-        selection: selectionCommands,
-        expansion: expansionCommands,
-        subscribeColumnFilters,
-        instanceId,
-        getStyles: stylesRevision,
-        labels,
-        icons,
-        filterMode,
-        virtualized: virtualEnabled,
-        withColumnHeaders: columnHeadersVisible,
-        onRowClick: contextRowClick,
-        onRowActivate: contextRowActivate,
-        onRowDoubleClick: contextRowDoubleClick,
-        onRowContextMenu: contextRowContextMenu,
-        rowProps: rowProps as DataTableContextValue["rowProps"],
-        headerRowProps: headerRowProps as DataTableContextValue["headerRowProps"],
-        footerRowProps: footerRowProps as DataTableContextValue["footerRowProps"]
-      };
-    },
-    [
-      activeRowEnabled,
-      setActiveRow,
-      selectionCommands,
-      expansionCommands,
-      subscribeColumnFilters,
-      instanceId,
-      stylesRevision,
-      labels,
-      icons,
-      filterMode,
-      virtualEnabled,
-      columnHeadersVisible,
-      contextRowClick,
-      contextRowActivate,
-      contextRowDoubleClick,
-      contextRowContextMenu,
-      rowProps,
-      headerRowProps,
-      footerRowProps
-    ]
-  );
-
   // ---- column geometry: the width engine resolves every column to exact integer pixels,
   // written as CSS variables (a resize updates variables, never re-renders rows) ----
   const tableState = table.state;
@@ -905,8 +866,10 @@ function DataTableCore<TData extends RowData>({
    * The leading DATA column of the display order — what names a row to a screen reader. The
    * injected columns hold controls, not identity.
    */
+  // The first column that can actually name a row: a leading display column (a row number, an
+  // actions cluster) has no accessor and would leave every announcement nameless.
   const leadingColumn = useMemo(
-    () => visibleLeafColumns.find(column => !isInternalColumn(column.id)) ?? null,
+    () => visibleLeafColumns.find(column => !isInternalColumn(column.id) && column.accessorFn !== undefined) ?? null,
     [visibleLeafColumns]
   );
 
@@ -1308,174 +1271,251 @@ function DataTableCore<TData extends RowData>({
     }
   });
 
+  /* ---- row reordering session (docs/rows.md#row-ordering) ---- */
+  const rowOrderingEnabled = ledger?.rowOrdering.enabled === true;
+
+  // The same naming the active-row announcement uses — the leading column's own accessor over
+  // the committed row — falling back to the row id rather than announcing a nameless lift.
+  const nameReorderRow = useEventCallback((row: Row<TData>) => {
+    const leading = displaySnapshot.leadingColumn;
+    const value = leading === null ? "" : String(leading.accessorFn?.(row.original, row.index) ?? "");
+
+    return value === "" ? row.id : value;
+  });
+  const centerRowsForReorder = useEventCallback(() => displaySnapshot.centerRows);
+  const scrollReorderTargetIntoView = useEventCallback((rowId: string) => scrollRowIntoView(rowId));
+
+  const rowReorder = useRowReorder<TData>({
+    onRowReorder: ledger?.rowOrdering.onRowReorder,
+    labels,
+    viewportRef,
+    getCenterRows: centerRowsForReorder,
+    nameRow: nameReorderRow,
+    scrollToRow: scrollReorderTargetIntoView
+  });
+
+  const contextValue = useMemo<DataTableContextValue>(
+    () => {
+      return {
+        activeRowEnabled,
+        setActiveRow,
+        rowReorderKeyboard: rowOrderingEnabled ? rowReorder.keyboard : undefined,
+        selection: selectionCommands,
+        expansion: expansionCommands,
+        subscribeColumnFilters,
+        instanceId,
+        getStyles: stylesRevision,
+        labels,
+        icons,
+        filterMode,
+        virtualized: virtualEnabled,
+        withColumnHeaders: columnHeadersVisible,
+        onRowClick: contextRowClick,
+        onRowActivate: contextRowActivate,
+        onRowDoubleClick: contextRowDoubleClick,
+        onRowContextMenu: contextRowContextMenu,
+        rowProps: rowProps as DataTableContextValue["rowProps"],
+        headerRowProps: headerRowProps as DataTableContextValue["headerRowProps"],
+        footerRowProps: footerRowProps as DataTableContextValue["footerRowProps"]
+      };
+    },
+    [
+      activeRowEnabled,
+      setActiveRow,
+      rowOrderingEnabled,
+      rowReorder.keyboard,
+      selectionCommands,
+      expansionCommands,
+      subscribeColumnFilters,
+      instanceId,
+      stylesRevision,
+      labels,
+      icons,
+      filterMode,
+      virtualEnabled,
+      columnHeadersVisible,
+      contextRowClick,
+      contextRowActivate,
+      contextRowDoubleClick,
+      contextRowContextMenu,
+      rowProps,
+      headerRowProps,
+      footerRowProps
+    ]
+  );
+
   return (
     <DataTableProvider value={contextValue}>
-      <Box
-        ref={rootRef}
-        data-empty={isEmpty || undefined}
-        data-error={errorActive || undefined}
-        data-highlight-on-hover={highlightOnHover || undefined}
-        data-loading={loading || undefined}
-        data-scrolled-end={scrollEdges.end || undefined}
-        data-scrolled-start={scrollEdges.start || undefined}
-        data-striped={stripedMode}
-        data-virtualized={virtualEnabled || undefined}
-        data-with-column-borders={withColumnBorders || undefined}
-        data-with-row-borders={withRowBorders || undefined}
-        data-with-table-border={withTableBorder || undefined}
-        {...getStyles("root", { style: columnVars })}
-        {...others}
-      >
-        {activeRowEnabled && (
-          <>
-            {/* Focus never leaves the viewport when the arrow keys move the current row, so the
+      <RowReorderScope session={rowOrderingEnabled ? rowReorder : null}>
+        <Box
+          ref={rootRef}
+          data-empty={isEmpty || undefined}
+          data-error={errorActive || undefined}
+          data-highlight-on-hover={highlightOnHover || undefined}
+          data-loading={loading || undefined}
+          data-scrolled-end={scrollEdges.end || undefined}
+          data-scrolled-start={scrollEdges.start || undefined}
+          data-striped={stripedMode}
+          data-virtualized={virtualEnabled || undefined}
+          data-with-column-borders={withColumnBorders || undefined}
+          data-with-row-borders={withRowBorders || undefined}
+          data-with-table-border={withTableBorder || undefined}
+          {...getStyles("root", { style: columnVars })}
+          {...others}
+        >
+          {activeRowEnabled && (
+            <>
+              {/* Focus never leaves the viewport when the arrow keys move the current row, so the
                 move is visual only unless it is spoken. Written imperatively: a live region wants
                 a text change, not a React re-render of the table. Both of these sit outside
                 `role="table"` — a table may only own rows. */}
-            <VisuallyHidden ref={activeRowAnnouncer} aria-live="polite" role="status" />
-            {/* The text the focus stop points at. It sits out here rather than inside the
+              <VisuallyHidden ref={activeRowAnnouncer} aria-live="polite" role="status" />
+              {/* The text the focus stop points at. It sits out here rather than inside the
                 table because `aria-describedby` resolves by id from anywhere, while a stray
                 element inside `role="table"` would not. */}
-            <VisuallyHidden id={rowNavigationHintId}>{labels.rowNavigation}</VisuallyHidden>
-          </>
-        )}
-
-        <div
-          // On the element that is the table: `aria-busy` is defined for the widget whose
-          // content is being updated, and the root carries no role for it to qualify.
-          aria-busy={loading || undefined}
-          aria-describedby={ariaDescribedBy}
-          aria-label={ariaLabel}
-          aria-labelledby={ariaLabelledBy}
-          aria-rowcount={virtualEnabled ? ariaRowCount : undefined}
-          role="table"
-          {...getStyles("main")}
-        >
-          {columnHeadersVisible && (
-            <div ref={headerViewportRef} {...getStyles("header")}>
-              <MantineTable {...sharedTableProps} {...tableStyleProps()}>
-                <colgroup>{colElements}</colgroup>
-                <TableHeader columnSizing={tableState.columnSizing} columnWidths={columnWidths.byId} table={erasedTable} />
-              </MantineTable>
-            </div>
+              <VisuallyHidden id={rowNavigationHintId}>{labels.rowNavigation}</VisuallyHidden>
+            </>
           )}
 
-          {/* overscroll-behavior: none — rubber-band overscroll translates the body past its
+          <div
+          // On the element that is the table: `aria-busy` is defined for the widget whose
+          // content is being updated, and the root carries no role for it to qualify.
+            aria-busy={loading || undefined}
+            aria-describedby={ariaDescribedBy}
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
+            aria-rowcount={virtualEnabled ? ariaRowCount : undefined}
+            role="table"
+            {...getStyles("main")}
+          >
+            {columnHeadersVisible && (
+              <div ref={headerViewportRef} {...getStyles("header")}>
+                <MantineTable {...sharedTableProps} {...tableStyleProps()}>
+                  <colgroup>{colElements}</colgroup>
+                  <TableHeader columnSizing={tableState.columnSizing} columnWidths={columnWidths.byId} table={erasedTable} />
+                </MantineTable>
+              </div>
+            )}
+
+            {/* overscroll-behavior: none — rubber-band overscroll translates the body past its
               clamped scroll position, which the mirrored header/footer can never follow; the
               regions shear apart for the duration of the bounce.
               Transparent track/corner — Mantine tints them on hover through unlayered rules
               that defeat any layered override, so inline is the only seat that wins; the thumb
               is its own element and keeps its background. */}
-          <ScrollArea
-            {...getStyles("scroller")}
-            scrollbars="xy"
-            type="hover"
-            viewportRef={assignViewport}
-            styles={{
-              corner: { backgroundColor: "transparent" },
-              scrollbar: { backgroundColor: "transparent" }
-            }}
-            viewportProps={mergeElementProps(viewportProps, {
-              style: { overscrollBehavior: "none" as const },
-              // With the active row on, the body viewport is the keyboard focus stop, and it
-              // carries the description of the keyboard model (`rowNavigationHintId`, composed
-              // after any the consumer passed). Deliberately unnamed: this div is `generic`, a
-              // role that prohibits an accessible name, and it cannot take a role either —
-              // that would break `table`'s owned rows. It stays the focus stop so the browser's
-              // own scrolling keys keep reaching the scroller.
-              "aria-describedby": viewportDescribedBy,
-              ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
-            })}
-            onScrollPositionChange={handleScrollPositionChange}
-          >
-            <MantineTable {...sharedTableProps} {...tableStyleProps()}>
-              <colgroup>{colElements}</colgroup>
-
-              <TableBody
-                loading={loading === true}
-                loadingMore={loadingMore === true}
-                loadMoreError={loadMoreError ?? false}
-                skeletonRowCount={skeletonRowCount}
-                table={erasedTable}
-                viewportRef={viewportRef}
-                virtualization={virtualization}
-                onLoadMoreRetry={onEndReached ? retryLoadMore : undefined}
-                onVirtualizerChange={handleVirtualizerChange}
-              />
-            </MantineTable>
-
-            {isEmpty && (
-              // Polite, not assertive: filtering a table down to nothing is worth announcing,
-              // but it must not interrupt the typing that caused it.
-              <div
-                {...getStyles("empty")}
-                data-variant={filtersActive ? "no-results" : "no-data"}
-                role="status"
-              >
-                {emptyState ?? (
-                  <EmptyState
-                    withIndicatorBackground
-                    size="sm"
-                    styles={EMPTY_STATE_STYLES}
-                    title={filtersActive ? labels.noResults : labels.empty}
-                    // The indicator forces the svg to 1em (40px at `sm`), so the stroke is set for
-                    // that scale — the default (2, drawn for Lucide's 24px grid) turns chunky here.
-                    icon={filtersActive
-                      ? <icons.noResults size={40} strokeWidth={1.5} />
-                      : <icons.empty size={40} strokeWidth={1.5} />}
-                  />
-                )}
-              </div>
-            )}
-
-            {errorActive && (
-              <div
-                {...getStyles("empty")}
-                data-over-rows={rowsLength > 0 || undefined}
-                data-variant="error"
-                role="alert"
-              >
-                <EmptyState
-                  withIndicatorBackground
-                  icon={<icons.error size={40} strokeWidth={1.5} />}
-                  size="sm"
-                  styles={EMPTY_STATE_STYLES}
-                  title={error === true ? labels.error : error}
-                >
-                  {onRetry && (
-                    <Button
-                      leftSection={<icons.retry size={14} />}
-                      size="xs"
-                      variant="light"
-                      onClick={onRetry}
-                    >
-                      {labels.retry}
-                    </Button>
-                  )}
-                </EmptyState>
-              </div>
-            )}
-          </ScrollArea>
-
-          {hasFooter && (
-            <div ref={footerViewportRef} {...getStyles("footer")}>
+            <ScrollArea
+              {...getStyles("scroller")}
+              scrollbars="xy"
+              type="hover"
+              viewportRef={assignViewport}
+              styles={{
+                corner: { backgroundColor: "transparent" },
+                scrollbar: { backgroundColor: "transparent" }
+              }}
+              viewportProps={mergeElementProps(viewportProps, {
+                style: { overscrollBehavior: "none" as const },
+                // With the active row on, the body viewport is the keyboard focus stop, and it
+                // carries the description of the keyboard model (`rowNavigationHintId`, composed
+                // after any the consumer passed). Deliberately unnamed: this div is `generic`, a
+                // role that prohibits an accessible name, and it cannot take a role either —
+                // that would break `table`'s owned rows. It stays the focus stop so the browser's
+                // own scrolling keys keep reaching the scroller.
+                "aria-describedby": viewportDescribedBy,
+                ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
+              })}
+              onScrollPositionChange={handleScrollPositionChange}
+            >
               <MantineTable {...sharedTableProps} {...tableStyleProps()}>
                 <colgroup>{colElements}</colgroup>
 
-                <TableFooter
-                  ariaRowIndexStart={virtualEnabled ? footerAriaRowIndexStart : undefined}
+                <TableBody
+                  loading={loading === true}
+                  loadingMore={loadingMore === true}
+                  loadMoreError={loadMoreError ?? false}
+                  reorderSourceId={rowOrderingEnabled ? rowReorder.sourceId : null}
+                  reorderTarget={rowOrderingEnabled ? rowReorder.target : null}
+                  skeletonRowCount={skeletonRowCount}
                   table={erasedTable}
+                  viewportRef={viewportRef}
+                  virtualization={virtualization}
+                  onLoadMoreRetry={onEndReached ? retryLoadMore : undefined}
+                  onVirtualizerChange={handleVirtualizerChange}
                 />
               </MantineTable>
-            </div>
-          )}
-        </div>
 
-        {loading && rowsLength > 0 && <LoadingOverlay visible overlayProps={{ blur: 1 }} zIndex={20} />}
+              {isEmpty && (
+              // Polite, not assertive: filtering a table down to nothing is worth announcing,
+              // but it must not interrupt the typing that caused it.
+                <div
+                  {...getStyles("empty")}
+                  data-variant={filtersActive ? "no-results" : "no-data"}
+                  role="status"
+                >
+                  {emptyState ?? (
+                    <EmptyState
+                      withIndicatorBackground
+                      size="sm"
+                      styles={EMPTY_STATE_STYLES}
+                      title={filtersActive ? labels.noResults : labels.empty}
+                      // The indicator forces the svg to 1em (40px at `sm`), so the stroke is set for
+                      // that scale — the default (2, drawn for Lucide's 24px grid) turns chunky here.
+                      icon={filtersActive
+                        ? <icons.noResults size={40} strokeWidth={1.5} />
+                        : <icons.empty size={40} strokeWidth={1.5} />}
+                    />
+                  )}
+                </div>
+              )}
 
-        {paginationEnabled && withPaginationBar
-          && <PaginationBar pageSizeOptions={pageSizeOptions ?? DEFAULT_PAGE_SIZE_OPTIONS} table={table} />}
-      </Box>
+              {errorActive && (
+                <div
+                  {...getStyles("empty")}
+                  data-over-rows={rowsLength > 0 || undefined}
+                  data-variant="error"
+                  role="alert"
+                >
+                  <EmptyState
+                    withIndicatorBackground
+                    icon={<icons.error size={40} strokeWidth={1.5} />}
+                    size="sm"
+                    styles={EMPTY_STATE_STYLES}
+                    title={error === true ? labels.error : error}
+                  >
+                    {onRetry && (
+                      <Button
+                        leftSection={<icons.retry size={14} />}
+                        size="xs"
+                        variant="light"
+                        onClick={onRetry}
+                      >
+                        {labels.retry}
+                      </Button>
+                    )}
+                  </EmptyState>
+                </div>
+              )}
+            </ScrollArea>
+
+            {hasFooter && (
+              <div ref={footerViewportRef} {...getStyles("footer")}>
+                <MantineTable {...sharedTableProps} {...tableStyleProps()}>
+                  <colgroup>{colElements}</colgroup>
+
+                  <TableFooter
+                    ariaRowIndexStart={virtualEnabled ? footerAriaRowIndexStart : undefined}
+                    table={erasedTable}
+                  />
+                </MantineTable>
+              </div>
+            )}
+          </div>
+
+          {loading && rowsLength > 0 && <LoadingOverlay visible overlayProps={{ blur: 1 }} zIndex={20} />}
+
+          {paginationEnabled && withPaginationBar
+            && <PaginationBar pageSizeOptions={pageSizeOptions ?? DEFAULT_PAGE_SIZE_OPTIONS} table={table} />}
+        </Box>
+      </RowReorderScope>
     </DataTableProvider>
   );
 }

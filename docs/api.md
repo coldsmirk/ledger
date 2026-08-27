@@ -35,7 +35,7 @@ import "@coldsmirk/ledger-mantine/styles.css";
 
 Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, `Column`, `Row`, `Cell`, `Header`, `HeaderGroup` (each pre-bound to the canonical v9 feature set, keeping their v8 arity — `LedgerFeatures` is exported for advanced typing), `RowData`, `SortingState`, `ColumnFiltersState`, `PaginationState`, `RowSelectionState`, `ExpandedState`, `ColumnVisibilityState`, `ColumnPinningState` (`{ start, end }`), `ColumnOrderState`, `ColumnSizingState`, `GroupingState`, `RowPinningState`, and the table instance as **`TableInstance`** (v9's enriched React shape — `state`, `Subscribe`, `FlexRender` included; renamed to avoid the collision with Mantine's `Table`). `createColumnHelper` is ledger's feature-bound wrapper: `createColumnHelper<Person>()`, exactly the v8 calling shape. Its methods are v9's — `accessor` / `display` / `group` / **`columns`**, the last being the variadic-tuple wrapper a `group`'s children need so each keeps its own `TValue` ([columns.md](columns.md#header-groups-and-footers)).
 
-ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableIcons`, `DataTableIconProps`, `DataTableIconComponent`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditRenderer`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableInstantEditRenderer`, `DataTableInstantEditConfig`, `DataTableInstantEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerInstantEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`. Value exports beyond the components: `toCsv`, `createColumnHelper`, `flexRender`, `defaultLabels`, `defaultIcons`, and the editor factories `textEditor` / `numberEditor` / `selectEditor` / `checkboxEditor`.
+ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollToRowOptions`, `DataTableLabels`, `DataTableIcons`, `DataTableIconProps`, `DataTableIconComponent`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditRenderer`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableInstantEditRenderer`, `DataTableInstantEditConfig`, `DataTableInstantEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableRowReorder`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerInstantEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`. Value exports beyond the components: `toCsv`, `createColumnHelper`, `flexRender`, `defaultLabels`, `defaultIcons`, and the editor factories `textEditor` / `numberEditor` / `selectEditor` / `checkboxEditor`.
 
 Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
 
@@ -70,6 +70,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | `enableHiding` | `true` | [columns.md](columns.md) |
 | `enableEditing` | `true` (columns still opt in via `meta.edit`) | [editing.md](editing.md) |
 | `enableActiveRow` | `false` (ledger-owned; keyboard-reachable current row) | [rows.md](rows.md#active-row) |
+| `enableRowOrdering` | `false` (ledger-owned; drag-handle reordering — inert without `onRowReorder`, flat data only) | [rows.md](rows.md#row-ordering) |
 | `enableGrouping` | `false` | [grouping.md](grouping.md) |
 | `enableRowPinning` | `false` | [pinning.md](pinning.md) |
 | `enableCellSpanning` | `true` — defs opt in via `spanRows` / `spanColumns`; ignored while `virtualized` | [columns.md](columns.md#merged-cells) |
@@ -81,6 +82,13 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | `getSubRows` | `(row: TData) => TData[] \| undefined` | [rows.md](rows.md) |
 | `renderDetailPanel` | `(row: Row<TData>) => ReactNode` | [rows.md](rows.md) |
 | `selectionColumn` / `expanderColumn` | `Partial<ColumnDef<TData, unknown>>` | Merged over the injected def; `id` is reserved ([selection.md](selection.md#overriding-the-injected-column)) |
+
+### Row ordering
+
+| Option | Type | Guide |
+| --- | --- | --- |
+| `onRowReorder` | `(reorder: DataTableRowReorder<TData>) => void` — `{ row, fromIndex, toIndex }`, `arrayMove` semantics over `data` | [rows.md](rows.md#row-ordering) |
+| `rowDragColumn` | `Partial<ColumnDef<TData, unknown>>` | Overrides the injected handle column, on `selectionColumn`'s terms |
 
 ### Client/server split
 
@@ -230,6 +238,13 @@ interface DataTableEditCommit<TData> {
 }
 
 interface DataTableEditingCell { rowId: string; columnId: string }
+
+// Row ordering (rows.md#row-ordering): indexes address the data array, arrayMove semantics.
+interface DataTableRowReorder<TData> {
+  row: Row<TData>;
+  fromIndex: number;
+  toIndex: number;
+}
 ```
 
 The shipped editors — `textEditor()`, `numberEditor()`, `selectEditor(options)`, and the instant `checkboxEditor()` — are exported renderer factories implemented on these public contexts ([editing.md](editing.md#the-shipped-editors)).
@@ -340,6 +355,7 @@ interface DataTableIcons {
   filterColumn: DataTableIconComponent;
   /* Rows — one chevron, rotated open by the stylesheet (groups and expand-all included) */
   expandRow: DataTableIconComponent;
+  reorderRow: DataTableIconComponent;      // the row-ordering drag handle and its ghost chip
   /* States */
   empty: DataTableIconComponent;
   noResults: DataTableIconComponent;

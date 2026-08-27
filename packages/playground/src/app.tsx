@@ -16,6 +16,7 @@ import { MenuTreeDemo } from "./demos/menu-tree";
 import { OrdersDemo } from "./demos/orders";
 import { PinningDemo } from "./demos/pinning";
 import { RowEditingDemo } from "./demos/row-editing";
+import { RowOrderingDemo } from "./demos/row-ordering";
 import { SelectionDemo } from "./demos/selection";
 import { ServerSideDemo } from "./demos/server-side";
 import { SpanningDemo } from "./demos/spanning";
@@ -67,6 +68,10 @@ const en = {
     "row-editing": {
       label: "Row editing",
       description: "Employee records: the whole row opens, commits atomically, driven from an actions column"
+    },
+    "row-ordering": {
+      label: "Row ordering",
+      description: "A release checklist: drag the handle or lift with Space, sorting disables the handles"
     },
     "master-detail": {
       label: "Master–detail",
@@ -162,6 +167,10 @@ const copy: Copy<AppCopy> = {
         label: "整行编辑",
         description: "员工档案：整行打开、原子提交、操作列驱动"
       },
+      "row-ordering": {
+        label: "行拖拽排序",
+        description: "发布清单：拖把手或 Space 拿起调整顺序，排序时把手禁用"
+      },
       "master-detail": {
         label: "主从明细",
         description: "订单行展开查看商品明细"
@@ -228,6 +237,7 @@ const GROUPS: DemoGroup[] = [
       { id: "selection", component: SelectionDemo },
       { id: "editing", component: EditingDemo },
       { id: "row-editing", component: RowEditingDemo },
+      { id: "row-ordering", component: RowOrderingDemo },
       { id: "master-detail", component: MasterDetailDemo }
     ]
   },

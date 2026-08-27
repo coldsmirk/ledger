@@ -2,6 +2,7 @@ import type { RowData } from "@tanstack/react-table";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent, ReactNode, RefObject } from "react";
 
+import type { RowReorderTarget } from "./row-reorder";
 import type { Cell, ColumnDef, DataTableInstantEditRenderer, Row, TableInstance } from "./types";
 
 /**
@@ -16,7 +17,7 @@ import { flexRender } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useReducer } from "react";
 
-import { columnHeaderText, EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
+import { columnHeaderText, EXPANDER_COLUMN_ID, isInternalColumn, ROW_DRAG_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
 import { canEditCell, CellEditor, RowCellEditor } from "./cell-editor";
 import { useDataTableContext } from "./context";
 import { cellValue, normalizeEdit } from "./edit-meta";
@@ -313,7 +314,9 @@ function DataCell({
       ? "selectionCell"
       : column.id === EXPANDER_COLUMN_ID
         ? "expanderCell"
-        : "cell";
+        : column.id === ROW_DRAG_COLUMN_ID
+          ? "rowDragCell"
+          : "cell";
   // An injected column is a control column: nothing in it activates the row (docs/rows.md). The
   // built-in checkbox and chevron stop their own events, but the column's renderer is
   // overridable (`selectionColumn` / `expanderColumn`), and whatever an application puts there
@@ -366,6 +369,14 @@ interface DataRowProps {
    * Row-mode editing targets this row — every editable cell mounts its editor.
    */
   editingRow: boolean;
+  /**
+   * A live reorder lifted this row (docs/rows.md#row-ordering) — it dims in place.
+   */
+  dragging: boolean;
+  /**
+   * The lifted row would land on this edge of this row — the drop indicator.
+   */
+  dropSide: "before" | "after" | null;
   selected: boolean;
   active: boolean;
   expanded: boolean;
@@ -401,6 +412,8 @@ function DataRowImpl({
   dataIndex,
   editingColumnId,
   editingRow,
+  dragging,
+  dropSide,
   selected,
   active,
   expanded,
@@ -458,6 +471,8 @@ function DataRowImpl({
         "aria-selected": selected || undefined,
         "data-active": active || undefined,
         "data-clickable": handleClick ? true : undefined,
+        "data-dragging": dragging || undefined,
+        "data-drop-side": dropSide ?? undefined,
         "data-editing-row": editingRow || undefined,
         "data-expanded": expanded || undefined,
         "data-index": virtualIndex,
@@ -505,6 +520,12 @@ interface DetailRowProps {
    */
   renderDetailPanel?: (row: Row<any>) => ReactNode;
   colSpan: number;
+  /**
+   * The panel dims with its lifted parent, and carries the "after the pair" drop indicator
+   * (docs/rows.md#row-ordering).
+   */
+  dragging: boolean;
+  dropSide: "after" | null;
   pinnedPosition?: "top" | "bottom";
   pinnedOffset?: number;
   virtualIndex?: number;
@@ -516,6 +537,8 @@ function DetailRow({
   row,
   renderDetailPanel,
   colSpan,
+  dragging,
+  dropSide,
   pinnedPosition,
   pinnedOffset,
   virtualIndex,
@@ -535,6 +558,8 @@ function DetailRow({
       ref={measureRef}
       data-detail-row
       aria-rowindex={ariaRowIndex}
+      data-dragging={dragging || undefined}
+      data-drop-side={dropSide ?? undefined}
       data-index={virtualIndex}
       data-pinned-row={pinnedPosition}
       role="row"
@@ -653,6 +678,12 @@ export interface TableBodyProps {
   loadingMore: boolean;
   loadMoreError: boolean | ReactNode;
   onLoadMoreRetry?: () => void;
+  /**
+   * The live row-reorder session (docs/rows.md#row-ordering): the lifted row dims, the target
+   * row draws the drop indicator. Both `null` while the gate is off or no drag is live.
+   */
+  reorderSourceId: string | null;
+  reorderTarget: RowReorderTarget | null;
   skeletonRowCount: number;
   onVirtualizerChange: (virtualizer: Virtualizer<HTMLDivElement, Element> | null) => void;
 }
@@ -665,6 +696,8 @@ export function TableBody({
   loadingMore,
   loadMoreError,
   onLoadMoreRetry,
+  reorderSourceId,
+  reorderTarget,
   skeletonRowCount,
   onVirtualizerChange
 }: TableBodyProps) {
@@ -763,6 +796,9 @@ export function TableBody({
   // leave nothing memoized at all.
   const canCommitCell = Boolean(ledger?.onEditCommit);
   const canCommitRow = Boolean(ledger?.onRowEditCommit);
+  // The handles read this through the table instance, so it must bust the row memo: when a sort
+  // arrives, the rows that happen to keep their position would otherwise keep enabled handles.
+  const rowOrderable = ledger?.rowOrdering.orderable === true;
   const renderVersion = useMemo(
     () => {
       return {
@@ -773,10 +809,11 @@ export function TableBody({
         editMode: ledger?.editing.mode,
         enableEditing: ledger?.enableEditing,
         canCommitCell,
-        canCommitRow
+        canCommitRow,
+        rowOrderable
       };
     },
-    [ledger?.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.editing.mode, canCommitCell, canCommitRow]
+    [ledger?.columns, ledger?.enableEditing, ledger?.editTrigger, ledger?.editing.mode, canCommitCell, canCommitRow, rowOrderable]
   );
 
   if (loading && totalDisplayRowCount === 0) {
@@ -825,17 +862,28 @@ export function TableBody({
           key={displayRow.key}
           ariaRowIndex={ariaRowIndex}
           colSpan={leafColumnCount}
+          dragging={reorderSourceId === displayRow.row.id}
           measureRef={options.measureRef}
           pinnedOffset={options.pinnedOffset}
           pinnedPosition={options.pinnedPosition}
           renderDetailPanel={ledger?.renderDetailPanel}
           row={displayRow.row}
           virtualIndex={options.virtualIndex}
+          // "After" an expanded row means after the pair — the panel travels with its row, so
+          // the panel's bottom edge is where that indicator draws (docs/rows.md#row-ordering).
+          dropSide={reorderTarget?.rowId === displayRow.row.id && reorderTarget.side === "after"
+            ? "after"
+            : null}
         />
       );
     }
 
     const { row, dataIndex } = displayRow;
+    const dropSide
+      = reorderTarget?.rowId === row.id
+        && !(reorderTarget.side === "after" && withDetailPanels && row.getIsExpanded())
+        ? reorderTarget.side
+        : null;
     const spanKey = spanningActive
       ? row.getVisibleCells()
           .map(cell => cell.getIsCovered() ? "x" : `${cell.getRowSpan()}:${cell.getColSpan()}`)
@@ -850,6 +898,8 @@ export function TableBody({
         columnsKey={columnsKey}
         dataIndex={options.pinnedPosition ? -1 : dataIndex}
         depth={row.depth}
+        dragging={reorderSourceId === row.id}
+        dropSide={dropSide}
         editingRow={editingRowId === row.id && (ledger?.editing.row.active(row.id) ?? false)}
         expanded={row.getIsExpanded()}
         measureRef={options.measureRef}

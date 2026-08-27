@@ -11,7 +11,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `use-slice.ts` | One state slice: `useUncontrolled` + TanStack `functionalUpdate`, resolved-value callbacks |
 | `data-table.tsx` | The factory component: option/presentation partition, Styles API, the header/body split (two synced tables), column CSS variables, infinite loading, scroll edges, imperative handle |
 | `use-styles-revision.ts` | One Styles API identity per set of resolved answers — what lets a real style change reach a memoized row without a fresh getter reaching one every render |
-| `build-columns.tsx` | Injected selection/expander columns (and the `selectionColumn` / `expanderColumn` merge); `meta.filter` → `filterFn` gap-filling |
+| `build-columns.tsx` | Injected row-drag/selection/expander columns (and the `rowDragColumn` / `selectionColumn` / `expanderColumn` merge); `meta.filter` → `filterFn` gap-filling |
 | `table-header.tsx` / `table-body.tsx` / `table-footer.tsx` | Renderers: header (sort/actions/resize/reorder), body (display rows, virtualization, pinned rows, group cells, skeletons), footer |
 | `use-cell-editing.ts` | The cell editing session: draft, write record, pending, error, commit, gate, editor registry, deferred unmount-commit |
 | `use-row-editing.ts` | The row editing session: the per-row draft store and its baseline, the atomic commit, pending, error, gate, editor registry |
@@ -22,6 +22,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `filter-popover.tsx` | The header's filter dropdown surface |
 | `columns-panel.tsx` | `DataTable.ColumnsPanel`: zoned column list, dnd-kit sortable rows, visibility / pinning / width / grouping controls, reset |
 | `column-order.ts` | Pure edits over the flat `columnOrder` array, shared by the header drag and the panel |
+| `row-reorder.tsx` | Row ordering: the session (pointer via dnd-kit + keyboard index stepping), the handle cell, the ghost chip and live region |
 | `search.tsx` / `pagination-bar.tsx` / `selection-bar.tsx` | Compound components |
 | `selection.tsx` / `expander.tsx` | Injected column cells (stop-propagation covenant, shift ranges, expand-all) |
 | `use-column-widths.ts` | The width engine: raw sizing specs → exact integer pixel widths (weighted grow, proportional fill) |

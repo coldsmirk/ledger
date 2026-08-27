@@ -39,6 +39,7 @@ All the border and background props are rendered by ledger itself rather than Ma
 | `detailPanel` | `.ledger-detail-panel` | Master–detail panel cell |
 | `cellEditor` | `.ledger-cell-editor` | Inline editor host |
 | `instantCell` / `instantSpinner` | `.ledger-instant-cell` / `.ledger-instant-spinner` | Instant-column host, and its out-of-flow pending loader |
+| `rowDragCell` / `rowDragOverlay` | `.ledger-row-drag-cell` / `.ledger-row-drag-overlay` | Row-ordering handle cell, and the pointer ghost chip |
 | `footerRow` / `footerCell` | `.ledger-footer-row` / `.ledger-footer-cell` | Totals row |
 | `empty` | `.ledger-empty` | Empty-state block |
 | `loaderRow` / `loaderRowContent` | `.ledger-loader-row` / `.ledger-loader-row-content` | Infinite-loading trailing row, and the centred flex line inside its cell |
@@ -98,7 +99,7 @@ Style states by attribute selector (the Mantine convention). The inventory:
 | --- | --- |
 | root | `data-striped="odd" \| "even"`, `data-highlight-on-hover`, `data-loading`, `data-empty`, `data-virtualized`, `data-with-table-border`, `data-with-row-borders`, `data-with-column-borders`, `data-scrolled-start`, `data-scrolled-end` |
 | header cell | `data-align`, `data-sortable`, `data-sorted` (on the indicator), `data-pinned="start" \| "end"`, `data-pinned-edge`, `data-resizing`, `data-dragging`, `data-drop-side="before" \| "after"` |
-| row | `data-selected`, `data-expanded`, `data-clickable`, `data-parity="odd" \| "even"`, `data-pinned-row="top" \| "bottom"`, `data-row-id`, `data-detail-row` |
+| row | `data-selected`, `data-expanded`, `data-clickable`, `data-parity="odd" \| "even"`, `data-pinned-row="top" \| "bottom"`, `data-row-id`, `data-detail-row`, `data-dragging` (a reorder lifted it), `data-drop-side="before" \| "after"` (the reorder drop edge) |
 | cell | `data-align`, `data-editable`, `data-editing`, `data-leading` (its column is first in display order — DOM order cannot say so once `spanRows` drops covered cells), `data-pinned`, `data-pinned-edge`, `data-truncate` (inner span), `data-group-cell` / `data-group-count` (grouped) |
 | editor | `data-pending` |
 

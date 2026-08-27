@@ -194,6 +194,7 @@ rebuilt (`useMemo` on the copy object) or a locale switch leaves the old headers
 | `selection` | Bulk actions | multi-select, shift ranges, selection bar, CSV export, per-row selectability, single-select via `selectionColumn` |
 | `editing` | Stock count | all four editors, validation, async commits, a per-row edit gate |
 | `row-editing` | Employee records | row mode: atomic commits, an actions column driving the controller through `meta.ledger` |
+| `row-ordering` | Release checklist | drag-handle reordering, the keyboard lift, handles disabling under sorting, the `arrayMove` handler |
 | `master-detail` | Order line items | detail panels (nested line-item table) |
 | `tree` | Revenue by region | sub-rows, indentation, expand-all |
 | `menu-tree` | Menu administration | a business tree: many columns, pinned tree column, horizontal scroll |

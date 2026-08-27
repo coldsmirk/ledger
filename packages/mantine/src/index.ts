@@ -58,6 +58,7 @@ export type {
   DataTablePersistableSlice,
   DataTablePersistState,
   DataTableRowEditCommit,
+  DataTableRowReorder,
   DataTableScrollToRowOptions,
   LedgerCellEditor,
   LedgerEditingController,
