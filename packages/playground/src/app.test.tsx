@@ -19,6 +19,9 @@ vi.mock("./demos/appearance", () => {
 vi.mock("./demos/basic", () => {
   return { BasicDemo: DemoStub };
 });
+vi.mock("./demos/column-virtualization", () => {
+  return { ColumnVirtualizationDemo: DemoStub };
+});
 vi.mock("./demos/editing", () => {
   return { EditingDemo: DemoStub };
 });

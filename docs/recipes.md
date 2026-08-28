@@ -53,7 +53,7 @@ const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuer
 const rows = useMemo(() => data?.pages.flatMap(page => page.rows) ?? [], [data]);
 
 <DataTable
-  virtualized
+  virtualizedRows
   flex={1}
   mih={0}
   data={rows}
@@ -203,5 +203,6 @@ rebuilt (`useMemo` on the copy object) or a locale switch leaves the old headers
 | `pinning` | Wide table | `ColumnsPanel` (header cog + bare panel in a drawer), pinning, resize, drag reorder, `persistState` |
 | `grouping` | Sales performance | grouping + aggregation, row pinning |
 | `virtualized` | Audit log | 50k rows, virtualization, infinite loading, `scrollToRow`, adaptive height |
+| `column-virtualization` | Sales matrix | 361 columns windowed on both axes, month groups clamping, `scrollToColumn` |
 | `server-side` | Server-backed table | `sortingMode` / `filterMode` / `paginationMode` on `"server"`, `rowCount`, a race-guarded fetch |
 | `hook-toolbar` | Custom toolbar | hook mode + compound components (`Search` / `ColumnsPanel` / `Pagination`) |

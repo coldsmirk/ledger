@@ -4,6 +4,7 @@ import type { MouseEvent } from "react";
 import type { SortToggleSpec } from "./toggle-fns";
 import type { Header, TableInstance } from "./types";
 import type { ResizerSpec } from "./use-column-resize";
+import type { ColumnWindowView } from "./use-column-window";
 
 /**
  * The header: sortable labels (full-area button, shift for multi-sort, order badges), the
@@ -25,6 +26,7 @@ import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { syncTruncationTitle } from "./truncate";
 import { useColumnReorder } from "./use-column-reorder";
 import { useColumnResize } from "./use-column-resize";
+import { windowHeaderCells } from "./use-column-window";
 
 /**
  * `columnWidths` and `columnSizing` arrive as props, not through the context or the table: a drag
@@ -36,19 +38,39 @@ import { useColumnResize } from "./use-column-resize";
 export function TableHeader<TData extends RowData>({
   table,
   columnWidths,
-  columnSizing
+  columnSizing,
+  columnWindow
 }: {
   table: TableInstance<TData>;
   columnWidths: Record<string, number>;
   columnSizing: ColumnSizingState;
+  columnWindow: ColumnWindowView | null;
 }) {
   const {
     getStyles,
-    virtualized,
+    virtualizedRows,
     headerRowProps
   } = useDataTableContext();
   const reorder = useColumnReorder(table);
   const resize = useColumnResize(table.setColumnSizing);
+
+  const renderCell = (
+    header: Header<TData, unknown>,
+    colSpan: number | undefined,
+    ariaColIndex: number | undefined
+  ) => (
+    <HeaderCell
+      key={header.id}
+      ariaColIndex={ariaColIndex}
+      colSpan={colSpan}
+      columnSizing={columnSizing}
+      columnWidths={columnWidths}
+      header={header}
+      reorder={reorder}
+      resize={resize}
+      table={table}
+    />
+  );
 
   return (
     <MantineTable.Thead {...getStyles("thead")}>
@@ -56,22 +78,16 @@ export function TableHeader<TData extends RowData>({
         <MantineTable.Tr
           key={headerGroup.id}
           {...mergeElementProps(resolveElementProps(headerRowProps, headerGroup), {
-            "aria-rowindex": virtualized ? groupIndex + 1 : undefined,
+            "aria-rowindex": virtualizedRows ? groupIndex + 1 : undefined,
             role: "row",
             ...getStyles("headerRow")
           })}
         >
-          {headerGroup.headers.map(header => (
-            <HeaderCell
-              key={header.id}
-              columnSizing={columnSizing}
-              columnWidths={columnWidths}
-              header={header}
-              reorder={reorder}
-              resize={resize}
-              table={table}
-            />
-          ))}
+          {columnWindow === null
+            ? headerGroup.headers.map(header => renderCell(header, undefined, undefined))
+            : windowHeaderCells(headerGroup.headers, columnWindow).map(cell => cell.kind === "spacer"
+                ? <th key={`ledger:spacer-${cell.edge}`} aria-hidden data-ledger-spacer />
+                : renderCell(cell.header, cell.colSpan, cell.ariaColIndex))}
         </MantineTable.Tr>
       ))}
     </MantineTable.Thead>
@@ -85,6 +101,12 @@ interface HeaderCellProps<TData extends RowData> {
   resize: ReturnType<typeof useColumnResize>;
   columnWidths: Record<string, number>;
   columnSizing: ColumnSizingState;
+  /**
+   * Both set only under a column window: the clamp rule's colSpan (use-column-window.ts)
+   * replaces `header.colSpan`, and the 1-based position covers windowed-out columns too.
+   */
+  colSpan: number | undefined;
+  ariaColIndex: number | undefined;
 }
 
 function HeaderCell<TData extends RowData>({
@@ -93,7 +115,9 @@ function HeaderCell<TData extends RowData>({
   reorder,
   resize,
   columnWidths,
-  columnSizing
+  columnSizing,
+  colSpan,
+  ariaColIndex
 }: HeaderCellProps<TData>) {
   const {
     getStyles,
@@ -172,8 +196,9 @@ function HeaderCell<TData extends RowData>({
   return (
     <MantineTable.Th
       {...mergeElementProps(resolveElementProps(meta?.headerCellProps, header), {
+        "aria-colindex": ariaColIndex,
         "aria-sort": canSort ? ariaSort : undefined,
-        colSpan: header.colSpan,
+        colSpan: colSpan ?? header.colSpan,
         "data-align": internal ? "center" : meta?.align,
         "data-dragging": dragged || undefined,
         "data-drop-side": dropSide ?? undefined,

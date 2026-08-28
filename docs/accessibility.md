@@ -14,7 +14,7 @@ Header, body, and footer render as three synced native `<table>`s so the browser
 | body cells | `cell` |
 | footer cells | `cell` — totals are data, not headers |
 
-Under `virtualized`, rows carry `aria-rowindex` and the table carries `aria-rowcount`, so assistive technology reads "row 4,120 of 50,000" rather than counting the mounted window. Unvirtualized tables mount every row and need neither.
+Under `virtualizedRows`, rows carry `aria-rowindex` and the table carries `aria-rowcount`, so assistive technology reads "row 4,120 of 50,000" rather than counting the mounted window. Under `virtualizedColumns`, the table carries `aria-colcount` and every rendered header and data cell carries `aria-colindex`, so a windowed-out column still has an addressable position. Unvirtualized tables mount everything and need none of these.
 
 ## Name the table
 
@@ -63,5 +63,5 @@ Stated plainly, because a library that overclaims here is worse than one that do
 - **ledger is a `table`, not a `grid`.** There is no cell-level roving focus and no cell selection — those belong to a spreadsheet-shaped component, and the keyboard model above is the deliberate alternative ([DESIGN.md](DESIGN.md)).
 - **Column width has one keyboard route, and it is not the drag handle.** The resizer is `aria-hidden`: it takes no focus and answers no key, and announcing an inoperable control is worse than announcing nothing. The keyboard equivalent is the width field on each row of [`DataTable.ColumnsPanel`](columns.md#the-columns-panel), which writes the same `columnSizing` entry. That panel is a compound component the application renders — **enable `enableColumnResizing` without it and column width is pointer-only**.
 - **Truncation tooltips are native `title`** and so reach pointer users only. For one that survives keyboard and touch, render it yourself in `cell` or attach it through `meta.cellProps` ([DOM props](styling.md#dom-props)).
-- **Single-select radios group only across mounted rows.** Under `virtualized` the platform's arrow-key navigation covers the rendered window, the same boundary autosize documents.
+- **Single-select radios group only across mounted rows.** Under `virtualizedRows` the platform's arrow-key navigation covers the rendered window, the same boundary autosize documents.
 - **Your cells are yours.** Custom `cell` renderers, `emptyState`, detail panels, and anything reached through the DOM prop hooks are outside ledger's contract — the icon buttons in your actions column need their own labels.

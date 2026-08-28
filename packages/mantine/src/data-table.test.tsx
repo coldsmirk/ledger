@@ -362,7 +362,7 @@ describe("DataTable", () => {
   it("drops the header region and its rows from the ARIA row numbering", () => {
     const { container } = render(
       <DataTable
-        virtualized
+        virtualizedRows
         columns={columns}
         data={people}
         getRowId={getRowId}
@@ -972,7 +972,7 @@ describe("DataTable", () => {
         defaultExpanded
         enableRowPinning
         loadingMore
-        virtualized
+        virtualizedRows
         columns={ariaColumns}
         data={people}
         defaultRowPinning={{ top: ["1"], bottom: ["3"] }}
@@ -998,7 +998,7 @@ describe("DataTable", () => {
     render(
       <DataTable
         enableRowPinning
-        virtualized
+        virtualizedRows
         columns={columns}
         data={people}
         defaultRowPinning={{ top: ["1"], bottom: [] }}

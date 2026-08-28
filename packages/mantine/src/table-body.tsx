@@ -4,6 +4,7 @@ import type { MouseEvent, ReactNode, RefObject } from "react";
 
 import type { RowReorderTarget } from "./row-reorder";
 import type { Cell, ColumnDef, DataTableInstantEditRenderer, Row, TableInstance } from "./types";
+import type { ColumnWindowView } from "./use-column-window";
 
 /**
  * The body: display-row synthesis (detail panels become synthetic rows so every <tr> is exactly
@@ -25,6 +26,7 @@ import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { syncTruncationTitle } from "./truncate";
+import { renderedColCount, windowRowCells } from "./use-column-window";
 import { usePinnedRowOffsets } from "./use-pinned-row-offsets";
 import { useEventCallback } from "./utils";
 
@@ -33,7 +35,7 @@ const DEFAULT_ESTIMATED_ROW_HEIGHT = 44;
 const DEFAULT_OVERSCAN = 8;
 
 export interface VirtualizationConfig {
-  estimateRowHeight: number;
+  estimateHeight: number;
   overscan: number;
 }
 
@@ -226,6 +228,11 @@ interface DataCellProps {
    */
   rowSpan: number;
   colSpan: number;
+  /**
+   * Set only under a column window: the cell's 1-based position among ALL visible leaf columns,
+   * windowed-out ones included.
+   */
+  ariaColIndex: number | undefined;
 }
 
 function DataCell({
@@ -235,7 +242,8 @@ function DataCell({
   isFirstDataCell,
   depth,
   rowSpan,
-  colSpan
+  colSpan,
+  ariaColIndex
 }: DataCellProps) {
   const { getStyles } = useDataTableContext();
   const { column, row } = cell;
@@ -332,6 +340,7 @@ function DataCell({
   // into the owned object would let an `attributes.selectionCell.onClick` replace the handler
   // that keeps a control column from activating its row, and rewrite `role` besides.
   const owned = mergeElementProps(getStyles(selector, { style: pinnedCellStyle(column) }), {
+    "aria-colindex": ariaColIndex,
     "aria-colspan": colSpan > 1 ? colSpan : undefined,
     "aria-rowspan": rowSpan > 1 ? rowSpan : undefined,
     colSpan: colSpan > 1 ? colSpan : undefined,
@@ -397,6 +406,11 @@ interface DataRowProps {
    * through the stable TanStack table instance.
    */
   renderVersion: object;
+  /**
+   * The live column window — `null` renders every visible cell. Window shifts change its
+   * identity, which is exactly when a row must redraw.
+   */
+  columnWindow: ColumnWindowView | null;
   pinnedPosition?: "top" | "bottom";
   /**
    * Sticky offset for pinned rows — measured cumulative height of the pinned rows before it.
@@ -419,6 +433,7 @@ function DataRowImpl({
   expanded,
   depth,
   spanning,
+  columnWindow,
   pinnedPosition,
   pinnedOffset,
   virtualIndex,
@@ -487,26 +502,52 @@ function DataRowImpl({
         ...getStyles("row", { style: pinnedStyle })
       })}
     >
-      {cells.map((cell, index) => {
-        if (spanning && cell.getIsCovered()) {
-          return null;
-        }
-
-        return (
-          <DataCell
-            key={cell.id}
-            cell={cell}
-            colSpan={spanning ? cell.getColSpan() : 1}
-            depth={depth}
-            editing={editingColumnId === cell.column.id}
-            isFirstDataCell={index === firstDataCellIndex}
-            rowEditing={editingRow}
-            rowSpan={spanning ? cell.getRowSpan() : 1}
-          />
-        );
-      })}
+      {renderRowCells()}
     </MantineTable.Tr>
   );
+
+  // Cells against the column window: pinned segments in full, the windowed center slice, and
+  // spacer cells over the spacer cols (docs/virtualization.md#column-virtualization). Spanning
+  // never coexists with a window (the body gates it), so the two branches stay disjoint.
+  function renderRowCells(): ReactNode {
+    const renderCell = (cell: Cell<any, unknown>, displayIndex: number) => {
+      if (spanning && cell.getIsCovered()) {
+        return null;
+      }
+
+      return (
+        <DataCell
+          key={cell.id}
+          ariaColIndex={columnWindow === null ? undefined : displayIndex + 1}
+          cell={cell}
+          colSpan={spanning ? cell.getColSpan() : 1}
+          depth={depth}
+          editing={editingColumnId === cell.column.id}
+          isFirstDataCell={displayIndex === firstDataCellIndex}
+          rowEditing={editingRow}
+          rowSpan={spanning ? cell.getRowSpan() : 1}
+        />
+      );
+    };
+
+    if (columnWindow === null) {
+      return cells.map((cell, index) => renderCell(cell, index));
+    }
+
+    const segments = windowRowCells(cells, columnWindow);
+    const windowedStart = columnWindow.pinnedStartCount + columnWindow.start;
+    const trailingStart = cells.length - columnWindow.pinnedEndCount;
+
+    return (
+      <>
+        {segments.leading.map((cell, index) => renderCell(cell, index))}
+        {columnWindow.start > 0 && <td aria-hidden data-ledger-spacer />}
+        {segments.windowed.map((cell, index) => renderCell(cell, windowedStart + index))}
+        {columnWindow.end < columnWindow.centerCount && <td aria-hidden data-ledger-spacer />}
+        {segments.trailing.map((cell, index) => renderCell(cell, trailingStart + index))}
+      </>
+    );
+  }
 }
 
 const DataRow = memo(DataRowImpl) as typeof DataRowImpl;
@@ -673,6 +714,11 @@ function LoadMoreErrorRow({
 export interface TableBodyProps {
   table: TableInstance<any>;
   virtualization: VirtualizationConfig | null;
+  /**
+   * The live column window (docs/virtualization.md#column-virtualization) — `null` renders
+   * every visible leaf column.
+   */
+  columnWindow: ColumnWindowView | null;
   viewportRef: RefObject<HTMLDivElement | null>;
   loading: boolean;
   loadingMore: boolean;
@@ -691,6 +737,7 @@ export interface TableBodyProps {
 export function TableBody({
   table,
   virtualization,
+  columnWindow,
   viewportRef,
   loading,
   loadingMore,
@@ -709,13 +756,21 @@ export function TableBody({
   const spanningActive
     = spanningDeclared
       && virtualization === null
+      && columnWindow === null
       && !withDetailPanels
       && table.options.enableCellSpanning !== false;
 
   if (spanningDeclared && virtualization !== null) {
     warnOnce(
       "spanning-virtualized",
-      "spanRows/spanColumns are ignored while virtualized — a merged cell breaks the one-<tr>-per-virtual-item invariant."
+      "spanRows/spanColumns are ignored while virtualizedRows — a merged cell breaks the one-<tr>-per-virtual-item invariant."
+    );
+  }
+
+  if (spanningDeclared && columnWindow !== null) {
+    warnOnce(
+      "spanning-virtualized-columns",
+      "spanRows/spanColumns are ignored while virtualizedColumns — a merged cell would reach across the windowed colgroup."
     );
   }
 
@@ -761,8 +816,8 @@ export function TableBody({
     (index: number) => centerDisplayRows[index]?.key ?? index,
     [centerDisplayRows]
   );
-  const estimateRowHeight = virtualization?.estimateRowHeight ?? DEFAULT_ESTIMATED_ROW_HEIGHT;
-  const estimateSize = useCallback(() => estimateRowHeight, [estimateRowHeight]);
+  const estimateHeight = virtualization?.estimateHeight ?? DEFAULT_ESTIMATED_ROW_HEIGHT;
+  const estimateSize = useCallback(() => estimateHeight, [estimateHeight]);
 
   const virtualizer = useVirtualizer({
     count: centerDisplayRows.length,
@@ -787,6 +842,9 @@ export function TableBody({
   }, [virtualEnabled, virtualizer, onVirtualizerChange]);
 
   const leafColumnCount = table.getVisibleLeafColumns().length;
+  // What a full-width cell (skeleton, detail panel, loader) spans — the rendered cols, spacer
+  // cols included, under a column window.
+  const fullWidthColSpan = renderedColCount(columnWindow, leafColumnCount);
   const totalDisplayRowCount = topDisplayRows.length + centerDisplayRows.length + bottomDisplayRows.length;
   // Presence, never identity: what a row's cells read from the commit handlers is whether the
   // live mode has one at all — that is the whole of their part in `canEditCell`, and the write
@@ -821,7 +879,7 @@ export function TableBody({
       <MantineTable.Tbody {...getStyles("tbody")}>
         <SkeletonRows
           ariaRowIndexStart={virtualEnabled ? headerRowCount + 1 : undefined}
-          columnCount={leafColumnCount}
+          columnCount={fullWidthColSpan}
           rowCount={skeletonRowCount}
         />
       </MantineTable.Tbody>
@@ -831,7 +889,10 @@ export function TableBody({
   /* Memo-busting signatures: rows re-render when pinning or the visible column set changes. */
   const pinning = table.atoms.columnPinning.get();
   const pinKey = JSON.stringify([pinning.start, pinning.end]);
-  const columnsKey = JSON.stringify(table.getVisibleLeafColumns().map(column => column.id));
+  const columnsKey = JSON.stringify([
+    table.getVisibleLeafColumns().map(column => column.id),
+    columnWindow === null ? null : [columnWindow.start, columnWindow.end]
+  ]);
   const editingCell = ledger?.editing.cell ?? null;
   const editingRowId = ledger?.editing.mode === "row" ? ledger.editing.row.id : null;
   const activeRowId = ledger?.activeRow.enabled ? ledger.activeRow.id : null;
@@ -861,7 +922,7 @@ export function TableBody({
         <DetailRow
           key={displayRow.key}
           ariaRowIndex={ariaRowIndex}
-          colSpan={leafColumnCount}
+          colSpan={fullWidthColSpan}
           dragging={reorderSourceId === displayRow.row.id}
           measureRef={options.measureRef}
           pinnedOffset={options.pinnedOffset}
@@ -896,6 +957,7 @@ export function TableBody({
         active={activeRowId === row.id}
         ariaRowIndex={ariaRowIndex}
         columnsKey={columnsKey}
+        columnWindow={columnWindow}
         dataIndex={options.pinnedPosition ? -1 : dataIndex}
         depth={row.depth}
         dragging={reorderSourceId === row.id}
@@ -973,7 +1035,7 @@ export function TableBody({
         ? (
             <LoadMoreErrorRow
               ariaRowIndex={virtualEnabled ? headerRowCount + totalDisplayRowCount + 1 : undefined}
-              colSpan={leafColumnCount}
+              colSpan={fullWidthColSpan}
               message={loadMoreError}
               onRetry={onLoadMoreRetry}
             />
@@ -981,7 +1043,7 @@ export function TableBody({
         : loadingMore && (
           <LoaderRow
             ariaRowIndex={virtualEnabled ? headerRowCount + totalDisplayRowCount + 1 : undefined}
-            colSpan={leafColumnCount}
+            colSpan={fullWidthColSpan}
           />
         )}
     </MantineTable.Tbody>

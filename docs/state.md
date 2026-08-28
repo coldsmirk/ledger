@@ -94,7 +94,7 @@ const handle = useRef<DataTableHandle<Person>>(null);
 <DataTable handleRef={handle} … />
 ```
 
-`{ table, viewport, scrollToRow(rowId, options), scrollToIndex(index, options), startEditing(rowId, columnId), stopEditing({ commit? }) }` — see [api.md](api.md#imperative-handle).
+`{ table, viewport, scrollToRow(rowId, options), scrollToIndex(index, options), scrollToColumn(columnId, options), startEditing(rowId, columnId), stopEditing({ commit? }) }` — see [api.md](api.md#imperative-handle).
 
 ## Persisted state
 
@@ -132,6 +132,6 @@ Warnings are development-only and fire once per session each:
 | `tableOptions` collision | a ledger-managed key passed through the escape hatch |
 | Reserved filter function | `filterFns` redefines `ledger-one-of` or `ledger-date-range` |
 | Pagination + `onEndReached` | the two paging models configured together |
-| Unconstrained virtualization | `virtualized` while the viewport cannot scroll |
+| Unconstrained virtualization | `virtualizedRows` while the viewport cannot scroll |
 | Reordering with header groups | `enableColumnOrdering` ignored under grouped headers |
 | Server select-filter without options | select-family filter in server `filterMode` with no `options` |

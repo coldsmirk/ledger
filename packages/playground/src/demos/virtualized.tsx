@@ -157,7 +157,7 @@ export function VirtualizedDemo() {
       <DataTable
         enableActiveRow
         tabularNums
-        virtualized
+        virtualizedRows
         activeRowId={activeRowId}
         columns={columns}
         data={data}

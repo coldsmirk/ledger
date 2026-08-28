@@ -137,7 +137,7 @@ describe("cell spanning", () => {
 
     const { container } = render(
       <DataTable
-        virtualized
+        virtualizedRows
         columns={columns}
         data={entries}
         getRowId={entry => entry.id}

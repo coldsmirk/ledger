@@ -73,7 +73,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | `enableRowOrdering` | `false` (ledger-owned; drag-handle reordering — inert without `onRowReorder`, flat data only) | [rows.md](rows.md#row-ordering) |
 | `enableGrouping` | `false` | [grouping.md](grouping.md) |
 | `enableRowPinning` | `false` | [pinning.md](pinning.md) |
-| `enableCellSpanning` | `true` — defs opt in via `spanRows` / `spanColumns`; ignored while `virtualized` | [columns.md](columns.md#merged-cells) |
+| `enableCellSpanning` | `true` — defs opt in via `spanRows` / `spanColumns`; ignored while `virtualizedRows` / `virtualizedColumns` | [columns.md](columns.md#merged-cells) |
 
 ### Hierarchy and master–detail
 
@@ -139,7 +139,8 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `horizontalSpacing` | `MantineSpacing` | `"xs"` | |
 | `tabularNums` | `boolean` | `false` | |
 | `tableMinWidth` | `number \| string` | — | Content-width floor ([sizing.md](sizing.md)) |
-| `virtualized` | `boolean \| { estimateRowHeight?: number; overscan?: number }` | `false` | Object defaults: 44 / 8 ([virtualization.md](virtualization.md)) |
+| `virtualizedRows` | `boolean \| { estimateHeight?: number; overscan?: number }` | `false` | Object defaults: 44 / 8 ([virtualization.md](virtualization.md)) |
+| `virtualizedColumns` | `boolean \| { overscan?: number }` | `false` | Center-zone column window; overscan default 4, nothing to estimate ([virtualization.md](virtualization.md#column-virtualization)) |
 | `onEndReached` | `() => void` | — | Deduped per `data` identity — a new array re-arms it ([virtualization.md](virtualization.md)) |
 | `endReachedOffset` | `number` | `240` | px before the bottom |
 | `loadingMore` | `boolean` | `false` | Trailing loader row |
@@ -290,6 +291,7 @@ interface DataTableHandle<TData> {
   viewport: HTMLDivElement | null;   // the ScrollArea viewport
   scrollToRow: (rowId: string, options?: DataTableScrollToRowOptions) => void;
   scrollToIndex: (index: number, options?: DataTableScrollToRowOptions) => void;  // the page's row model
+  scrollToColumn: (columnId: string, options?: DataTableScrollToRowOptions) => void;  // width-engine math; pinned targets no-op
   startEditing: (rowId: string, columnId?: string) => void;   // cell mode requires columnId; row mode focuses it
   stopEditing: (options?: { commit?: boolean }) => void;   // default commit: true
 }

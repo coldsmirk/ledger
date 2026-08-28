@@ -25,6 +25,7 @@ import type {
   TableInstance,
   UseDataTableOptions
 } from "./types";
+import type { ColumnWindowView } from "./use-column-window";
 
 /**
  * The root component (docs/api.md): a generic Mantine factory with full Styles API,
@@ -67,6 +68,7 @@ import { buildDisplayRows, countDisplayRows, TableBody } from "./table-body";
 import { TableFooter, tableHasFooter, visibleFooterGroups } from "./table-footer";
 import { TableHeader } from "./table-header";
 import { useColumnWidths } from "./use-column-widths";
+import { DEFAULT_COLUMN_OVERSCAN, useColumnWindow } from "./use-column-window";
 import { useDataTable } from "./use-data-table";
 import { useStylesRevision } from "./use-styles-revision";
 import { columnAfterVar, columnStartVar, columnWidthVar, toPx, useEventCallback } from "./utils";
@@ -199,7 +201,17 @@ export interface DataTableBaseProps<TData extends RowData>
   tableMinWidth?: number | string;
 
   /* Scale */
-  virtualized?: boolean | { estimateRowHeight?: number; overscan?: number };
+  /**
+   * Row virtualization ([virtualization.md](../docs/virtualization.md)): the body renders a
+   * measured window of rows between two spacer rows.
+   */
+  virtualizedRows?: boolean | { estimateHeight?: number; overscan?: number };
+  /**
+   * Column virtualization ([virtualization.md](../docs/virtualization.md#column-virtualization)):
+   * the center zone renders a windowed slice of columns between two spacer cols; pinned columns
+   * stay mounted. Widths are the width engine's exact pixels, so there is nothing to estimate.
+   */
+  virtualizedColumns?: boolean | { overscan?: number };
   onEndReached?: () => void;
   endReachedOffset?: number;
   loadingMore?: boolean;
@@ -278,7 +290,7 @@ export interface DataTableBaseProps<TData extends RowData>
   icons?: Partial<DataTableIcons>;
 
   /**
-   * Imperative handle: `{ table, viewport, scrollToRow, scrollToIndex, startEditing, stopEditing }`.
+   * Imperative handle: `{ table, viewport, scrollToRow, scrollToIndex, scrollToColumn, startEditing, stopEditing }`.
    */
   handleRef?: Ref<DataTableHandle<TData>>;
 }
@@ -315,7 +327,8 @@ const defaultProps = {
   verticalSpacing: "xs",
   horizontalSpacing: "xs",
   tabularNums: false,
-  virtualized: false,
+  virtualizedRows: false,
+  virtualizedColumns: false,
   endReachedOffset: 240,
   loadingMore: false,
   loading: false,
@@ -323,6 +336,10 @@ const defaultProps = {
   withPaginationBar: true,
   pageSizeOptions: DEFAULT_PAGE_SIZE_OPTIONS
 } satisfies Partial<DataTableProps>;
+
+function leafCol(column: { id: string }) {
+  return <col key={column.id} style={{ width: `var(${columnWidthVar(column.id)})` }} />;
+}
 
 const varsResolver = createVarsResolver<DataTableFactory>(
   (theme, {
@@ -568,7 +585,8 @@ function DataTableCore<TData extends RowData>({
     horizontalSpacing,
     tabularNums,
     tableMinWidth,
-    virtualized,
+    virtualizedRows,
+    virtualizedColumns,
     onEndReached,
     endReachedOffset,
     loadingMore,
@@ -657,11 +675,17 @@ function DataTableCore<TData extends RowData>({
   // already render in it, so the colgroup and every width/offset must follow the same order
   // (`getVisibleLeafColumns` alone ignores pinning). Stabilized by id signature so downstream
   // memos only recompute when the composition or order actually changes.
+  const startLeafColumns = table.getStartVisibleLeafColumns();
+  const endLeafColumns = table.getEndVisibleLeafColumns();
   const displayColumns = [
-    ...table.getStartVisibleLeafColumns(),
+    ...startLeafColumns,
     ...table.getCenterVisibleLeafColumns(),
-    ...table.getEndVisibleLeafColumns()
+    ...endLeafColumns
   ];
+  // Fresh numbers, never memoized off the signature: pinning the current first column changes
+  // neither order nor composition, yet moves the zone boundary.
+  const pinnedStartCount = startLeafColumns.length;
+  const pinnedEndCount = endLeafColumns.length;
   const displayOrderSignature = JSON.stringify(displayColumns.map(column => column.id));
   const ledgerColumns = table.options.meta?.ledger?.columns;
   // eslint-disable-next-line @eslint-react/exhaustive-deps -- the signature encodes order/composition; meta.ledger.columns identity covers definition swaps (options.columns re-resolves per v9 state tick)
@@ -669,16 +693,64 @@ function DataTableCore<TData extends RowData>({
   const columnWidths = useColumnWidths(table, visibleLeafColumns, viewport, tableMinWidth);
 
   /* ---- virtualization config ---- */
-  const virtualization: VirtualizationConfig | null = virtualized
+  const virtualization: VirtualizationConfig | null = virtualizedRows
     ? {
-        estimateRowHeight:
-          typeof virtualized === "object" && virtualized.estimateRowHeight !== undefined
-            ? virtualized.estimateRowHeight
+        estimateHeight:
+          typeof virtualizedRows === "object" && virtualizedRows.estimateHeight !== undefined
+            ? virtualizedRows.estimateHeight
             : 44,
-        overscan: typeof virtualized === "object" && virtualized.overscan !== undefined ? virtualized.overscan : 8
+        overscan: typeof virtualizedRows === "object" && virtualizedRows.overscan !== undefined
+          ? virtualizedRows.overscan
+          : 8
       }
     : null;
   const virtualEnabled = virtualization !== null;
+
+  /* ---- column window (docs/virtualization.md#column-virtualization) ---- */
+  const columnVirtualizationEnabled = virtualizedColumns === true || typeof virtualizedColumns === "object";
+  const centerColumnIds = useMemo(
+    () => visibleLeafColumns
+      .slice(pinnedStartCount, visibleLeafColumns.length - pinnedEndCount)
+      .map(column => column.id),
+    [visibleLeafColumns, pinnedStartCount, pinnedEndCount]
+  );
+  let pinnedStartWidth = 0;
+  let pinnedEndWidth = 0;
+
+  for (const [index, column] of visibleLeafColumns.entries()) {
+    if (index < pinnedStartCount) {
+      pinnedStartWidth += columnWidths.byId[column.id] ?? 0;
+    } else if (index >= visibleLeafColumns.length - pinnedEndCount) {
+      pinnedEndWidth += columnWidths.byId[column.id] ?? 0;
+    }
+  }
+
+  const columnWindowRange = useColumnWindow({
+    centerColumnIds,
+    enabled: columnVirtualizationEnabled,
+    overscan: typeof virtualizedColumns === "object" && virtualizedColumns.overscan !== undefined
+      ? virtualizedColumns.overscan
+      : DEFAULT_COLUMN_OVERSCAN,
+    pinnedEndWidth,
+    pinnedStartWidth,
+    viewport,
+    widths: columnWidths.byId
+  });
+  const displayIndexById = useMemo(
+    () => new Map(visibleLeafColumns.map((column, index) => [column.id, index])),
+    [visibleLeafColumns]
+  );
+  const columnWindow = useMemo<ColumnWindowView | null>(
+    () => columnWindowRange && {
+      ...columnWindowRange,
+      centerCount: centerColumnIds.length,
+      displayIndexById,
+      pinnedEndCount,
+      pinnedStartCount,
+      totalLeafCount: visibleLeafColumns.length
+    },
+    [columnWindowRange, centerColumnIds.length, displayIndexById, pinnedEndCount, pinnedStartCount, visibleLeafColumns.length]
+  );
 
   /* ---- row interaction handlers with stable identities ---- */
   const rowClickStable = useEventCallback(onRowClick);
@@ -760,7 +832,22 @@ function DataTableCore<TData extends RowData>({
     // eslint-disable-next-line @eslint-react/exhaustive-deps -- see comment above
   }, [visibleLeafColumns, columnWidths, tableState.columnPinning]);
 
-  const colElements = visibleLeafColumns.map(column => <col key={column.id} style={{ width: `var(${columnWidthVar(column.id)})` }} />);
+  // The one colgroup all three synced tables share. Under a column window the hidden center
+  // runs collapse into two spacer cols with the exact widths the missing columns add up to, so
+  // the table keeps its full scroll width and the pinned offsets stay honest.
+  const colElements = columnWindow === null
+    ? visibleLeafColumns.map(column => leafCol(column))
+    : [
+        ...visibleLeafColumns.slice(0, pinnedStartCount).map(column => leafCol(column)),
+        columnWindow.start > 0
+        && <col key="ledger:spacer-leading" data-ledger-spacer style={{ width: columnWindow.leadingSpace }} />,
+        ...visibleLeafColumns
+          .slice(pinnedStartCount + columnWindow.start, pinnedStartCount + columnWindow.end)
+          .map(column => leafCol(column)),
+        columnWindow.end < columnWindow.centerCount
+        && <col key="ledger:spacer-trailing" data-ledger-spacer style={{ width: columnWindow.trailingSpace }} />,
+        ...pinnedEndCount === 0 ? [] : visibleLeafColumns.slice(-pinnedEndCount).map(column => leafCol(column))
+      ];
 
   /* ---- data flags ---- */
   const rowsLength = table.getRowModel().rows.length;
@@ -1013,6 +1100,70 @@ function DataTableCore<TData extends RowData>({
     }
   );
 
+  /**
+   * Pure width-engine math, no DOM measurement: the column's center-zone offset from the same
+   * prefix numbers the window uses, against the strip the pinned overlays leave visible. Works
+   * with or without a column window — the target column need not be rendered to be reachable.
+   */
+  const scrollColumnIntoView = useEventCallback(
+    (columnId: string, options?: DataTableScrollToRowOptions) => {
+      const element = viewportRef.current;
+      const index = displayIndexById.get(columnId);
+
+      if (!element || index === undefined) {
+        return;
+      }
+
+      // Pinned columns are sticky — always in view, nothing to scroll.
+      if (index < pinnedStartCount || index >= visibleLeafColumns.length - pinnedEndCount) {
+        return;
+      }
+
+      let offset = 0;
+
+      for (let i = pinnedStartCount; i < index; i += 1) {
+        offset += columnWidths.byId[visibleLeafColumns[i]!.id] ?? 0;
+      }
+
+      const width = columnWidths.byId[columnId] ?? 0;
+      const strip = Math.max(0, element.clientWidth - pinnedStartWidth - pinnedEndWidth);
+      const current = Math.abs(element.scrollLeft);
+      const align = options?.align ?? "auto";
+      let target: number;
+
+      switch (align) {
+        case "start": {
+          target = offset;
+
+          break;
+        }
+
+        case "end": {
+          target = offset + width - strip;
+
+          break;
+        }
+
+        case "center": {
+          target = offset + (width - strip) / 2;
+
+          break;
+        }
+
+        default: { if (offset >= current && offset + width <= current + strip) {
+          return;
+        }
+
+        target = offset < current ? offset : offset + width - strip; }
+      }
+
+      target = Math.max(0, target);
+      // RTL viewports scroll into negative territory; the math above is direction-agnostic.
+      const rtl = getComputedStyle(element).direction === "rtl";
+      element.scrollTo({ behavior: options?.behavior, left: rtl ? -target : target });
+    }
+  );
+
   useImperativeHandle(
     handleRef,
     () => {
@@ -1023,6 +1174,7 @@ function DataTableCore<TData extends RowData>({
         },
         scrollToRow: scrollRowIntoView,
         scrollToIndex: scrollIndexIntoView,
+        scrollToColumn: scrollColumnIntoView,
         startEditing: (rowId, columnId) => {
           const editing = table.options.meta?.ledger?.editing;
 
@@ -1049,7 +1201,7 @@ function DataTableCore<TData extends RowData>({
         }
       };
     },
-    [table, scrollRowIntoView, scrollIndexIntoView]
+    [table, scrollRowIntoView, scrollIndexIntoView, scrollColumnIntoView]
   );
 
   /* ---- active row keyboard (docs/rows.md): the body viewport is the focus stop ---- */
@@ -1236,7 +1388,7 @@ function DataTableCore<TData extends RowData>({
       if (viewport.clientHeight > 0 && viewport.scrollHeight <= viewport.clientHeight + 4) {
         warnOnce(
           "virtualized-unconstrained",
-          "virtualized is set but the viewport is unconstrained (its height equals the content height) — give the table or an ancestor a definite height."
+          "virtualizedRows is set but the viewport is unconstrained (its height equals the content height) — give the table or an ancestor a definite height."
         );
       }
     });
@@ -1308,7 +1460,7 @@ function DataTableCore<TData extends RowData>({
         labels,
         icons,
         filterMode,
-        virtualized: virtualEnabled,
+        virtualizedRows: virtualEnabled,
         withColumnHeaders: columnHeadersVisible,
         onRowClick: contextRowClick,
         onRowActivate: contextRowActivate,
@@ -1356,7 +1508,8 @@ function DataTableCore<TData extends RowData>({
           data-scrolled-end={scrollEdges.end || undefined}
           data-scrolled-start={scrollEdges.start || undefined}
           data-striped={stripedMode}
-          data-virtualized={virtualEnabled || undefined}
+          data-virtualized-columns={columnWindow !== null || undefined}
+          data-virtualized-rows={virtualEnabled || undefined}
           data-with-column-borders={withColumnBorders || undefined}
           data-with-row-borders={withRowBorders || undefined}
           data-with-table-border={withTableBorder || undefined}
@@ -1381,6 +1534,7 @@ function DataTableCore<TData extends RowData>({
           // On the element that is the table: `aria-busy` is defined for the widget whose
           // content is being updated, and the root carries no role for it to qualify.
             aria-busy={loading || undefined}
+            aria-colcount={columnWindow === null ? undefined : columnWindow.totalLeafCount}
             aria-describedby={ariaDescribedBy}
             aria-label={ariaLabel}
             aria-labelledby={ariaLabelledBy}
@@ -1392,7 +1546,13 @@ function DataTableCore<TData extends RowData>({
               <div ref={headerViewportRef} {...getStyles("header")}>
                 <MantineTable {...sharedTableProps} {...tableStyleProps()}>
                   <colgroup>{colElements}</colgroup>
-                  <TableHeader columnSizing={tableState.columnSizing} columnWidths={columnWidths.byId} table={erasedTable} />
+
+                  <TableHeader
+                    columnSizing={tableState.columnSizing}
+                    columnWidths={columnWidths.byId}
+                    columnWindow={columnWindow}
+                    table={erasedTable}
+                  />
                 </MantineTable>
               </div>
             )}
@@ -1429,6 +1589,7 @@ function DataTableCore<TData extends RowData>({
                 <colgroup>{colElements}</colgroup>
 
                 <TableBody
+                  columnWindow={columnWindow}
                   loading={loading === true}
                   loadingMore={loadingMore === true}
                   loadMoreError={loadMoreError ?? false}
@@ -1503,6 +1664,7 @@ function DataTableCore<TData extends RowData>({
 
                   <TableFooter
                     ariaRowIndexStart={virtualEnabled ? footerAriaRowIndexStart : undefined}
+                    columnWindow={columnWindow}
                     table={erasedTable}
                   />
                 </MantineTable>

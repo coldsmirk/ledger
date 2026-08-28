@@ -26,6 +26,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `search.tsx` / `pagination-bar.tsx` / `selection-bar.tsx` | Compound components |
 | `selection.tsx` / `expander.tsx` | Injected column cells (stop-propagation covenant, shift ranges, expand-all) |
 | `use-column-widths.ts` | The width engine: raw sizing specs → exact integer pixel widths (weighted grow, proportional fill) |
+| `use-column-window.ts` | Column virtualization: the center-zone window (binary search over the engine's prefix sums) and the tiling helpers every renderer shares |
 | `use-column-resize.ts` | Pointer-based column resizing (1:1 from resolved widths, Escape restore, RTL-aware) |
 | `use-column-reorder.ts` | Pointer-based header drag (threshold, click suppression, Escape) |
 | `use-pinned-row-offsets.ts` | Measured cumulative sticky offsets for pinned rows |

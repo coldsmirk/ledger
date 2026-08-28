@@ -1,6 +1,7 @@
 import type { RowData } from "@tanstack/react-table";
 
-import type { TableInstance } from "./types";
+import type { Header, TableInstance } from "./types";
+import type { ColumnWindowView } from "./use-column-window";
 
 /**
  * Column footers (totals row). Rendered only when at least one leaf column declares a `footer`;
@@ -12,6 +13,7 @@ import { flexRender } from "@tanstack/react-table";
 import { useDataTableContext } from "./context";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
+import { windowHeaderCells } from "./use-column-window";
 
 /**
  * The footer rows that actually render. `getFooterGroups()` mirrors *every* header level, so a
@@ -32,12 +34,41 @@ export function tableHasFooter<TData extends RowData>(table: TableInstance<TData
 
 export function TableFooter<TData extends RowData>({
   table,
-  ariaRowIndexStart
+  ariaRowIndexStart,
+  columnWindow
 }: {
   table: TableInstance<TData>;
   ariaRowIndexStart?: number;
+  columnWindow: ColumnWindowView | null;
 }) {
   const { getStyles, footerRowProps } = useDataTableContext();
+
+  const renderCell = (
+    footer: Header<TData, unknown>,
+    colSpan: number | undefined,
+    ariaColIndex: number | undefined
+  ) => (
+    <MantineTable.Th
+      key={footer.id}
+      {...mergeElementProps(resolveElementProps(footer.column.columnDef.meta?.footerCellProps, footer), {
+        "aria-colindex": ariaColIndex,
+        colSpan: colSpan ?? footer.colSpan,
+        "data-align": footer.column.columnDef.meta?.align,
+        // Autosize measures the footer like every other rendered cell, and finds it the
+        // same way (docs/sizing.md).
+        "data-ledger-column-id": footer.column.id,
+        "data-pinned": footer.column.getIsPinned() || undefined,
+        "data-pinned-edge": pinnedEdge(footer.column),
+        // Totals are data, not headers — under the ARIA table they are plain cells.
+        role: "cell",
+        ...getStyles("footerCell", { style: pinnedCellStyle(footer.column) })
+      })}
+    >
+      {footer.isPlaceholder
+        ? null
+        : flexRender(footer.column.columnDef.footer, footer.getContext())}
+    </MantineTable.Th>
+  );
 
   return (
     <MantineTable.Tfoot {...getStyles("tfoot")}>
@@ -50,27 +81,13 @@ export function TableFooter<TData extends RowData>({
             ...getStyles("footerRow")
           })}
         >
-          {footerGroup.headers.map(footer => (
-            <MantineTable.Th
-              key={footer.id}
-              {...mergeElementProps(resolveElementProps(footer.column.columnDef.meta?.footerCellProps, footer), {
-                colSpan: footer.colSpan,
-                "data-align": footer.column.columnDef.meta?.align,
-                // Autosize measures the footer like every other rendered cell, and finds it the
-                // same way (docs/sizing.md).
-                "data-ledger-column-id": footer.column.id,
-                "data-pinned": footer.column.getIsPinned() || undefined,
-                "data-pinned-edge": pinnedEdge(footer.column),
-                // Totals are data, not headers — under the ARIA table they are plain cells.
-                role: "cell",
-                ...getStyles("footerCell", { style: pinnedCellStyle(footer.column) })
-              })}
-            >
-              {footer.isPlaceholder
-                ? null
-                : flexRender(footer.column.columnDef.footer, footer.getContext())}
-            </MantineTable.Th>
-          ))}
+          {/* Footer groups mirror header groups, so the same clamp rule tiles them
+            (docs/virtualization.md#column-virtualization). */}
+          {columnWindow === null
+            ? footerGroup.headers.map(footer => renderCell(footer, undefined, undefined))
+            : windowHeaderCells(footerGroup.headers, columnWindow).map(cell => cell.kind === "spacer"
+                ? <th key={`ledger:spacer-${cell.edge}`} aria-hidden data-ledger-spacer />
+                : renderCell(cell.header, cell.colSpan, cell.ariaColIndex))}
         </MantineTable.Tr>
       ))}
     </MantineTable.Tfoot>

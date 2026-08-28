@@ -38,7 +38,7 @@ export interface DataTableContextValue {
   /**
    * Row virtualization active — rows must then carry aria-rowindex (header rows included).
    */
-  virtualized: boolean;
+  virtualizedRows: boolean;
   /**
    * The header region renders — so header rows count toward every `aria-rowindex`.
    */

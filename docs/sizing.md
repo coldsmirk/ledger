@@ -77,7 +77,7 @@ Per-column `minSize` usually expresses this better; keep `tableMinWidth` for tab
 
 ## Virtualization follows the viewport
 
-Virtualization has **no fixed-height prerequisite**: TanStack Virtual observes the scroll element with ResizeObserver, so flex reflow, drawer toggling, and window resizing re-window automatically. If `virtualized` is set while the viewport is effectively unconstrained (viewport height ≈ content height), virtualization is inert — a dev-mode warning explains that the fix is a definite height on the table or an ancestor. See [virtualization.md](virtualization.md).
+Virtualization has **no fixed-height prerequisite**: TanStack Virtual observes the scroll element with ResizeObserver, so flex reflow, drawer toggling, and window resizing re-window automatically. If `virtualizedRows` is set while the viewport is effectively unconstrained (viewport height ≈ content height), virtualization is inert — a dev-mode warning explains that the fix is a definite height on the table or an ancestor. See [virtualization.md](virtualization.md).
 
 ## Recipes
 

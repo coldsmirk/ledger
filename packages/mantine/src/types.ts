@@ -318,8 +318,9 @@ export interface UseDataTableOptions<TData extends RowData> {
   enableRowPinning?: boolean;
   /**
    * Cells may merge via the defs' `spanRows` / `spanColumns` (TanStack v9
-   * `cellSpanningFeature`). On by default; spanning is ignored while `virtualized` — a merged
-   * cell breaks the one-`<tr>`-per-virtual-item invariant.
+   * `cellSpanningFeature`). On by default; spanning is ignored while `virtualizedRows` (a
+   * merged cell breaks the one-`<tr>`-per-virtual-item invariant) or `virtualizedColumns` (it
+   * would reach across the windowed colgroup).
    */
   enableCellSpanning?: boolean;
 
@@ -483,6 +484,11 @@ export interface DataTableHandle<TData extends RowData> {
    * Scrolls the row at this position in the page's own row model into view.
    */
   scrollToIndex: (index: number, options?: DataTableScrollToRowOptions) => void;
+  /**
+   * Scrolls the column with this id into view — width-engine math, so a column a virtual
+   * window is not rendering is still reachable. Pinned columns are already in view; a no-op.
+   */
+  scrollToColumn: (columnId: string, options?: DataTableScrollToRowOptions) => void;
   /**
    * Cell mode requires `columnId`; row mode takes the id of any editable column to focus, or
    * none.

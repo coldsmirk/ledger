@@ -70,7 +70,7 @@ Three things worth noticing:
 - **`getRowId` should return a stable id** whenever rows carry state (selection, expansion, editing). Index-based ids corrupt state across refetches; a dev-mode warning fires if selection or expansion is enabled without it.
 - **`data` and `columns` need stable identities.** A fresh array on every render re-initializes the table continuously (the classic TanStack pitfall); memoize them, or define columns at module scope. A dev-mode warning detects per-render column churn.
 
-Sorting and column pinning/hiding are enabled out of the box (their UI is the header label and [`DataTable.ColumnsPanel`](columns.md#the-columns-panel)); everything else (`enableRowSelection`, `enablePagination`, `virtualized`, …) is one switch away. Defaults are catalogued in [api.md](api.md).
+Sorting and column pinning/hiding are enabled out of the box (their UI is the header label and [`DataTable.ColumnsPanel`](columns.md#the-columns-panel)); everything else (`enableRowSelection`, `enablePagination`, `virtualizedRows`, …) is one switch away. Defaults are catalogued in [api.md](api.md).
 
 ## Sizing: give it a place, not a height
 

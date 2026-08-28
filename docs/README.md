@@ -19,7 +19,7 @@ Start with [getting-started.md](getting-started.md); the guides are grounded in 
 | [rows.md](rows.md) | Row interaction, master–detail panels, tree data, loading and empty states |
 | [grouping.md](grouping.md) | Grouping and aggregation |
 | [pinning.md](pinning.md) | Column pinning and row pinning |
-| [virtualization.md](virtualization.md) | Row virtualization, infinite loading, `scrollToRow` |
+| [virtualization.md](virtualization.md) | Row and column virtualization, infinite loading, `scrollToRow` / `scrollToColumn` |
 | [state.md](state.md) | The slice trios, client/server modes, `tableOptions`, `meta.ledger`, the handle, `persistState`, dev guards |
 | [styling.md](styling.md) | Forwarded props, Styles API selectors, DOM prop hooks, data-attributes, CSS variables, theming, dark/RTL |
 | [i18n.md](i18n.md) | The label catalog and locales |

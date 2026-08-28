@@ -136,7 +136,7 @@ helper.accessor("note", {
 - `spanRows: true` merges adjacent rows whose values are `Object.is`-equal (nullish never merges); a predicate `({ anchorRow, row, … }) => boolean` replaces the comparison. Spans recompute from the rows actually rendered, so sorting/filtering/paging only change adjacency; runs never cross a page, a pinned-row section, a tree depth change, or a grouped row.
 - `spanColumns` returns the column count (clamped to the cell's pinned region; `Infinity` = the rest of the region).
 - ledger renders real `rowSpan`/`colSpan` attributes (plus `aria-rowspan`/`aria-colspan`) and skips covered cells — the real-`<table>` architecture gets merging natively.
-- Spanning is **ignored (with a dev warning) under `virtualized` or `renderDetailPanel`**. Both break the one-row-per-item invariant a span is computed against: virtualization renders a window, and a detail panel inserts a synthetic `<tr>` *between* data rows that a `rowSpan` would then reach across while the covered cell below it is still dropped.
+- Spanning is **ignored (with a dev warning) under `virtualizedRows`, `virtualizedColumns` or `renderDetailPanel`**. All three break the invariants a span is computed against: virtualization renders a window on either axis, and a detail panel inserts a synthetic `<tr>` *between* data rows that a `rowSpan` would then reach across while the covered cell below it is still dropped.
 - `enableCellSpanning` (default `true`) switches the whole mechanism off.
 - A row-spanning cell paints one background across its run, so `striped` reads oddly next to merges — report-style spanning tables usually run with row borders instead.
 

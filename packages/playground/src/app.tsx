@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 
 import { AppearanceDemo } from "./demos/appearance";
 import { BasicDemo } from "./demos/basic";
+import { ColumnVirtualizationDemo } from "./demos/column-virtualization";
 import { EditingDemo } from "./demos/editing";
 import { GroupedHeadersDemo } from "./demos/grouped-headers";
 import { GroupingDemo } from "./demos/grouping";
@@ -104,6 +105,10 @@ const en = {
     virtualized: {
       label: "Virtual scrolling",
       description: "An audit log: fifty thousand rows with infinite loading"
+    },
+    "column-virtualization": {
+      label: "Column virtualization",
+      description: "A year of daily sales: 361 columns windowed on both axes, month groups clamping as you scroll"
     },
     "server-side": {
       label: "Server-side data",
@@ -203,6 +208,10 @@ const copy: Copy<AppCopy> = {
         label: "虚拟滚动",
         description: "操作日志：五万条 + 无限加载"
       },
+      "column-virtualization": {
+        label: "列虚拟化",
+        description: "全年每日销售：361 列双轴虚拟化，月份分组随滚动钳制"
+      },
       "server-side": {
         label: "服务端数据",
         description: "排序 / 筛选 / 分页全部交给后端，表格只持有当前一页"
@@ -255,7 +264,8 @@ const GROUPS: DemoGroup[] = [
     demos: [
       { id: "pinning", component: PinningDemo },
       { id: "grouping", component: GroupingDemo },
-      { id: "virtualized", component: VirtualizedDemo }
+      { id: "virtualized", component: VirtualizedDemo },
+      { id: "column-virtualization", component: ColumnVirtualizationDemo }
     ]
   },
   {
