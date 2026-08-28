@@ -6,6 +6,7 @@ import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
+import { pointerDropEdge } from "./row-reorder";
 
 interface Item {
   id: string;
@@ -212,5 +213,38 @@ describe("keyboard reordering", () => {
     fireEvent.keyDown(first, { key: "Escape" });
 
     expect(Object.hasOwn(rowOf(first).dataset, "dragging")).toBe(false);
+  });
+});
+
+function band(top: number, bottom: number) {
+  return { bottom, top };
+}
+
+const measure = (row: { top: number; bottom: number }) => row;
+
+describe("pointerDropEdge", () => {
+  const rows = [band(0, 40), band(40, 80), band(80, 120)];
+
+  it("splits a row at its midline", () => {
+    expect(pointerDropEdge(rows, measure, 10)).toEqual({ row: rows[0], side: "before" });
+    expect(pointerDropEdge(rows, measure, 30)).toEqual({ row: rows[0], side: "after" });
+  });
+
+  it("reads above every row as before the first and below every row as after the last", () => {
+    expect(pointerDropEdge(rows, measure, -5)).toEqual({ row: rows[0], side: "before" });
+    expect(pointerDropEdge(rows, measure, 500)).toEqual({ row: rows[2], side: "after" });
+  });
+
+  it("gives the gap between two rows to the row above", () => {
+    const gapped = [band(0, 40), band(60, 100)];
+
+    expect(pointerDropEdge(gapped, measure, 50)).toEqual({ row: gapped[0], side: "after" });
+  });
+
+  it("never lands on a zero-height row", () => {
+    const collapsed = [band(0, 40), band(40, 40), band(40, 80)];
+
+    expect(pointerDropEdge(collapsed, measure, 41)).toEqual({ row: collapsed[2], side: "before" });
+    expect(pointerDropEdge([band(0, 0)], measure, 10)).toBeNull();
   });
 });

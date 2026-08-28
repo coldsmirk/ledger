@@ -278,33 +278,13 @@ export function useRowReorder<TData extends RowData>({
     }
 
     const rows = viewport.querySelectorAll<HTMLTableRowElement>("tr[data-row-id]:not([data-pinned-row])");
-    let nearest: { element: HTMLTableRowElement; side: "before" | "after" } | null = null;
-
-    for (const element of rows) {
-      const rect = element.getBoundingClientRect();
-
-      if (rect.height === 0) {
-        continue;
-      }
-
-      if (y < rect.top) {
-        nearest ??= { element, side: "before" };
-
-        break;
-      }
-
-      nearest = { element, side: y < rect.top + rect.height / 2 ? "before" : "after" };
-
-      if (y <= rect.bottom) {
-        break;
-      }
-    }
+    const nearest = pointerDropEdge(rows, element => element.getBoundingClientRect(), y);
 
     if (!nearest) {
       return null;
     }
 
-    const { rowId } = nearest.element.dataset;
+    const { rowId } = nearest.row.dataset;
     const row = rowId === undefined ? undefined : session.rowsById.get(rowId);
 
     if (rowId === undefined || !row || resolveToIndex(row, nearest.side) === null) {
@@ -504,6 +484,43 @@ export function useRowReorder<TData extends RowData>({
     attachGhost,
     announcerRef
   };
+}
+
+/**
+ * The drop edge a pointer at `y` indicates, scanned top to bottom over the rendered rows: above
+ * every row reads "before" the first, inside a row splits at its midline, the gap between two
+ * rows belongs to the row above, and below every row reads "after" the last. Zero-height rows
+ * never claim the pointer. Pure over `measure` — the session feeds it live rects, and reads
+ * lazily so the scan still stops at the row under the pointer.
+ */
+export function pointerDropEdge<T>(
+  rows: Iterable<T>,
+  measure: (row: T) => { top: number; bottom: number },
+  y: number
+): { row: T; side: "before" | "after" } | null {
+  let nearest: { row: T; side: "before" | "after" } | null = null;
+
+  for (const row of rows) {
+    const { top, bottom } = measure(row);
+
+    if (bottom <= top) {
+      continue;
+    }
+
+    if (y < top) {
+      nearest ??= { row, side: "before" };
+
+      break;
+    }
+
+    nearest = { row, side: y < (top + bottom) / 2 ? "before" : "after" };
+
+    if (y <= bottom) {
+      break;
+    }
+  }
+
+  return nearest;
 }
 
 function ghostTransform(
