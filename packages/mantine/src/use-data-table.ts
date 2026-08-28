@@ -33,7 +33,7 @@ import type {
 import { functionalUpdate, useTable } from "@tanstack/react-table";
 import { useCallback, useEffect, useInsertionEffect, useMemo, useRef, useState } from "react";
 
-import { buildColumns, EXPANDER_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
+import { buildColumns, EXPANDER_COLUMN_ID, isInternalColumn, SELECTION_COLUMN_ID } from "./build-columns";
 import { isDev, warnOnce } from "./env";
 import { ledgerFilterFns } from "./filter-fns";
 import { buildLedgerFeatures } from "./ledger-features";
@@ -446,6 +446,30 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     return { start: [...internal, ...start], end: columnPinning.end };
   }, [columnPinning, enableRowSelection, withExpander]);
 
+  // The write side of that invisibility: `column.pin()` resolves against the merged state, so a
+  // call on (or alongside) an injected column would land a `ledger:*` id in the consumer's slice
+  // — and from there in `onColumnPinningChange` and persisted layout. Internal ids are stripped
+  // from the resolved value instead; a write that stripping turns into a no-op keeps the old
+  // value's identity, so the uncontrolled state never re-renders for it.
+  const setPublicColumnPinning = useCallback((updater: Updater<ColumnPinningState>) => {
+    setColumnPinning(old => {
+      const next = functionalUpdate(updater, old);
+      const start = next.start.filter(id => !isInternalColumn(id));
+      const end = next.end.filter(id => !isInternalColumn(id));
+
+      if (start.length === next.start.length && end.length === next.end.length) {
+        return next;
+      }
+
+      const unchanged = start.length === old.start.length
+        && end.length === old.end.length
+        && start.every((id, index) => id === old.start[index])
+        && end.every((id, index) => id === old.end[index]);
+
+      return unchanged ? old : { end, start };
+    });
+  }, [setColumnPinning]);
+
   /* ---- dev guard rails (docs/state.md) ---- */
   if (isDev && (enableRowSelection || withExpander) && !getRowId) {
     warnOnce(
@@ -574,7 +598,7 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
     onRowSelectionChange: setRowSelection,
     onExpandedChange: setExpanded,
     onColumnVisibilityChange: setColumnVisibility,
-    onColumnPinningChange: setColumnPinning,
+    onColumnPinningChange: setPublicColumnPinning,
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     onGroupingChange: setGrouping,

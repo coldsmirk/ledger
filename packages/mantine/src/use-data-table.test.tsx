@@ -130,6 +130,34 @@ describe("useDataTable", () => {
     ]);
   });
 
+  it("keeps injected column ids out of the consumer's columnPinning slice", () => {
+    const onColumnPinningChange = vi.fn();
+    const { result } = renderHook(() => useDataTable({
+      data: people,
+      columns,
+      getRowId,
+      enableRowSelection: true,
+      onColumnPinningChange
+    }));
+
+    // `column.pin()` resolves against the merged state, which carries the injected id — without
+    // the write-side strip it would land `ledger:select` in the consumer's slice and in
+    // persisted layout, and `pin("end")` would render the column twice.
+    act(() => result.current.getColumn(SELECTION_COLUMN_ID)?.pin("end"));
+
+    for (const [value] of onColumnPinningChange.mock.calls) {
+      expect(value).toEqual({ end: [], start: [] });
+    }
+
+    expect(result.current.state.columnPinning).toEqual({ end: [], start: [SELECTION_COLUMN_ID] });
+
+    // A consumer pin alongside the injected ids strips only the internal ones.
+    act(() => result.current.getColumn("name")?.pin("end"));
+
+    expect(onColumnPinningChange).toHaveBeenLastCalledWith({ end: ["name"], start: [] });
+    expect(result.current.state.columnPinning).toEqual({ end: ["name"], start: [SELECTION_COLUMN_ID] });
+  });
+
   it("wires filter variants from meta.filter for columns without their own filterFn", () => {
     const { result } = renderHook(() => useDataTable({
       data: people,
@@ -149,8 +177,8 @@ describe("useDataTable", () => {
   });
 
   it("multi-select filtering is strict set membership, never substring matching", () => {
-    // Regression: TanStack's arrIncludesSome degrades to String.includes on scalar values,
-    // so choosing "active" also matched "inactive" rows.
+    // Regression: no TanStack built-in gives exact membership over both scalar and array cells —
+    // v8's arrIncludesSome even substring-matched scalars, so "active" also matched "inactive".
     interface Account {
       id: string;
       state: string;
