@@ -220,6 +220,6 @@ Audit question: *is every TanStack Table capability accounted for?* (Originally 
 | Rendering: `flexRender`, `FlexRender` / `table.FlexRender` | `flexRender` re-exported; the component forms remain reachable on the instance |
 | Cell selection (`cellSelectionFeature`, new in v9) | **Deferred — needs a design round** (now available in core; unregistered until then) |
 | Cell spanning (`cellSpanningFeature`, new in v9) | First-class — registered; `spanRows`/`spanColumns` on raw defs, real `rowSpan`/`colSpan` markup; mutually exclusive with virtualization (2026-08-22 design round) |
-| Virtualization (TanStack Virtual — separate library) | Row virtualization first-class (spacer rows, adaptive viewport); **column virtualization deferred — needs a design round** |
+| Virtualization (TanStack Virtual — separate library) | First-class on both axes: row virtualization rides TanStack Virtual (spacer rows, adaptive viewport); column virtualization rides the width engine's own window, deliberately not a second virtualizer (2026-08-27 design round) |
 
 Net-new obligations the original audit added to the design: the auto-reset policy, the `tableOptions` collision warning, `enableSubRowSelection` recorded as escape-hatch, the expand-all affordance, and row pinning's disposition. The 2026-08-21 re-audit added the previously unrecorded `enableFilters` / `manualGrouping` / `manualExpanding` / `mergeOptions` dispositions and retired the stale `columnResizeMode` managed-key claim in state.md.

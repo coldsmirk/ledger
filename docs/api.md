@@ -37,7 +37,7 @@ Re-exported TanStack types (consumers never import `@tanstack/*`): `ColumnDef`, 
 
 ledger-owned types: `DataTableProps`, `DataTableBaseProps`, `UseDataTableOptions`, `DataTableHandle`, `DataTableScrollOptions`, `DataTableLabels`, `DataTableIcons`, `DataTableIconProps`, `DataTableIconComponent`, `DataTableFilterVariant`, `DataTableFilterConfig`, `DataTableEditRenderer`, `DataTableEditConfig`, `DataTableEditContext`, `DataTableInstantEditRenderer`, `DataTableInstantEditConfig`, `DataTableInstantEditContext`, `DataTableEditCommit`, `DataTableEditingCell`, `DataTableEditTrigger`, `DataTableEditMode`, `DataTableRowEditCommit`, `DataTableRowReorder`, `DataTableExportMeta`, `DataTablePersistState`, `DataTablePersistableSlice`, `DataTableElementProps`, `LedgerMeta`, `LedgerEditingController`, `LedgerInstantEditingController`, `LedgerRowEditingController`, `LedgerRowEditor`, `LedgerCellEditor`, `ToCsvOptions`, plus the Styles API types `DataTableFactory`, `DataTableStylesNames`, `DataTableCssVariables`. Value exports beyond the components: `toCsv`, `createColumnHelper`, `flexRender`, `defaultLabels`, `defaultIcons`, and the editor factories `textEditor` / `numberEditor` / `selectEditor` / `checkboxEditor`.
 
-Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` ^0.5, `@dnd-kit/helpers` ^0.5, `clsx`.
+Package exports: `.` (dual ESM+CJS with types), `./locales`, `./styles.css`, `./package.json`. Peers: `@mantine/core` ^9, `@mantine/dates` ^9, `@mantine/hooks` ^9, `react`/`react-dom` ^19.2 (`dayjs` arrives transitively as `@mantine/dates`' own peer). Direct dependencies: `@tanstack/react-table` ^9.1 (ESM-only upstream; the CJS build relies on Node ≥ 24 `require(esm)`), `@tanstack/react-virtual` ^3.14, `@dnd-kit/react` / `@dnd-kit/dom` / `@dnd-kit/helpers` ^0.5, `clsx`.
 
 ## `UseDataTableOptions<TData>`
 
@@ -357,7 +357,7 @@ interface DataTableIcons {
   filterColumn: DataTableIconComponent;
   /* Rows — one chevron, rotated open by the stylesheet (groups and expand-all included) */
   expandRow: DataTableIconComponent;
-  reorderRow: DataTableIconComponent;      // the row-ordering drag handle and its ghost chip
+  reorderRow: DataTableIconComponent;      // the row-ordering drag handle (the pointer ghost clones it with the row)
   /* States */
   empty: DataTableIconComponent;
   noResults: DataTableIconComponent;
@@ -381,7 +381,7 @@ interface DataTableIcons {
 
 ## `meta.ledger`
 
-`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the stable processed `columns` (the render layer's memo token — v9 re-resolves `table.options` per state tick), the `editing` controller (below), filter-set subscriptions (`subscribeColumnFilters` / `subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `onRowEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), `activeRow` (`enabled` / `id` / `set`), `enableColumnOrdering`, `enableColumnResizing`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
+`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the stable processed `columns` (the render layer's memo token — v9 re-resolves `table.options` per state tick), the `editing` controller (below), filter-set subscriptions (`filtering.subscribeColumnFilters` / `.subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `onRowEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), `activeRow` (`enabled` / `id` / `set`), `rowOrdering` (`enabled` / `orderable` / `onRowReorder` — [rows.md](rows.md#row-ordering)), `enableColumnOrdering`, `enableColumnResizing`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
 
 `meta.ledger.editing` carries both modes at once; `mode` says which one is live. Both sessions live in the controller and the editors are views of them — an editor is unmounted by a hidden column or a virtual scroll at any moment, while the session is not ([architecture.md](architecture.md#load-bearing-internals)).
 
@@ -402,17 +402,17 @@ interface LedgerEditingController {
     write: (rowId: string, columnId: string, value: unknown) => void;
   };
   moveTo: (backwards: boolean) => void;                    // Tab / Shift+Tab: commit, then move
-  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null;  // where F2 enters
+  firstEditable: (rowId: string, skipInstant: boolean) => string | null;  // where F2 enters
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
-  checkbox: LedgerCheckboxEditingController;               // the checkbox variant's transient edits
+  instant: LedgerInstantEditingController;                 // the instant-apply controls' transient edits
   row: LedgerRowEditingController;                         // inert while mode is "cell"
 }
 
-interface LedgerCheckboxEditingController {
-  checked: (rowId: string, columnId: string, source: unknown) => boolean;  // written, else source
+interface LedgerInstantEditingController {
+  value: (rowId: string, columnId: string, source: unknown) => unknown;    // written (until the data moves past it), else source
   pending: (rowId: string, columnId: string) => boolean;                   // this cell's write is out
   error: (rowId: string, columnId: string) => string | null;
-  toggle: (rowId: string, columnId: string) => void;                       // toggles and commits in one act
+  commit: (rowId: string, columnId: string, value: unknown) => boolean | Promise<boolean>;  // one change, one commit
   register: (rowId: string, columnId: string, editor: LedgerCellEditor) => () => void;
 }
 

@@ -50,7 +50,7 @@ The `pagination` slice follows the standard trio with TanStack's `PaginationStat
 
 - `paginationMode: "server"` sets TanStack's `manualPagination` and omits the client pagination row model — `data` is exactly one page.
 - `rowCount` is the total; `pageCount` is derived internally (`ceil(rowCount / pageSize)`, floor 1) and the bar's summary uses `rowCount` as its denominator.
-- **Deterministic reset**: ledger keeps TanStack's upstream page reset disabled and performs the server-safe equivalent itself — a `columnFilters`, `globalFilter`, or `sorting` change sets `pageIndex` back to 0 (skipped on mount, including root `StrictMode`; a no-op when already there). It honors `tableOptions.autoResetAll ?? tableOptions.autoResetPageIndex ?? true`. In server pagination, ledger consumes the global option for this policy and forwards its non-pagination expansion effect through `autoResetExpanded`, so an upstream queued reset cannot restore a nonzero `defaultPagination`. Policy details in [state.md](state.md).
+- **Deterministic reset**: ledger keeps TanStack's upstream page reset disabled and performs the server-safe equivalent itself — a `columnFilters`, `globalFilter`, or `sorting` change sets `pageIndex` back to 0 (skipped on mount, including root `StrictMode`; a no-op when already there). It honors `tableOptions.autoResetAll ?? tableOptions.autoResetPageIndex ?? true`. In server pagination, ledger consumes the global option for this policy and forwards its non-pagination effects through `autoResetExpanded` and `autoResetSorting`, so an upstream queued reset cannot restore a nonzero `defaultPagination`. Policy details in [state.md](state.md).
 
 ### The two switches are independent
 

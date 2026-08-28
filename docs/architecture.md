@@ -12,6 +12,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `data-table.tsx` | The factory component: option/presentation partition, Styles API, the header/body split (two synced tables), column CSS variables, infinite loading, scroll edges, imperative handle |
 | `use-styles-revision.ts` | One Styles API identity per set of resolved answers — what lets a real style change reach a memoized row without a fresh getter reaching one every render |
 | `build-columns.tsx` | Injected row-drag/selection/expander columns (and the `rowDragColumn` / `selectionColumn` / `expanderColumn` merge); `meta.filter` → `filterFn` gap-filling |
+| `use-responsive-columns.ts` | `meta.hiddenFrom` / `visibleFrom`: breakpoint-driven column presence, resolved from the Mantine theme before TanStack sees the defs |
 | `table-header.tsx` / `table-body.tsx` / `table-footer.tsx` | Renderers: header (sort/actions/resize/reorder), body (display rows, virtualization, pinned rows, group cells, skeletons), footer |
 | `use-cell-editing.ts` | The cell editing session: draft, write record, pending, error, commit, gate, editor registry, deferred unmount-commit |
 | `use-row-editing.ts` | The row editing session: the per-row draft store and its baseline, the atomic commit, pending, error, gate, editor registry |
@@ -19,6 +20,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `use-committed-table.ts` | What the last committed render resolved — rows, columns, definitions, the table-level gate — so no editing path has to ask the shared core |
 | `edit-meta.ts` | The editing gate as the predicates every path shares: `meta.edit` normalization, `canEditCell` (re-asked, never cached — it calls the application's `edit.enabled`), error messages |
 | `cell-editor.tsx` | The editor hosts — views of their session, plus the keyboard map |
+| `editors.tsx` | The shipped editor factories (`textEditor` / `numberEditor` / `selectEditor` / `checkboxEditor`) — ordinary renderers over the public edit contexts |
 | `filter-popover.tsx` | The header's filter dropdown surface |
 | `columns-panel.tsx` | `DataTable.ColumnsPanel`: zoned column list, dnd-kit sortable rows, visibility / pinning / width / grouping controls, reset |
 | `column-order.ts` | Pure edits over the flat `columnOrder` array, shared by the header drag and the panel |
@@ -28,6 +30,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `use-column-widths.ts` | The width engine: raw sizing specs → exact integer pixel widths (weighted grow, proportional fill) |
 | `use-column-window.ts` | Column virtualization: the center-zone window (binary search over the engine's prefix sums) and the tiling helpers every renderer shares |
 | `use-column-resize.ts` | Pointer-based column resizing (1:1 from resolved widths, Escape restore, RTL-aware) |
+| `autosize-column.ts` | Double-click fit-to-content: measures the rendered header/body/footer cells from the resize session's `ResizerSpec` |
 | `use-column-reorder.ts` | Pointer-based header drag (threshold, click suppression, Escape) |
 | `use-pinned-row-offsets.ts` | Measured cumulative sticky offsets for pinned rows |
 | `element-props.ts` | The DOM escape hatch: the `TProps \| (subject) => TProps` shape, and the merge rules that keep ledger's structural props authoritative |
@@ -35,7 +38,9 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `pinning.ts` / `utils.ts` | Pinned-cell geometry; CSS-variable names; `useEventCallback`; `toPx` |
 | `filter-fns.ts` | `ledger-one-of`, `ledger-date-range`, variant → filterFn map |
 | `toggle-fns.ts` / `use-row-commands.ts` | v9's sort/selection/expansion updater bodies as pure functions, and the committed controllers that apply them |
+| `ledger-commands.ts` | The internal half of `meta.ledger` (`LedgerInternalMeta`): the sorting/selection/expansion controllers ride the same object without joining the public contract |
 | `persist.ts` | `persistState`: guarded synchronous hydration, debounced writes, per-slice shape guards |
+| `csv.ts` | `toCsv`: RFC 4180 serialization over the live row models, `meta.export` control, opt-in formula defusal |
 | `labels.ts` / `locales.ts` | Label catalog + `zhCN` (published as `./locales`) |
 | `context.ts` | The deliberate `TData` erasure boundary (see below) — table-wide plumbing only, never the table instance |
 | `ledger-features.ts` | The canonical TanStack v9 feature set (`LedgerFeatures`) — features, row models, fn registries |
