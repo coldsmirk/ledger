@@ -507,19 +507,15 @@
     box-shadow: inset 0 -2px 0 0 var(--mantine-primary-color-filled);
   }
 
-  /* The pointer ghost: a chip naming the dragged row, positioned imperatively (row-reorder.tsx)
-     and portaled to the body — never part of the table's flow. */
+  /* The pointer ghost: a snapshot of the whole lifted row (row-reorder.tsx clones it under
+     per-column pixel widths), positioned imperatively and portaled to the body — never part
+     of the table's flow. */
   .ledger-row-drag-overlay {
     position: fixed;
     inset-block-start: 0;
     inset-inline-start: 0;
     z-index: var(--mantine-z-index-popover);
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    padding: 4px 10px;
-    font-size: var(--mantine-font-size-sm);
-    color: var(--mantine-color-text);
+    overflow: hidden;
     pointer-events: none;
     background-color: var(--mantine-color-body);
     border: 1px solid var(--mantine-color-default-border);

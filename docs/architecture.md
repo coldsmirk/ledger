@@ -22,7 +22,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `filter-popover.tsx` | The header's filter dropdown surface |
 | `columns-panel.tsx` | `DataTable.ColumnsPanel`: zoned column list, dnd-kit sortable rows, visibility / pinning / width / grouping controls, reset |
 | `column-order.ts` | Pure edits over the flat `columnOrder` array, shared by the header drag and the panel |
-| `row-reorder.tsx` | Row ordering: the session (pointer via dnd-kit + keyboard index stepping), the handle cell, the ghost chip and live region |
+| `row-reorder.tsx` | Row ordering: the session (pointer via dnd-kit + keyboard index stepping), the handle cell, the row ghost and live region |
 | `search.tsx` / `pagination-bar.tsx` / `selection-bar.tsx` | Compound components |
 | `selection.tsx` / `expander.tsx` | Injected column cells (stop-propagation covenant, shift ranges, expand-all) |
 | `use-column-widths.ts` | The width engine: raw sizing specs → exact integer pixel widths (weighted grow, proportional fill) |

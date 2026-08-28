@@ -39,7 +39,7 @@ All the border and background props are rendered by ledger itself rather than Ma
 | `detailPanel` | `.ledger-detail-panel` | Master–detail panel cell |
 | `cellEditor` | `.ledger-cell-editor` | Inline editor host |
 | `instantCell` / `instantSpinner` | `.ledger-instant-cell` / `.ledger-instant-spinner` | Instant-column host, and its out-of-flow pending loader |
-| `rowDragCell` / `rowDragOverlay` | `.ledger-row-drag-cell` / `.ledger-row-drag-overlay` | Row-ordering handle cell, and the pointer ghost chip |
+| `rowDragCell` / `rowDragOverlay` | `.ledger-row-drag-cell` / `.ledger-row-drag-overlay` | Row-ordering handle cell, and the pointer ghost (a snapshot of the whole lifted row) |
 | `footerRow` / `footerCell` | `.ledger-footer-row` / `.ledger-footer-cell` | Totals row |
 | `empty` | `.ledger-empty` | Empty-state block |
 | `loaderRow` / `loaderRowContent` | `.ledger-loader-row` / `.ledger-loader-row-content` | Infinite-loading trailing row, and the centred flex line inside its cell |

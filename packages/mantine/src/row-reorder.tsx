@@ -13,13 +13,13 @@ import type { DragEndEvent, DragMoveEvent, DragStartEvent } from "@dnd-kit/react
  * The drop target is ledger's own math over the rendered rows, not droppables: per-row
  * droppables would re-register on every virtualizer round-trip, and the sortable plugin's
  * optimistic DOM moves would break the one-`<tr>`-per-virtual-item invariant. The Feedback
- * and Accessibility plugins stay out for the same reason — the ghost chip and the live
+ * and Accessibility plugins stay out for the same reason — the row ghost and the live
  * region are ledger's, fed from `labels`.
  * - The keyboard steps the insertion index directly (Space lifts, ↑/↓ move, Home/End jump,
  * Space drops, Escape cancels; blur abandons) — exact positions, not synthetic pixels.
  *
  * Session state lives up in `DataTable`, so the affected rows re-render through their own
- * memoized props; the ghost chip and the live region are written imperatively — a pointer
+ * memoized props; the row ghost and the live region are written imperatively — a pointer
  * move never re-renders the table.
  */
 import type { RowData } from "@tanstack/react-table";
@@ -88,10 +88,10 @@ export interface RowReorderSession {
   };
   keyboard: RowReorderKeyboard;
   /**
-   * The pointer ghost's text, `null` until the drag actually moves — which is also what keeps
-   * a bare click silent.
+   * True once a pointer drag has actually moved — the overlay mounts the ghost from it, and
+   * its late start is also what keeps a bare click silent.
    */
-  ghostName: string | null;
+  ghostActive: boolean;
   attachGhost: (element: HTMLDivElement | null) => void;
   announcerRef: RefObject<HTMLSpanElement | null>;
 }
@@ -146,12 +146,13 @@ export function useRowReorder<TData extends RowData>({
 }: RowReorderInput<TData>): RowReorderSession {
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [target, setTargetState] = useState<RowReorderTarget | null>(null);
-  const [ghostName, setGhostName] = useState<string | null>(null);
+  const [ghostActive, setGhostActive] = useState(false);
 
   const snapshot = useRef<DragSnapshot<TData> | null>(null);
   const targetRef = useRef<RowReorderTarget | null>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
   const ghostPosition = useRef({ x: 0, y: 0 });
+  const ghostOrigin = useRef({ x: 0, y: 0 });
   const announcerRef = useRef<HTMLSpanElement | null>(null);
 
   const announce = useEventCallback((message: string) => {
@@ -247,7 +248,7 @@ export function useRowReorder<TData extends RowData>({
     targetRef.current = null;
     setSourceId(null);
     setTargetState(null);
-    setGhostName(null);
+    setGhostActive(false);
   };
 
   /* ---- pointer channel (dnd-kit) ---- */
@@ -324,12 +325,12 @@ export function useRowReorder<TData extends RowData>({
     ghostPosition.current = position;
 
     if (ghostRef.current) {
-      ghostRef.current.style.transform = ghostTransform(position);
+      ghostRef.current.style.transform = ghostTransform(position, ghostOrigin.current);
     }
 
     // The lift is announced here, on the first real move, so a plain click stays silent.
-    if (ghostName === null) {
-      setGhostName(session.sourceName);
+    if (!ghostActive) {
+      setGhostActive(true);
       announce(labels.rowReorderLifted(session.sourceName));
     }
 
@@ -426,11 +427,53 @@ export function useRowReorder<TData extends RowData>({
   const attachGhost = useEventCallback((element: HTMLDivElement | null) => {
     ghostRef.current = element;
 
-    // Positioned before its first paint — a chip that mounts at the portal origin and then
-    // jumps to the pointer is exactly the drift the imperative transform exists to avoid.
-    if (element) {
-      element.style.transform = ghostTransform(ghostPosition.current);
+    if (!element) {
+      return;
     }
+
+    // Built once per lift: the ghost is a DOM snapshot of the whole source row — the source
+    // table's shell around the cloned `<tr>`, under per-column pixel widths read from the live
+    // cells (the width variables live on the ledger root and cannot reach the portal) — so a
+    // pointer move stays a pure transform write and no live cell ever renders twice.
+    const session = snapshot.current;
+    const source = session
+      ? viewportRef.current?.querySelector<HTMLTableRowElement>(
+          `tr[data-row-id="${CSS.escape(session.sourceId)}"]`
+        )
+      : null;
+    const sourceTable = source?.closest("table");
+
+    if (source && sourceTable) {
+      const ghostTable = sourceTable.cloneNode(false) as HTMLTableElement;
+      ghostTable.style.width = `${sourceTable.getBoundingClientRect().width}px`;
+
+      const colgroup = document.createElement("colgroup");
+
+      for (const cell of source.cells) {
+        const col = document.createElement("col");
+        col.style.width = `${cell.getBoundingClientRect().width}px`;
+        colgroup.append(col);
+      }
+
+      const body = document.createElement("tbody");
+      const rowClone = source.cloneNode(true) as HTMLTableRowElement;
+      delete rowClone.dataset.dragging;
+      body.append(rowClone);
+      ghostTable.append(colgroup, body);
+      element.replaceChildren(ghostTable);
+
+      // Anchored to where the row was lifted from, so the ghost reads as the row itself
+      // coming off the table under the pointer's grab point.
+      const rowRect = source.getBoundingClientRect();
+      ghostOrigin.current = {
+        x: rowRect.left - ghostPosition.current.x,
+        y: rowRect.top - ghostPosition.current.y
+      };
+    }
+
+    // Positioned before its first paint — a ghost that mounts at the portal origin and then
+    // jumps to the pointer is exactly the drift the imperative transform exists to avoid.
+    element.style.transform = ghostTransform(ghostPosition.current, ghostOrigin.current);
   });
 
   // Stable — every handler is an event callback — so the render context carrying it holds.
@@ -457,14 +500,17 @@ export function useRowReorder<TData extends RowData>({
       onDragStart
     },
     keyboard,
-    ghostName,
+    ghostActive,
     attachGhost,
     announcerRef
   };
 }
 
-function ghostTransform({ x, y }: { x: number; y: number }): string {
-  return `translate(${Math.round(x) + 14}px, ${Math.round(y) + 14}px)`;
+function ghostTransform(
+  { x, y }: { x: number; y: number },
+  origin: { x: number; y: number }
+): string {
+  return `translate(${Math.round(x + origin.x)}px, ${Math.round(y + origin.y)}px)`;
 }
 
 /**
@@ -487,22 +533,17 @@ export function RowReorderScope({ session, children }: { session: RowReorderSess
 
 /**
  * The pointer ghost and the live region, portaled out of the ARIA table (a `role="table"` may
- * only own rows; a fixed-position chip inside the scroller would clip and shear under sticky
- * transforms). The chip is `aria-hidden`: the live region already narrates the drag.
+ * only own rows; a fixed-position ghost inside the scroller would clip and shear under sticky
+ * transforms). The ghost's content is the row snapshot `attachGhost` clones in, and it is
+ * `aria-hidden`: the live region already narrates the drag.
  */
 function RowReorderOverlay({ session }: { session: RowReorderSession }) {
-  const { getStyles, icons } = useDataTableContext();
+  const { getStyles } = useDataTableContext();
 
   return (
     <Portal>
       <VisuallyHidden ref={session.announcerRef} aria-live="polite" role="status" />
-
-      {session.ghostName !== null && (
-        <div ref={session.attachGhost} aria-hidden {...getStyles("rowDragOverlay")}>
-          <icons.reorderRow size={14} />
-          <span>{session.ghostName}</span>
-        </div>
-      )}
+      {session.ghostActive && <div ref={session.attachGhost} aria-hidden {...getStyles("rowDragOverlay")} />}
     </Portal>
   );
 }
@@ -522,7 +563,7 @@ export function RowDragCell<TData extends RowData>({ row, table }: { row: Row<TD
   const orderable = table.options.meta?.ledger?.rowOrdering.orderable === true;
 
   // No Feedback plugin runs (ROW_REORDER_PLUGINS): the handle stays put and the session's own
-  // chip is the drag's visual.
+  // row ghost is the drag's visual.
   const { ref, isDragSource } = useDraggable({
     id: row.id,
     disabled: !orderable
