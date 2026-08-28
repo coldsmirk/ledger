@@ -43,7 +43,7 @@ export interface CellEditingSession {
    * it. Answered here rather than by the editor, which would have to walk the shared core.
    */
   moveTo: (backwards: boolean) => void;
-  firstEditable: (rowId: string, skipCheckbox: boolean) => string | null;
+  firstEditable: (rowId: string, skipInstant: boolean) => string | null;
   write: (rowId: string, columnId: string, value: unknown) => void;
   pending: (rowId: string, columnId: string) => boolean;
   error: (rowId: string, columnId: string) => string | null;
