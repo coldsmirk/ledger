@@ -4,7 +4,8 @@
   "extends": "@coldsmirk/tsconfig/react",
   "compilerOptions": {
     // Workspace imports resolve to package TypeScript sources (the `source` export condition), so
-    // typecheck and tests run against source with no build step.
+    // typecheck runs against source with no build step (tests reach source through the root
+    // vitest config's `resolve.alias` instead).
     "customConditions": ["source"],
     // No ambient type injection: package sources must not see node/test globals (a stray
     // `process.env.X` in browser code should fail typecheck). Tests import what they use, and the

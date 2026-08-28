@@ -4,8 +4,9 @@ import type { Header, TableInstance } from "./types";
 import type { ColumnWindowView } from "./use-column-window";
 
 /**
- * Column footers (totals row). Rendered only when at least one leaf column declares a `footer`;
- * pinned columns keep their sticky offsets so the totals track their columns.
+ * Column footers (totals row). Rendered only when at least one column — leaf or group —
+ * declares a `footer`; pinned columns keep their sticky offsets so the totals track their
+ * columns.
  */
 import { Table as MantineTable } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";

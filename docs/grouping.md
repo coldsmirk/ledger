@@ -22,7 +22,7 @@
 ## Rendering
 
 - A **grouped cell** renders an expand/collapse chevron, the group's value, and the group size — `(12)` — inside a `data-group-cell` wrapper; clicking the chevron toggles the group without touching `onRowClick`.
-- **Aggregated cells** on the other columns render `aggregatedCell` (falling back to `cell`) over TanStack's aggregation pipeline — all built-in `aggregationFn`s (`sum`, `min`, `max`, `mean`, `median`, `count`, `unique`, `uniqueCount`) and custom functions work unchanged.
+- **Aggregated cells** on the other columns render `aggregatedCell` (falling back to `cell`) over TanStack's aggregation pipeline — all built-in `aggregationFn`s (`count`, `extent`, `first`, `last`, `max`, `mean`, `median`, `min`, `sum`, `unique`, `uniqueCount`) and custom functions work unchanged.
 - Group open/closed state rides the same `expanded` trio used by trees and detail panels.
 - TanStack's default `groupedColumnMode: "reorder"` applies — the grouped column moves to the front while grouped. Override it through `tableOptions.groupedColumnMode` if the column should stay put ([state.md](state.md)).
 

@@ -28,7 +28,7 @@ The funnel trigger renders subtle while inactive and filled (`data-active`) whil
 
 Two functions are ledger-registered because TanStack's built-ins have the wrong semantics:
 
-- **`ledger-one-of`** — a scalar cell equals one of the chosen options, or an array cell contains at least one of them, exactly. TanStack's `arrIncludesSome` expects an array row value and degrades to substring matching on scalars (choosing `active` would also match `inactive`).
+- **`ledger-one-of`** — a scalar cell equals one of the chosen options, or an array cell contains at least one of them, exactly. No v9 built-in covers both cell shapes: `arrIncludesSome` returns `false` for any non-array row value (a scalar column would never match), `arrHas` compares scalars but rejects array cells, and `arrIncludes` accepts both only by substring-matching strings (choosing `active` would also match `inactive`).
 - **`ledger-date-range`** — inclusive `[from, to]` over anything `new Date()` can parse. Date-only strings and picker bounds are local calendar days; their upper boundary is the next local midnight, so the complete day is included without assuming every day is 24 hours across DST. Full timestamp bounds retain their exact instant. Rows whose value is missing or unparseable never match.
 
 Both auto-remove when emptied (clearing every option or both bounds removes the filter entirely).

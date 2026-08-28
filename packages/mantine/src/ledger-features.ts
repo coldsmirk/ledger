@@ -5,10 +5,14 @@ import type { FilterFn, RowData } from "@tanstack/react-table";
  * object so `typeof ledgerFeatures` (`LedgerFeatures`) can pre-bind the `TFeatures` generic of
  * every re-exported type — consumers keep writing v8-shaped `ColumnDef<TData>` code.
  *
- * - Every stock feature is registered EXCEPT `columnResizingFeature`: ledger owns the resize
- * interaction end to end (`use-column-resize.ts`), so TanStack's drag machinery — and with it
- * the `columnResizing` state slice, `getIsResizing()`, and `getResizeHandler()` — is not
- * registered at all. Feature-gated APIs cannot lie about a pipeline that never runs.
+ * - Every stock feature is registered EXCEPT the two below.
+ * - `columnResizingFeature`: ledger owns the resize interaction end to end
+ * (`use-column-resize.ts`), so TanStack's drag machinery — and with it the `columnResizing`
+ * state slice, `getIsResizing()`, and `getResizeHandler()` — is not registered at all.
+ * Feature-gated APIs cannot lie about a pipeline that never runs.
+ * - `cellSelectionFeature`: cell selection is deferred until its own design round
+ * (docs/DESIGN.md), so the `cellSelection` state slice, `enableCellSelection`, and
+ * `cell.getIsSelected()` are likewise absent by the same rule.
  * - Row model factories are registered statically; the `manualX` translations decide at runtime
  * whether a model actually processes rows (client mode) or passes through (server mode).
  * - Every built-in fn ships registered under its conventional name. v9 resolves string ids —

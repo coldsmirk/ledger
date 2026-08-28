@@ -45,7 +45,7 @@ helper.group({
 })
 ```
 
-Column footers render as a totals row **only when at least one leaf column declares a `footer`** — in an **always-visible region below the scroller** (like the header, it mirrors horizontal scroll), so totals never scroll out of view; pinned columns keep their sticky offsets there. Note that header drag-reordering is unavailable while header groups exist (see below).
+Column footers render as a totals row **only when at least one column — leaf or group — declares a `footer`** (each footer level renders only if it carries one) — in an **always-visible region below the scroller** (like the header, it mirrors horizontal scroll), so totals never scroll out of view; pinned columns keep their sticky offsets there. Note that header drag-reordering is unavailable while header groups exist (see below).
 
 ## The `meta` extension
 

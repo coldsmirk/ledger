@@ -28,16 +28,25 @@ enableRowSelection={row => row.original.status !== "archived"}
 
 ## Overriding the injected column
 
-The selection column is an ordinary `ColumnDef`, so `selectionColumn` merges over it — a wider column, a custom cell (a tooltip explaining why a row is disabled, say), a different header. Only `id` is reserved: it is how ledger recognizes its own column and keeps the centered layout, the stop-propagation covenant, and the exclusions from CSV export and the columns panel.
+The selection column is an ordinary `ColumnDef`, so `selectionColumn` merges over it — a wider column, a custom cell (a tooltip explaining why a row is disabled, say), a different header. The injected def fixes `size` / `minSize` / `maxSize` at 40, so a `size` override alone is clamped straight back to 40 — raise `maxSize` alongside it to widen. Only `id` is reserved: it is how ledger recognizes its own column and keeps the centered layout, the stop-propagation covenant, and the exclusions from CSV export and the columns panel.
 
 ```tsx
 <DataTable
   enableRowSelection={row => row.original.status !== "archived"}
   selectionColumn={{
+    maxSize: 56,
     size: 56,
     cell: ({ row }) => (
       <Tooltip disabled={row.getCanSelect()} label="Archived rows cannot be selected">
-        <span><SelectionCheckbox row={row} /></span>
+        <span>
+          <Checkbox
+            aria-label="Select row"
+            checked={row.getIsSelected()}
+            disabled={!row.getCanSelect()}
+            size="xs"
+            onChange={event => row.toggleSelected(event.currentTarget.checked)}
+          />
+        </span>
       </Tooltip>
     )
   }}
@@ -45,7 +54,9 @@ The selection column is an ordinary `ColumnDef`, so `selectionColumn` merges ove
 />
 ```
 
-`expanderColumn` does the same for the expander column ([rows.md](rows.md#masterdetail-panels)) — a different chevron, a wider gutter, an "expand all" header of your own.
+A replacement `cell` builds its control from the public row API, as above. What the reserved `id` carries survives the swap — the centered layout, the stop-propagation covenant, the CSV and columns-panel exclusions — but the built-in control's own behavior does not: shift-click ranges, the single-select radio under `enableMultiRowSelection={false}`, the sub-row indeterminate state, and the `labels.selectRow` wiring all live in ledger's default cell, so a custom cell re-provides what it needs.
+
+`expanderColumn` does the same for the expander column ([rows.md](rows.md#masterdetail-panels)) — a different chevron, a wider gutter (its bounds are fixed at 36 the same way: raise `maxSize` alongside `size`), an "expand all" header of your own.
 
 ## The selection bar
 

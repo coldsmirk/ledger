@@ -24,7 +24,7 @@ There is no "fixed-height mode" versus "flow mode" — the internal structure is
 .ledger-pagination-bar { flex: none; }                                   /* chrome rows are rigid */
 ```
 
-The scroller is a Mantine `ScrollArea` (`scrollbars="xy"`, hover type) holding the body table; everything elastic happens inside it. Horizontal scrolling moves header and body together — the header viewport's `scrollLeft` mirrors the body's within the same frame, and a horizontal wheel over the header forwards to the body. Empty and loading states center inside the scroller region (the default empty block reserves `min-height: 12rem`).
+The scroller is a Mantine `ScrollArea` (`scrollbars="xy"`, hover type) holding the body table; everything elastic happens inside it. Horizontal scrolling moves header and body together — the header viewport's `scrollLeft` mirrors the body's within the same frame, and a horizontal wheel over the header forwards to the body. Empty and error states are overlaid on the scroller region and centered in its visible area (an empty or errored body puts a `min-height: 16rem` floor on the scroller itself, keyed by `data-empty` / `data-error` on the root; the overlaid state block adds no height of its own). Loading is different: with no rows it renders skeleton rows in the body, and over existing rows it is a `LoadingOverlay` spanning the root.
 
 ## The four scenarios
 
@@ -49,9 +49,9 @@ Resolution rules, in order:
 
 - A column with an **explicit width** — a user resize, else its `size`, else `defaultColumn.size` — is fixed at that width, clamped to its declared `minSize`/`maxSize`.
 - A column **without one is a grow column** with basis `minSize ?? 80`. Container surplus distributes **proportionally to the bases** (a `minSize: 200` text column grows over twice as fast as a `minSize: 80` tag column), floored to integer pixels with the remainder assigned in display order. Columns leave the active distribution set when they reach `maxSize`, and the remaining space is redistributed over columns that can still grow. When the container is too small, every grow column falls back to its basis and the table overflows into horizontal scroll — grow columns are never crushed below their basis. **Give each table's main text column no `size` (and a `minSize` matching its content) and width adaptivity falls out.**
-- With **no grow columns at all**, surplus distributes proportionally over every column — an all-`size` table still fills its viewport while any column can grow, keeping the declared ratios. A finite `maxSize` is a hard cap: if every column reaches one, the table stops short of the viewport instead of falsifying the declared maximum. This also keeps the injected selection and expander columns fixed at 40px / 36px.
+- With **no grow columns at all**, surplus distributes proportionally over every column — an all-`size` table still fills its viewport while any column can grow, keeping the declared ratios. A finite `maxSize` is a hard cap: if every column reaches one, the table stops short of the viewport instead of falsifying the declared maximum. This also keeps the injected selection and expander columns fixed at 40px / 36px (their defs pin min/max — an override that raises the bounds widens them, [selection.md](selection.md#overriding-the-injected-column)).
 
-The engine re-resolves on container resize (ResizeObserver on the body viewport, measured before first paint) and on any sizing/visibility/order/pinning change. A zero-basis grow set shares surplus equally, so valid `minSize: 0` definitions never produce undefined geometry. The injected selection/expander columns are always fixed (40px / 36px).
+The engine re-resolves on container resize (ResizeObserver on the body viewport, measured before first paint) and on any sizing/visibility/order/pinning change. A zero-basis grow set shares surplus equally, so valid `minSize: 0` definitions never produce undefined geometry. The injected selection/expander columns stay fixed (40px / 36px) unless an override raises their bounds.
 
 ### Resizing interplay
 

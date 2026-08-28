@@ -194,7 +194,7 @@ const theme = createTheme({
 
 The compound components register their own theme keys the same way: `DataTableSearch`, `DataTableColumnsPanel`, `DataTablePagination`, `DataTableSelectionBar`.
 
-Those rendered outside the table's tree sit outside its Styles API and carry static classes instead, styleable directly: `.ledger-pagination-bar`, `.ledger-selection-bar`, and the columns panel's `.ledger-columns-panel` — with `-header`, `-list`, `-zone`, `-zone-label`, `-item`, `-handle`, `-label`, `-indicators` (the dimmed rest-state marks), and `-controls` (the toolbar revealed on the hovered/focused row); the row being dragged carries `data-dragging`, a hidden column's row `data-hidden`.
+Those rendered outside the table's tree sit outside its Styles API and carry static classes instead, styleable directly: `.ledger-pagination-bar`, `.ledger-selection-bar`, and the columns panel's `.ledger-columns-panel` — with `-header`, `-list`, `-zone`, `-zone-label`, `-item`, `-handle`, `-label`, `-indicators` (the dimmed rest-state marks), `-controls` (the toolbar revealed on the hovered/focused row), and `-width-input` (the width field on a resizable row); the row being dragged carries `data-dragging`, a hidden column's row `data-hidden`.
 
 ## Layering, dark mode, RTL, motion
 

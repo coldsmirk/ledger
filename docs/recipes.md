@@ -156,7 +156,7 @@ helper.display({
 });
 ```
 
-Pin it to the end (`defaultColumnPinning={{ end: ["actions"] }}`) to keep actions visible under horizontal scroll.
+Pin it to the end (`defaultColumnPinning={{ start: [], end: ["actions"] }}` — v9's `ColumnPinningState` requires both arrays) to keep actions visible under horizontal scroll.
 
 ## Optimistic inline editing
 
@@ -191,7 +191,7 @@ rebuilt (`useMemo` on the copy object) or a locale switch leaves the old headers
 | `appearance` | Price list | the three border shapes (frame + rows / grid / horizontal-only), stripes, spacing, loading, empty state, the header tint recipe |
 | `states` | Every unhappy path | loading, empty, no-results, error + retry, load-more error, a custom empty state |
 | `orders` | Order desk | all five filter variants, pagination, footer totals, the active row, `onRowActivate`, `onRowContextMenu`, `rowProps` / `meta.cellProps` |
-| `selection` | Bulk actions | multi-select, shift ranges, selection bar, CSV export, per-row selectability, single-select via `selectionColumn` |
+| `selection` | Bulk actions | multi-select, shift ranges, selection bar, CSV export, per-row selectability, single-select via `enableMultiRowSelection` |
 | `editing` | Stock count | all four editors, validation, async commits, a per-row edit gate |
 | `row-editing` | Employee records | row mode: atomic commits, an actions column driving the controller through `meta.ledger` |
 | `row-ordering` | Release checklist | drag-handle reordering, the keyboard lift, handles disabling under sorting, the `arrayMove` handler |

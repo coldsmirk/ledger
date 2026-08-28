@@ -109,9 +109,10 @@ const dateRange: FilterFn<any, any> = (row, columnId, filterValue: DateRangeFilt
 dateRange.autoRemove = (value: DateRangeFilterValue | undefined) => !value || (!value[0] && !value[1]);
 
 /**
- * Strict set membership for the multi-select variant. TanStack's `arrIncludesSome` expects an
- * array row value and degrades to substring matching on scalars ("active" would match
- * "inactive") — the variant's semantics are exact membership for scalar and array cells.
+ * Strict set membership for the multi-select variant. No TanStack built-in covers both cell
+ * shapes exactly: `arrIncludesSome` rejects non-array row values outright, `arrHas` rejects
+ * array cells, and `arrIncludes` substring-matches strings ("active" would match "inactive") —
+ * the variant's semantics are exact membership for scalar and array cells.
  */
 const oneOf: FilterFn<any, any> = (row, columnId, filterValue: string[]) => {
   const raw = row.getValue(columnId);

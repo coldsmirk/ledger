@@ -46,5 +46,5 @@ ledger is a Mantine-native `<DataTable>` built on TanStack Table v9 (headless ta
 
 - Commits: single-line Conventional Commits, enforced by commitlint (`@coldsmirk/commitlint-config`); hooks installed by husky on `pnpm install`.
 - Pre-1.0 with no external consumers: prefer breaking changes that fix bad shapes over compatibility shims; never leave technical debt behind.
-- Testing: Vitest 4 + jsdom + Testing Library; specs colocated as `<name>.test.{ts,tsx}` next to their source; tests run against TS source via the `source` export condition — a green suite does not prove the tsdown build, `pnpm build` + `pnpm check:package` are separate gates.
+- Testing: Vitest 4 + jsdom + Testing Library; specs colocated as `<name>.test.{ts,tsx}` next to their source; tests run against TS source via the root `vitest.config.ts`'s `resolve.alias` (the `source` export condition serves TypeScript resolution instead, via `customConditions`) — a green suite does not prove the tsdown build, `pnpm build` + `pnpm check:package` are separate gates.
 - Language: all in-repo text (code, comments, docs, commits) is English.
