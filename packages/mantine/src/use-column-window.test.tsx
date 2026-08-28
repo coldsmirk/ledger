@@ -270,15 +270,61 @@ const WIDE_COLUMNS: Array<ColumnDef<Wide, any>> = Array.from({ length: 10 }, (_,
 
 const WIDE_DATA: Wide[] = [Object.fromEntries([["id", "r1"], ...Array.from({ length: 10 }, (_, index) => [`c${index}`, `v${index}`])]) as Wide];
 
-function scrollTo(viewport: HTMLElement, left: number) {
+function setScrollLeft(viewport: HTMLElement, left: number) {
   Object.defineProperty(viewport, "scrollLeft", {
     configurable: true,
     value: left,
     writable: true
   });
+}
+
+function scrollTo(viewport: HTMLElement, left: number) {
+  setScrollLeft(viewport, left);
   act(() => {
     viewport.dispatchEvent(new Event("scroll"));
   });
+}
+
+/**
+ * jsdom measures nothing, so `clientWidth` is 0 and the visible strip is empty — every scroll
+ * delta then reads as a discrete leap and only the synchronous path ever runs. A real width
+ * puts in-strip scrolls onto the chased-transition path the tests below pin down.
+ */
+function mockClientWidth(viewport: HTMLElement, width: number) {
+  Object.defineProperty(viewport, "clientWidth", {
+    configurable: true,
+    value: width
+  });
+}
+
+/**
+ * The scroll-driven update strategy's test bed (use-column-window.ts): in-strip shifts ride a
+ * chased transition, and the chase must survive the race a scroll storm creates. Mounts with a
+ * mocked 250px viewport over ten 100px columns and overscan 1, so the settled window at
+ * scrollLeft 0 is [0, 4) and an in-strip scroll to 120 targets [0, 5).
+ */
+function mountMeasured() {
+  const rendered = render(
+    <DataTable
+      columns={WIDE_COLUMNS}
+      data={WIDE_DATA}
+      getRowId={row => row.id}
+      virtualizedColumns={{ overscan: 1 }}
+    />,
+    { wrapper }
+  );
+  const viewport = rendered.container.querySelector<HTMLElement>(":scope .ledger-scroller [class*='viewport']")!;
+  mockClientWidth(viewport, 250);
+  // Re-measure under the real width: the mount ran at clientWidth 0.
+  scrollTo(viewport, 0);
+
+  return { container: rendered.container, viewport };
+}
+
+function rowCellIds(container: HTMLElement) {
+  const row = container.querySelector(":scope .ledger-tbody .ledger-row")!;
+
+  return [...row.children].map(cell => (cell as HTMLElement).dataset.ledgerColumnId ?? "spacer");
 }
 
 describe("virtualizedColumns", () => {
@@ -351,6 +397,38 @@ describe("virtualizedColumns", () => {
     const cellIds = [...row.children].map(cell => (cell as HTMLElement).dataset.ledgerColumnId ?? "spacer");
     // Pinned c9 leads the display order; the center windows to two columns.
     expect(cellIds).toEqual(["c9", "c0", "c1", "spacer"]);
+  });
+
+  it("commits an in-strip shift through the chased transition", () => {
+    const { container, viewport } = mountMeasured();
+    expect(rowCellIds(container)).toEqual(["c0", "c1", "c2", "c3", "spacer"]);
+
+    // A 120px delta is inside the 250px strip — the deferred path, not the teleport.
+    scrollTo(viewport, 120);
+
+    expect(rowCellIds(container)).toEqual(["c0", "c1", "c2", "c3", "c4", "spacer"]);
+  });
+
+  it("keeps committing after a scroll back to the committed window strands the flight", () => {
+    const { container, viewport } = mountMeasured();
+
+    // Two scroll events in one task: the first schedules a transition toward [0, 5), the
+    // second measures back to the committed [0, 4) and nulls the chase target mid-flight.
+    // The stranded flight must still commit a FRESH range object — an updater returning the
+    // previous one here leaves `transitionPending` set forever (the jitter deadlock a fast
+    // scrollbar drag reliably found), and no later shift ever commits.
+    act(() => {
+      setScrollLeft(viewport, 120);
+      viewport.dispatchEvent(new Event("scroll"));
+      setScrollLeft(viewport, 0);
+      viewport.dispatchEvent(new Event("scroll"));
+    });
+    expect(rowCellIds(container)).toEqual(["c0", "c1", "c2", "c3", "spacer"]);
+
+    // The chase must still be open: the next in-strip shift commits.
+    scrollTo(viewport, 120);
+
+    expect(rowCellIds(container)).toEqual(["c0", "c1", "c2", "c3", "c4", "spacer"]);
   });
 
   it("scrolls an unrendered column into view through the handle", () => {
