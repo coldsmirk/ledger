@@ -19,7 +19,7 @@ ledger is a Mantine-native `<DataTable>` built on TanStack Table v9 (headless ta
 - `pnpm lint:css:check` / `pnpm lint:css` — Stylelint on `packages/*/src/**/*.css` (sealed `@coldsmirk/stylelint-config`; mechanically enforces the kebab-case class contract)
 - `pnpm build` — all packages via tsdown; `pnpm clean` removes `dist`
 - `pnpm check:package` — publish hygiene (`publint` + `@arethetypeswrong/cli`) against the packed output
-- `pnpm version:patch|minor|major` — bump root + packages to one shared version (lockstep; never hand-edit a single manifest). Release = push an annotated `v*` tag; `release.yml` re-runs the gates and publishes.
+- `pnpm version:patch|minor|major` — bump root + packages to one shared version (lockstep; never hand-edit a single manifest). Release = push an annotated `v*` tag; `release.yml` re-runs the gates and publishes, and `pages.yml` deploys the playground to GitHub Pages (the live demo).
 
 ## Design Doctrine (digest — the full text is docs/DESIGN.md)
 

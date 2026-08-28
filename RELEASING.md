@@ -1,6 +1,6 @@
 # Releasing
 
-Releases are **tag-driven**. Pushing a `v*` tag runs the [`Release`](.github/workflows/release.yml) workflow, which gates (typecheck / lint / test), builds, publishes all packages to npm, and cuts a GitHub Release whose notes git-cliff generates from the Conventional Commit history since the previous tag (see [`cliff.toml`](cliff.toml)).
+Releases are **tag-driven**. Pushing a `v*` tag runs the [`Release`](.github/workflows/release.yml) workflow, which gates (typecheck / lint / test), builds, publishes all packages to npm, and cuts a GitHub Release whose notes git-cliff generates from the Conventional Commit history since the previous tag (see [`cliff.toml`](cliff.toml)). The tag also runs the [`Pages`](.github/workflows/pages.yml) workflow, deploying the playground to [GitHub Pages](https://coldsmirk.github.io/ledger/) so the live demo tracks the released version (it can also be redeployed on demand from the Actions tab).
 
 ## One-time setup
 
@@ -9,7 +9,7 @@ Releases are **tag-driven**. Pushing a `v*` tag runs the [`Release`](.github/wor
 
 That is all the workflow needs — `GITHUB_TOKEN` is provided automatically.
 
-> npm provenance is **not** used: provenance requires a public source repository and this repo is private. The workflow keeps `id-token: write`, so you can later switch to npm Trusted Publishing (OIDC, no stored token — works for private repos) or add `--provenance` back to the publish step if the repo becomes public.
+> npm provenance is **not** used yet: it was skipped while the repository was private. The repo is public now, so `--provenance` can be added to the publish step, or the workflow can switch to npm Trusted Publishing (OIDC, no stored token) — it already keeps `id-token: write` for that.
 
 ## Cutting a release
 

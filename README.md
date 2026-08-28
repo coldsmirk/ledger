@@ -4,6 +4,8 @@ A Mantine-native `<DataTable>` built on [TanStack Table](https://tanstack.com/ta
 
 Mantine deliberately ships no data grid; the community options either reimplement table logic from scratch or bury TanStack under a configuration bag. ledger takes a narrower stance: **the behavior layer speaks TanStack's language, the presentation layer speaks Mantine's** — raw `ColumnDef`s and verbatim state shapes on one side, forwarded `Table` style props, `BoxProps` sizing, and the Styles API on the other, rendered as a real `<table>` that fills whatever space its parent gives it.
 
+**Live demo:** [coldsmirk.github.io/ledger](https://coldsmirk.github.io/ledger/) — one page per feature area, bilingual (EN / 简体中文), each with a view-source drawer.
+
 > **Status: implemented, pre-release.** Documentation lives under [`docs/`](docs/README.md): [getting started](docs/getting-started.md), per-feature guides, the complete [API reference](docs/api.md), [recipes](docs/recipes.md), and [architecture notes](docs/architecture.md) for contributors. The founding design record — vision, naming constitution, hard semantic rules, decision log, TanStack coverage — is [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## Packages
@@ -11,7 +13,7 @@ Mantine deliberately ships no data grid; the community options either reimplemen
 | Package | Contents |
 | --- | --- |
 | [`@coldsmirk/ledger-mantine`](packages/mantine) | The `<DataTable>` component, `useDataTable` hook, compound components, `zhCN` locale, `toCsv`, and the layered stylesheet. |
-| `ledger-playground` (private) | One demo page per feature area, bilingual (EN / 简体中文) with a view-source drawer; `pnpm --filter ledger-playground dev` serves it against library sources. |
+| `ledger-playground` (private) | The [live demo](https://coldsmirk.github.io/ledger/), deployed to GitHub Pages on every release tag; `pnpm --filter ledger-playground dev` serves it against library sources. |
 
 ## Development
 
