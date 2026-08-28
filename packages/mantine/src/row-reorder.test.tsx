@@ -42,6 +42,8 @@ const columns: Array<ColumnDef<Item, any>> = [
 function view(options: {
   onRowReorder?: (reorder: DataTableRowReorder<Item>) => void;
   enableRowOrdering?: boolean;
+  enableRowPinning?: boolean;
+  defaultRowPinning?: { top: string[]; bottom: string[] };
   defaultSorting?: Array<{ id: string; desc: boolean }>;
   getSubRows?: (item: Item) => Item[] | undefined;
 }) {
@@ -90,6 +92,22 @@ describe("row ordering gate", () => {
     render(view({ getSubRows: () => undefined, onRowReorder: vi.fn() }));
 
     expect(handles()).toHaveLength(0);
+  });
+
+  it("gives pinned rows no handle — their order is pinning state, not data order", () => {
+    render(view({
+      defaultRowPinning: { bottom: ["3"], top: ["1"] },
+      enableRowPinning: true,
+      onRowReorder: vi.fn()
+    }));
+
+    expect(handles()).toHaveLength(1);
+  });
+
+  it("keeps every handle while enableRowPinning is off, whatever rowPinning holds", () => {
+    render(view({ defaultRowPinning: { bottom: [], top: ["1"] }, onRowReorder: vi.fn() }));
+
+    expect(handles()).toHaveLength(3);
   });
 
   it("disables the handles while sorting controls the visible order", () => {

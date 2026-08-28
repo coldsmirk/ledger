@@ -579,12 +579,22 @@ export function RowDragCell<TData extends RowData>({ row, table }: { row: Row<TD
   } = useDataTableContext();
   const orderable = table.options.meta?.ledger?.rowOrdering.orderable === true;
 
+  // A pinned row's order is pinning state, not data order (docs/rows.md#row-ordering): it cannot
+  // be lifted and is never a drop target, so it carries no handle at all. Gated on the switch,
+  // not the state alone — with `enableRowPinning` off the zones never split, and a leftover
+  // `rowPinning` value renders as an ordinary, draggable center row.
+  const pinned = table.options.enableRowPinning === true && row.getIsPinned() !== false;
+
   // No Feedback plugin runs (ROW_REORDER_PLUGINS): the handle stays put and the session's own
   // row ghost is the drag's visual.
   const { ref, isDragSource } = useDraggable({
     id: row.id,
-    disabled: !orderable
+    disabled: !orderable || pinned
   });
+
+  if (pinned) {
+    return null;
+  }
 
   const lifted = rowReorderKeyboard?.active(row.id) === true;
 
