@@ -19,7 +19,7 @@ import type { VirtualizationConfig } from "./table-body";
 import type {
   Column,
   DataTableHandle,
-  DataTableScrollToRowOptions,
+  DataTableScrollOptions,
   HeaderGroup,
   Row,
   TableInstance,
@@ -1060,7 +1060,7 @@ function DataTableCore<TData extends RowData>({
   );
 
   const scrollRowIntoView = useEventCallback(
-    (rowId: string, options?: DataTableScrollToRowOptions) => {
+    (rowId: string, options?: DataTableScrollOptions) => {
       const virtualizer = virtualizerRef.current;
 
       if (virtualizer) {
@@ -1091,7 +1091,7 @@ function DataTableCore<TData extends RowData>({
    * display order interleaves pinned rows and detail panels around them.
    */
   const scrollIndexIntoView = useEventCallback(
-    (index: number, options?: DataTableScrollToRowOptions) => {
+    (index: number, options?: DataTableScrollOptions) => {
       const rowId = displaySnapshot.pageRows[index]?.id;
 
       if (rowId !== undefined) {
@@ -1106,7 +1106,7 @@ function DataTableCore<TData extends RowData>({
    * with or without a column window — the target column need not be rendered to be reachable.
    */
   const scrollColumnIntoView = useEventCallback(
-    (columnId: string, options?: DataTableScrollToRowOptions) => {
+    (columnId: string, options?: DataTableScrollOptions) => {
       const element = viewportRef.current;
       const index = displayIndexById.get(columnId);
 

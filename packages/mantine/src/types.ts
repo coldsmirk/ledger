@@ -463,7 +463,7 @@ export interface UseDataTableOptions<TData extends RowData> {
 // Imperative handle
 // ----------------------------------------------------------------------------------------------
 
-export interface DataTableScrollToRowOptions {
+export interface DataTableScrollOptions {
   align?: "start" | "center" | "end" | "auto";
   behavior?: "auto" | "smooth";
 }
@@ -479,16 +479,16 @@ export interface DataTableHandle<TData extends RowData> {
    * parameter accepting both: `getRowId` may well return digits, and a table whose ids read
    * `"5"` could not say which of the two it meant.
    */
-  scrollToRow: (rowId: string, options?: DataTableScrollToRowOptions) => void;
+  scrollToRow: (rowId: string, options?: DataTableScrollOptions) => void;
   /**
    * Scrolls the row at this position in the page's own row model into view.
    */
-  scrollToIndex: (index: number, options?: DataTableScrollToRowOptions) => void;
+  scrollToIndex: (index: number, options?: DataTableScrollOptions) => void;
   /**
    * Scrolls the column with this id into view — width-engine math, so a column a virtual
    * window is not rendering is still reachable. Pinned columns are already in view; a no-op.
    */
-  scrollToColumn: (columnId: string, options?: DataTableScrollToRowOptions) => void;
+  scrollToColumn: (columnId: string, options?: DataTableScrollOptions) => void;
   /**
    * Cell mode requires `columnId`; row mode takes the id of any editable column to focus, or
    * none.
