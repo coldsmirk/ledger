@@ -448,10 +448,11 @@ describe("DataTable", () => {
         enableRowSelection
         columns={columns}
         data={people}
-        expanderColumn={{ size: 60 }}
+        expanderColumn={{ maxSize: 60, size: 60 }}
         getRowId={getRowId}
         renderDetailPanel={row => <span>{row.original.name}</span>}
         selectionColumn={{
+          maxSize: 72,
           size: 72,
           cell: ({ row }) => <button type="button">{`pick ${row.id}`}</button>
         }}
@@ -468,6 +469,13 @@ describe("DataTable", () => {
 
     expect(selectionCell?.dataset.ledgerColumnId).toBe("ledger:select");
     expect(container.querySelector<HTMLElement>(":scope .ledger-expander-cell")).toBeTruthy();
+
+    // …and a raised maxSize alongside size actually widens the injected columns — a size
+    // override alone is clamped straight back to the injected 40/36 bounds (docs/selection.md).
+    const rootStyle = container.querySelector<HTMLElement>(":scope .ledger-root")!.style;
+
+    expect(rootStyle.getPropertyValue("--ledger-col-width-ledger_3a_select")).toBe("72px");
+    expect(rootStyle.getPropertyValue("--ledger-col-width-ledger_3a_expander")).toBe("60px");
   });
 
   it("renders the pagination bar with the summary and page-size control", () => {
