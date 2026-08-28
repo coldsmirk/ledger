@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "A Mantine-native DataTable built on TanStack Table and TanStack Virtual.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": {
     "name": "Venus"
   },
