@@ -247,8 +247,9 @@ export function useColumnWindow({
   }, [range, measure]);
 
   // A layout effect so the first real window replaces the minimal initial render before paint.
-  // `offsets` and the pinned widths are dependencies on purpose: a width change re-derives the
-  // range from the same scroll position in the same commit that moved the columns.
+  // Subscriptions only — re-measuring on geometry changes is the next effect's job, so a width
+  // change never churns the listener and the observer (a resize drag reshapes `offsets` on
+  // every pointer move).
   useLayoutEffect(() => {
     if (!enabled || !viewport) {
       return;
@@ -264,7 +265,13 @@ export function useColumnWindow({
       viewport.removeEventListener("scroll", onScroll);
       observer.disconnect();
     };
-  }, [enabled, viewport, measure, offsets, pinnedStartWidth, pinnedEndWidth]);
+  }, [enabled, viewport, measure]);
+
+  // A width or pinned-boundary change re-derives the range from the same scroll position in
+  // the same commit that moved the columns; `measure` itself guards the disabled states.
+  useLayoutEffect(() => {
+    measure(false);
+  }, [measure, offsets, pinnedStartWidth, pinnedEndWidth]);
 
   const count = centerColumnIds.length;
 
