@@ -40,7 +40,6 @@
      positioned thing inside it (header actions, the empty state, the seam overlays) lives within
      its box, and the row-drag ghost is portaled to the body. */
   .ledger-main {
-    position: relative;
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
