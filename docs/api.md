@@ -135,6 +135,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `withColumnBorders` | `boolean` | `false` | |
 | `withRowBorders` | `boolean` | `true` | |
 | `borderColor` | `MantineColor` | theme default border | |
+| `radius` | `MantineRadius` | — | Rounds the table box (root and the header + body + footer frame) and clips to it; the `withTableBorder` frame follows ([styling.md](styling.md#forwarded-mantine-props)) |
 | `verticalSpacing` | `MantineSpacing` | `"xs"` | |
 | `horizontalSpacing` | `MantineSpacing` | `"xs"` | |
 | `tabularNums` | `boolean` | `false` | |
@@ -161,7 +162,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `icons` | `Partial<DataTableIcons>` | `defaultIcons` | Per-slot glyph replacement ([Icons](#icons)) |
 | `aria-label` / `aria-labelledby` / `aria-describedby` | `string` | — | Routed to the ARIA table (`.ledger-main`), not the root wrapper |
 
-Styles API selector names (`DataTableStylesNames`) and the `vars` surface (`DataTableCssVariables`: root `--ledger-striped-color` / `--ledger-hover-color` / `--ledger-border-color`) are catalogued in [styling.md](styling.md).
+Styles API selector names (`DataTableStylesNames`) and the `vars` surface (`DataTableCssVariables`: root `--ledger-striped-color` / `--ledger-hover-color` / `--ledger-border-color` / `--ledger-radius`) are catalogued in [styling.md](styling.md).
 
 ## Column `meta`
 

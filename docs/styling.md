@@ -2,11 +2,13 @@
 
 The presentation layer is Mantine's, end to end: forwarded `Table` style props for the common knobs, the full Styles API for surgical control, CSS variables for the pipeline values, and data-attributes for every state. All library rules live in the `ledger` cascade layer and consume only Mantine CSS variables — dark mode and RTL follow the host theme with zero rules of ledger's own.
 
-## Forwarded Mantine `Table` props
+## Forwarded Mantine props
 
-Eleven appearance props forward with Mantine's names and semantics:
+Eleven `Table` appearance props forward with Mantine's names and semantics:
 
 `striped` (`boolean | "odd" | "even"`), `stripedColor`, `highlightOnHover`, `highlightOnHoverColor`, `withTableBorder`, `withColumnBorders`, `withRowBorders` (default `true`), `borderColor`, `verticalSpacing` / `horizontalSpacing` (default `"xs"`), `tabularNums`.
+
+One more comes from `Paper`: **`radius`** (`MantineRadius`) rounds the table box — the root and the header + body + footer frame, which clips its content to the curve — and the `withTableBorder` frame follows it, so a framed table can be its own card instead of sitting inside one.
 
 All the border and background props are rendered by ledger itself rather than Mantine:
 
@@ -115,14 +117,15 @@ Style states by attribute selector (the Mantine convention). The inventory:
 | `--ledger-striped-color`, `--ledger-hover-color` | `stripedColor` / `highlightOnHoverColor` props (or your `vars`) | Tint overrides; default to `--mantine-color-default-hover` |
 | `--ledger-header-bg` | you, in CSS (see below) | Header cell background; defaults to `--mantine-color-body`. Opaque by contract, not by decoration — a pinned header cell has to occlude the cells scrolling under it |
 | `--ledger-border-color` | `borderColor` prop (or your `vars`) | Every ledger-painted line: the `withTableBorder` frame, row/column borders, and the seam overlays; defaults to `--mantine-color-default-border` |
+| `--ledger-radius` | `radius` prop (or your `vars`) | The table box's corner radius, on the root and on the `main` frame (which clips to it); defaults to `0` |
 | `--ledger-col-width-<id>`, `--ledger-col-start-<id>`, `--ledger-col-after-<id>` | column geometry | Width and pinned offsets per column; disjoint prefixes prevent one family from shadowing another, and resizing never re-renders rows |
 
 The column-variable `<id>` suffix is a collision-free CSS-safe encoding, not necessarily the raw
 column id: ASCII letters, digits, and hyphens stay readable, while punctuation and Unicode code
 points are escaped.
 
-The `vars` resolver accepts the three variables a prop also writes — `--ledger-striped-color`,
-`--ledger-hover-color`, `--ledger-border-color`:
+The `vars` resolver accepts the four variables a prop also writes — `--ledger-striped-color`,
+`--ledger-hover-color`, `--ledger-border-color`, `--ledger-radius`:
 
 ```tsx
 <DataTable vars={() => ({ root: { "--ledger-striped-color": "var(--mantine-color-blue-0)" } })} … />

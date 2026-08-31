@@ -3,6 +3,7 @@ import type {
   ElementProps,
   Factory,
   MantineColor,
+  MantineRadius,
   MantineSpacing,
   StylesApiProps,
   TableTrProps
@@ -42,6 +43,7 @@ import {
   createVarsResolver,
   EmptyState,
   genericFactory,
+  getRadius,
   getThemeColor,
   LoadingOverlay,
   Table as MantineTable,
@@ -112,7 +114,7 @@ export type DataTableStylesNames
     | "paginationBar";
 
 export interface DataTableCssVariables {
-  root: "--ledger-striped-color" | "--ledger-hover-color" | "--ledger-border-color";
+  root: "--ledger-striped-color" | "--ledger-hover-color" | "--ledger-border-color" | "--ledger-radius";
 }
 
 /**
@@ -193,6 +195,12 @@ export interface DataTableBaseProps<TData extends RowData>
   withColumnBorders?: boolean;
   withRowBorders?: boolean;
   borderColor?: MantineColor;
+  /**
+   * Corner radius of the table box — header, body, and footer as one rounded, clipping box;
+   * the `withTableBorder` frame follows it, so a framed table can be its own card (host
+   * vocabulary: `Paper.radius`).
+   */
+  radius?: MantineRadius;
   verticalSpacing?: MantineSpacing;
   horizontalSpacing?: MantineSpacing;
   tabularNums?: boolean;
@@ -345,7 +353,8 @@ const varsResolver = createVarsResolver<DataTableFactory>(
   (theme, {
     stripedColor,
     highlightOnHoverColor,
-    borderColor
+    borderColor,
+    radius
   }) => {
     return {
       root: {
@@ -354,7 +363,9 @@ const varsResolver = createVarsResolver<DataTableFactory>(
           ? getThemeColor(highlightOnHoverColor, theme)
           : undefined,
         // The frame border around header + body lives outside both tables (docs/styling.md).
-        "--ledger-border-color": borderColor ? getThemeColor(borderColor, theme) : undefined
+        "--ledger-border-color": borderColor ? getThemeColor(borderColor, theme) : undefined,
+        // Rounds root and frame alike (docs/styling.md); absent, the stylesheet's `0` stands.
+        "--ledger-radius": radius === undefined ? undefined : getRadius(radius)
       }
     };
   }
@@ -581,6 +592,7 @@ function DataTableCore<TData extends RowData>({
     withColumnBorders,
     withRowBorders,
     borderColor: _borderColor,
+    radius: _radius,
     verticalSpacing,
     horizontalSpacing,
     tabularNums,

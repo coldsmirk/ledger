@@ -538,6 +538,20 @@ describe("DataTable", () => {
     expect(container.querySelectorAll(":scope .ledger-tbody [role=\"row\"]")).toHaveLength(3);
   });
 
+  it("forwards radius as the --ledger-radius variable and keeps it off the DOM", () => {
+    const { container, rerender } = render(
+      <DataTable columns={columns} data={people} getRowId={getRowId} radius="md" />,
+      { wrapper }
+    );
+
+    const root = container.querySelector<HTMLElement>(".ledger-root")!;
+    expect(root.style.getPropertyValue("--ledger-radius")).toBe("var(--mantine-radius-md)");
+    expect(root.hasAttribute("radius")).toBe(false);
+
+    rerender(<DataTable columns={columns} data={people} getRowId={getRowId} />);
+    expect(root.style.getPropertyValue("--ledger-radius")).toBe("");
+  });
+
   it("mirrors the body's horizontal scroll onto the header and forwards header wheel", () => {
     // Regression: a sticky in-scroller header made the vertical scrollbar span (and hide
     // under) the header; the split keeps the regions aligned through a scrollLeft mirror.

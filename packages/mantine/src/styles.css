@@ -28,10 +28,17 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
+
+    /* `radius` (the --ledger-radius variable): the root rounds with the frame so a `bg` or the
+       pagination bar follows the same corners. */
+    border-radius: var(--ledger-radius, 0);
   }
 
   /* The frame around header + body — the elastic middle; carries the outer table border
-     (painted in the Borders section: three real sides + an inset overlay bottom). */
+     (painted in the Borders section: three real sides + an inset overlay bottom). It clips its
+     own content so a `radius` rounds the header tint, the rows, and the frame together — every
+     positioned thing inside it (header actions, the empty state, the seam overlays) lives within
+     its box, and the row-drag ghost is portaled to the body. */
   .ledger-main {
     position: relative;
     display: flex;
@@ -39,6 +46,8 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+    overflow: hidden;
+    border-radius: var(--ledger-radius, 0);
   }
 
   /* The header viewport never scrolls by itself; its scrollLeft mirrors the body scroller. */

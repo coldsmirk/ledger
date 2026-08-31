@@ -21,6 +21,7 @@ const copy = {
     frame: "Frame + rows",
     grid: "Grid (spreadsheet)",
     horizontal: "Row lines only",
+    rounded: "Rounded",
     striped: "Stripes",
     hover: "Hover",
     roomy: "Roomy rows",
@@ -42,6 +43,7 @@ const copy = {
     frame: "外框 + 横线",
     grid: "网格（电子表格）",
     horizontal: "纯横线",
+    rounded: "圆角",
     striped: "斑马纹",
     hover: "悬停高亮",
     roomy: "宽松行距",
@@ -59,6 +61,7 @@ export function AppearanceDemo() {
   const { lang } = useLang();
   const data = useMemo(() => makeProducts(lang, 40), [lang]);
   const [borders, setBorders] = useState("frame");
+  const [rounded, setRounded] = useState(true);
   const [striped, setStriped] = useState(false);
   const [hover, setHover] = useState(true);
   const [roomy, setRoomy] = useState(false);
@@ -111,6 +114,13 @@ export function AppearanceDemo() {
           size="xs"
           value={borders}
           onChange={setBorders}
+        />
+
+        <Switch
+          checked={rounded}
+          label={t.rounded}
+          size="xs"
+          onChange={event => setRounded(event.currentTarget.checked)}
         />
 
         <Switch
@@ -176,6 +186,7 @@ export function AppearanceDemo() {
         highlightOnHover={hover}
         loading={loading}
         mih={0}
+        radius={rounded ? "md" : undefined}
         striped={striped}
         verticalSpacing={roomy ? "md" : "xs"}
         withColumnBorders={borders === "grid"}
