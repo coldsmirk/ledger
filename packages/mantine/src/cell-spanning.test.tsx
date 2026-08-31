@@ -44,6 +44,51 @@ function wrapper({ children }: { children: ReactNode }) {
 const rowsOf = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>(":scope .ledger-tbody .ledger-row")];
 
 describe("cell spanning", () => {
+  it("marks a run that reaches the last row as the body's bottom edge", () => {
+    const columns: Array<ColumnDef<Entry, any>> = [
+      {
+        accessorKey: "dept",
+        header: "Department",
+        spanRows: true
+      },
+      { accessorKey: "name", header: "Name" }
+    ];
+    const data: Entry[] = [
+      {
+        id: "1",
+        dept: "Design",
+        name: "Carol"
+      },
+      {
+        id: "2",
+        dept: "Ops",
+        name: "Alice"
+      },
+      {
+        id: "3",
+        dept: "Ops",
+        name: "Bob"
+      }
+    ];
+
+    const { container } = render(
+      <DataTable columns={columns} data={data} getRowId={entry => entry.id} />,
+      { wrapper }
+    );
+
+    const rows = rowsOf(container);
+    const dept = (index: number) => rows[index]?.querySelector<HTMLTableCellElement>(":scope td[data-ledger-column-id=\"dept\"]");
+
+    // The Ops run anchors on the middle row and ends on the last: its anchor shares the bottom
+    // edge, while the row it sits on is not itself last.
+    expect(dept(1)?.rowSpan).toBe(2);
+    expect(dept(1)?.hasAttribute("data-last")).toBe(true);
+    expect(rows[1]?.hasAttribute("data-last")).toBe(false);
+    expect(rows[2]?.hasAttribute("data-last")).toBe(true);
+    // A single-row cell above keeps its separator.
+    expect(dept(0)?.hasAttribute("data-last")).toBe(false);
+  });
+
   it("merges adjacent equal cells into one row-spanning cell and skips the covered ones", () => {
     const columns: Array<ColumnDef<Entry, any>> = [
       {

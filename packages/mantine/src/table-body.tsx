@@ -227,6 +227,11 @@ interface DataCellProps {
    * Merged-cell extents (1 = no span); covered cells are skipped by the row, never rendered.
    */
   rowSpan: number;
+  /**
+   * This cell's bottom edge is the body's bottom edge — the last row's cells, or a `spanRows`
+   * run that reaches it — so it draws no row separator (docs/styling.md#borders).
+   */
+  last: boolean;
   colSpan: number;
   /**
    * Set only under a column window: the cell's 1-based position among ALL visible leaf columns,
@@ -243,7 +248,8 @@ function DataCell({
   depth,
   rowSpan,
   colSpan,
-  ariaColIndex
+  ariaColIndex,
+  last
 }: DataCellProps) {
   const { getStyles } = useDataTableContext();
   const { column, row } = cell;
@@ -347,6 +353,7 @@ function DataCell({
     "data-align": meta?.align,
     "data-editable": editable || undefined,
     "data-editing": cellEditorActive || rowEditorActive || undefined,
+    "data-last": last || undefined,
     "data-leading": column.getIsFirstColumn() || undefined,
     "data-ledger-column-id": column.id,
     "data-pinned": column.getIsPinned() || undefined,
@@ -373,6 +380,15 @@ function DataCell({
 interface DataRowProps {
   row: Row<any>;
   dataIndex: number;
+  /**
+   * The body's final display row: its cells draw no separator (docs/styling.md#borders).
+   */
+  last: boolean;
+  /**
+   * Display rows below this one, supplied only while merged cells are active — a `spanRows`
+   * run ending on the last row shares its bottom edge.
+   */
+  rowsBelow: number | undefined;
   editingColumnId: string | null;
   /**
    * Row-mode editing targets this row — every editable cell mounts its editor.
@@ -424,6 +440,8 @@ interface DataRowProps {
 function DataRowImpl({
   row,
   dataIndex,
+  last,
+  rowsBelow,
   editingColumnId,
   editingRow,
   dragging,
@@ -491,6 +509,7 @@ function DataRowImpl({
         "data-editing-row": editingRow || undefined,
         "data-expanded": expanded || undefined,
         "data-index": virtualIndex,
+        "data-last": last || undefined,
         "data-parity": dataIndex >= 0 ? dataIndex % 2 === 0 ? "odd" : "even" : undefined,
         "data-pinned-row": pinnedPosition,
         "data-row-id": row.id,
@@ -524,6 +543,7 @@ function DataRowImpl({
           depth={depth}
           editing={editingColumnId === cell.column.id}
           isFirstDataCell={displayIndex === firstDataCellIndex}
+          last={rowsBelow === undefined ? last : cell.getRowSpan() - 1 === rowsBelow}
           rowEditing={editingRow}
           rowSpan={spanning ? cell.getRowSpan() : 1}
         />
@@ -567,6 +587,10 @@ interface DetailRowProps {
    */
   dragging: boolean;
   dropSide: "after" | null;
+  /**
+   * The body's final display row — no separator under it (docs/styling.md#borders).
+   */
+  last: boolean;
   pinnedPosition?: "top" | "bottom";
   pinnedOffset?: number;
   virtualIndex?: number;
@@ -580,6 +604,7 @@ function DetailRow({
   colSpan,
   dragging,
   dropSide,
+  last,
   pinnedPosition,
   pinnedOffset,
   virtualIndex,
@@ -602,6 +627,7 @@ function DetailRow({
       data-dragging={dragging || undefined}
       data-drop-side={dropSide ?? undefined}
       data-index={virtualIndex}
+      data-last={last || undefined}
       data-pinned-row={pinnedPosition}
       role="row"
       {...getStyles("row", { style: pinnedStyle })}
@@ -634,6 +660,7 @@ function SkeletonRows({
         <MantineTable.Tr
           key={rowIndex}
           aria-rowindex={ariaRowIndexStart === undefined ? undefined : ariaRowIndexStart + rowIndex}
+          data-last={rowIndex === rowCount - 1 || undefined}
           role="row"
           {...getStyles("row")}
         >
@@ -905,6 +932,23 @@ export function TableBody({
     measureRef?: (element: Element | null) => void;
   }
 
+  // The body's bottom edge (docs/styling.md#borders): the last display row across the three
+  // zones — or nothing, when a loader or load-more-error row trails the data and is last itself.
+  const trailingRowCount = loadMoreError || loadingMore ? 1 : 0;
+
+  const zoneRows = {
+    top: topDisplayRows,
+    center: centerDisplayRows,
+    bottom: bottomDisplayRows
+  };
+
+  const rowsBelowOf = (zone: "top" | "center" | "bottom", displayIndex: number): number => {
+    const laterZones = zone === "top"
+      ? centerDisplayRows.length + bottomDisplayRows.length
+      : zone === "center" ? bottomDisplayRows.length : 0;
+    return zoneRows[zone].length - 1 - displayIndex + laterZones + trailingRowCount;
+  };
+
   const renderDisplayRow = (
     displayRow: DisplayRow<any>,
     options: DisplayRowRenderOptions
@@ -916,6 +960,8 @@ export function TableBody({
           ? headerRowCount + topDisplayRows.length + centerDisplayRows.length
           : headerRowCount + topDisplayRows.length;
     const ariaRowIndex = virtualEnabled ? zoneStart + options.displayIndex + 1 : undefined;
+    const rowsBelow = rowsBelowOf(options.pinnedPosition ?? "center", options.displayIndex);
+    const last = rowsBelow === 0;
 
     if (displayRow.kind === "detail") {
       return (
@@ -924,6 +970,7 @@ export function TableBody({
           ariaRowIndex={ariaRowIndex}
           colSpan={fullWidthColSpan}
           dragging={reorderSourceId === displayRow.row.id}
+          last={last}
           measureRef={options.measureRef}
           pinnedOffset={options.pinnedOffset}
           pinnedPosition={options.pinnedPosition}
@@ -964,12 +1011,14 @@ export function TableBody({
         dropSide={dropSide}
         editingRow={editingRowId === row.id && (ledger?.editing.row.active(row.id) ?? false)}
         expanded={row.getIsExpanded()}
+        last={last}
         measureRef={options.measureRef}
         pinKey={pinKey}
         pinnedOffset={options.pinnedOffset}
         pinnedPosition={options.pinnedPosition}
         renderVersion={renderVersion}
         row={row}
+        rowsBelow={spanningActive ? rowsBelow : undefined}
         selected={row.getIsSelected()}
         spanKey={spanKey}
         spanning={spanningActive}

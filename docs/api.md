@@ -133,7 +133,8 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `highlightOnHoverColor` | `MantineColor` | theme hover color | |
 | `withTableBorder` | `boolean` | `false` | |
 | `withColumnBorders` | `boolean` | `false` | |
-| `withRowBorders` | `boolean` | `true` | |
+| `withRowBorders` | `boolean` | `true` | Separators between rows — never under the last one ([styling.md](styling.md#borders)) |
+| `withBottomBorder` | `boolean` | `false` | The closing line under the last row (and a footer) for a table without a frame ([styling.md](styling.md#borders)) |
 | `borderColor` | `MantineColor` | theme default border | |
 | `radius` | `MantineRadius` | — | Rounds the table box (root and the header + body + footer frame) and clips to it; the `withTableBorder` frame follows ([styling.md](styling.md#forwarded-mantine-props)) |
 | `verticalSpacing` | `MantineSpacing` | `"xs"` | |

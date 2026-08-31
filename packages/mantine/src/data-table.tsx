@@ -194,6 +194,12 @@ export interface DataTableBaseProps<TData extends RowData>
   withTableBorder?: boolean;
   withColumnBorders?: boolean;
   withRowBorders?: boolean;
+  /**
+   * The closing line under the last row — and under a footer — for a table that stands alone
+   * without a frame. Mantine's `Table` leaves the last row open, so this is off by default; the
+   * `withTableBorder` frame closes the table itself and ignores it (docs/styling.md#borders).
+   */
+  withBottomBorder?: boolean;
   borderColor?: MantineColor;
   /**
    * Corner radius of the table box — header, body, and footer as one rounded, clipping box;
@@ -332,6 +338,7 @@ const defaultProps = {
   withTableBorder: false,
   withColumnBorders: false,
   withRowBorders: true,
+  withBottomBorder: false,
   verticalSpacing: "xs",
   horizontalSpacing: "xs",
   tabularNums: false,
@@ -591,6 +598,7 @@ function DataTableCore<TData extends RowData>({
     withTableBorder,
     withColumnBorders,
     withRowBorders,
+    withBottomBorder,
     borderColor: _borderColor,
     radius: _radius,
     verticalSpacing,
@@ -1522,7 +1530,9 @@ function DataTableCore<TData extends RowData>({
           data-striped={stripedMode}
           data-virtualized-columns={columnWindow !== null || undefined}
           data-virtualized-rows={virtualEnabled || undefined}
+          data-with-bottom-border={withBottomBorder || undefined}
           data-with-column-borders={withColumnBorders || undefined}
+          data-with-footer={hasFooter || undefined}
           data-with-row-borders={withRowBorders || undefined}
           data-with-table-border={withTableBorder || undefined}
           {...getStyles("root", { style: columnVars })}

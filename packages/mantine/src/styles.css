@@ -35,7 +35,7 @@
   }
 
   /* The frame around header + body — the elastic middle; carries the outer table border
-     (painted in the Borders section: three real sides + an inset overlay bottom). It clips its
+     (painted in the Borders section: four real sides). It clips its
      own content so a `radius` rounds the header tint, the rows, and the frame together — every
      positioned thing inside it (header actions, the empty state, the seam overlays) lives within
      its box, and the row-drag ghost is portaled to the body. */
@@ -608,11 +608,10 @@
     border-block-start: 1px solid var(--mantine-color-default-border);
   }
 
-  /* The seam above the bar is owned by the table's own bottom edge (frame overlay, footer
-     trailing border, or scroller seam — Borders section); the bar draws its own line only in
-     the fully borderless look, where no other edge exists. */
-  .ledger-root[data-with-row-borders] > .ledger-pagination-bar,
-  .ledger-root[data-with-table-border] > .ledger-pagination-bar {
+  /* The seam above the bar is owned by the table's own bottom edge (the frame, or the closing
+     line — Borders section); the bar draws its own line only when no such edge exists. */
+  .ledger-root[data-with-table-border] > .ledger-pagination-bar,
+  .ledger-root[data-with-bottom-border] > .ledger-pagination-bar {
     border-block-start: 0;
   }
 
@@ -813,9 +812,18 @@
    * border-collapse: collapse, and Chrome does not repaint collapsed borders at stuck sticky
    * positions; our tables are border-collapse: separate (inline), so every cell carries its
    * border wherever it sticks.
+   *
+   * Three edges, one line each (docs/styling.md#borders): row separators sit BETWEEN rows and
+   * never under the last one (Mantine's Table rule — a bordered host closes the table with its
+   * own edge); the closing line under the body is the opt-in `withBottomBorder` seam; the
+   * `withTableBorder` frame is four real borders and owns every edge, so under it the body's
+   * seam and the footer's trailing line stay off.
    * ------------------------------------------------------------------------------------------ */
-  .ledger-root[data-with-row-borders] .ledger-thead th,
-  .ledger-root[data-with-row-borders] .ledger-tbody .ledger-row > td {
+
+  /* Row separators, header half: the header's bottom edge. (The body half follows the column
+     rule — the two share `th`/`td` targets with crossing specificities, and each half must sit
+     on its ascending side.) */
+  .ledger-root[data-with-row-borders] .ledger-thead th {
     border-block-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 
@@ -828,39 +836,20 @@
     border-inline-start: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 
-  /* Seam ownership below the body (EP's inner-wrapper overlay technique): at scroll end the
-     last row's border occupies the viewport's LAST pixel, so any line stacked outside the
-     scroller would read as one thick border. Seam lines therefore paint as inset overlays that
-     COINCIDE with that pixel — never as leading borders on the next region. */
-
-  /* z-index 2 = the pinned-cell tier: the overlay is generated after every cell, so it paints
-     over scrolling pinned cells (their opaque backgrounds would erase the line mid-scroll)
-     while staying under the scrollbars (3). */
-  .ledger-root[data-with-row-borders] .ledger-scroller::after {
-    position: absolute;
-    inset-block-end: 0;
-    inset-inline: 0;
-    z-index: 2;
-    height: 1px;
-    pointer-events: none;
-    content: "";
-    background-color: var(--ledger-border-color, var(--mantine-color-default-border));
-  }
-
-  /* The footer separates with its TRAILING edge only (the top seam is the scroller overlay);
-     under the frame this pixel coincides with the frame's bottom overlay. */
-  .ledger-root[data-with-row-borders] .ledger-footer {
+  /* Row separators, body half: every body row but the last (`data-last`, a `spanRows` anchor
+     ending there included). */
+  .ledger-root[data-with-row-borders] .ledger-tbody .ledger-row:not([data-last]) > td:not([data-last]) {
     border-block-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 
-  /* The frame: three real sides; the bottom edge is an inset overlay for the same coincidence
-     reason — it lands on the scroller's (or footer's) last pixel instead of adding one below. */
-  .ledger-root[data-with-table-border] .ledger-main {
-    border: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
-    border-block-end: 0;
-  }
-
-  .ledger-root[data-with-table-border] .ledger-main::after {
+  /* The body's bottom seam: an inset overlay on the scroller's last pixel — it adds no height
+     and stays put under scroll. It paints as the closing line (`withBottomBorder`, unframed: the
+     frame's own bottom border would stack under it) and, with row borders, as the separator
+     above a footer. z-index 2 = the pinned-cell tier: generated after every cell, so it paints
+     over scrolling pinned cells (their opaque backgrounds would erase the line mid-scroll) while
+     staying under the scrollbars (3). */
+  .ledger-root[data-with-bottom-border]:not([data-with-table-border]) .ledger-scroller::after,
+  .ledger-root[data-with-row-borders][data-with-footer] .ledger-scroller::after {
     position: absolute;
     inset-block-end: 0;
     inset-inline: 0;
@@ -869,6 +858,18 @@
     pointer-events: none;
     content: "";
     background-color: var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+
+  /* The footer separates from the body with the seam above it; its trailing edge is the closing
+     line, on the body's own terms. */
+  .ledger-root[data-with-bottom-border]:not([data-with-table-border]) .ledger-footer {
+    border-block-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+
+  /* The frame: four real borders, so a `radius` draws continuous corners; nothing inside paints
+     on its bottom pixel (no last-row separator, no closing seam, no footer trailing line). */
+  .ledger-root[data-with-table-border] .ledger-main {
+    border: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 }
 

@@ -22,6 +22,7 @@ const copy = {
     grid: "Grid (spreadsheet)",
     horizontal: "Row lines only",
     rounded: "Rounded",
+    closingLine: "Closing line",
     striped: "Stripes",
     hover: "Hover",
     roomy: "Roomy rows",
@@ -44,6 +45,7 @@ const copy = {
     grid: "网格（电子表格）",
     horizontal: "纯横线",
     rounded: "圆角",
+    closingLine: "收口线",
     striped: "斑马纹",
     hover: "悬停高亮",
     roomy: "宽松行距",
@@ -62,6 +64,7 @@ export function AppearanceDemo() {
   const data = useMemo(() => makeProducts(lang, 40), [lang]);
   const [borders, setBorders] = useState("frame");
   const [rounded, setRounded] = useState(true);
+  const [closingLine, setClosingLine] = useState(false);
   const [striped, setStriped] = useState(false);
   const [hover, setHover] = useState(true);
   const [roomy, setRoomy] = useState(false);
@@ -121,6 +124,13 @@ export function AppearanceDemo() {
           label={t.rounded}
           size="xs"
           onChange={event => setRounded(event.currentTarget.checked)}
+        />
+
+        <Switch
+          checked={closingLine}
+          label={t.closingLine}
+          size="xs"
+          onChange={event => setClosingLine(event.currentTarget.checked)}
         />
 
         <Switch
@@ -189,6 +199,7 @@ export function AppearanceDemo() {
         radius={rounded ? "md" : undefined}
         striped={striped}
         verticalSpacing={roomy ? "md" : "xs"}
+        withBottomBorder={closingLine}
         withColumnBorders={borders === "grid"}
         withColumnHeaders={showHeader}
         withTableBorder={borders !== "horizontal"}

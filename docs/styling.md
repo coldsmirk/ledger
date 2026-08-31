@@ -8,14 +8,23 @@ Eleven `Table` appearance props forward with Mantine's names and semantics:
 
 `striped` (`boolean | "odd" | "even"`), `stripedColor`, `highlightOnHover`, `highlightOnHoverColor`, `withTableBorder`, `withColumnBorders`, `withRowBorders` (default `true`), `borderColor`, `verticalSpacing` / `horizontalSpacing` (default `"xs"`), `tabularNums`.
 
-One more comes from `Paper`: **`radius`** (`MantineRadius`) rounds the table box — the root and the header + body + footer frame, which clips its content to the curve — and the `withTableBorder` frame follows it, so a framed table can be its own card instead of sitting inside one.
+One more comes from `Paper`: **`radius`** (`MantineRadius`) rounds the table box — the root and the header + body + footer frame, which clips its content to the curve — and the `withTableBorder` frame follows it, so a framed table can be its own card instead of sitting inside one. The closing line under the last row is ledger's own switch, `withBottomBorder` — see [Borders](#borders).
 
 All the border and background props are rendered by ledger itself rather than Mantine:
 
 - Stripes and hover flow through the row-background pipeline (below) instead of `:nth-of-type` rules — virtualization spacer rows would break parity, and pinned cells must cover the tint.
-- `withTableBorder` draws its frame on the `main` region so it wraps the (separately rendered) header, body, and footer as one box and stays at the viewport edge under horizontal scroll. Three sides are real borders; the **bottom edge is a 1px inset overlay** (see seam ownership below).
+- `withTableBorder` draws its frame on the `main` region so it wraps the (separately rendered) header, body, and footer as one box and stays at the viewport edge under horizontal scroll — four real borders, so `radius` draws continuous corners (see [Borders](#borders)).
 - `withRowBorders` / `withColumnBorders` become root data-attributes and paint at **cell level** in ledger's layer: the tables are `border-collapse: separate` (inline — the host's unlayered `collapse` would win otherwise), because Chrome does not repaint collapsed borders at stuck sticky positions — cell-level borders travel with pinned rows and columns.
-- **Seam ownership**: at scroll end the last row's border occupies the scroller's last pixel, so any line stacked outside it would read as one thick border. Every seam at or below the scroller's bottom edge therefore paints as an inset overlay that *coincides* with that pixel — the scroller's own `::after` (under `withRowBorders`), the frame's bottom overlay (under `withTableBorder`) — the footer separates with its trailing edge only, and the pagination bar draws its own top line only when no other edge exists (both border props off).
+
+### Borders
+
+Three edges, one line each — and a ledger-owned switch for the middle one, shaped like its Mantine family:
+
+- **Row separators** (`withRowBorders`, default `true`) sit *between* rows: the header's bottom edge and every body row except the last — Mantine's `Table` rule, so a table inside a bordered container closes with the container's edge instead of doubling it. The last row carries `data-last`; a `spanRows` run that reaches it marks its anchor cell `data-last` too.
+- **The closing line** (`withBottomBorder`, default `false`) is for a table that stands alone: an inset 1px seam on the scroller's last pixel (it adds no height and stays put under scroll) and, with a footer, the footer's trailing edge as well.
+- **The frame** (`withTableBorder`) is four real borders around `main`, so `radius` draws continuous corners; it owns every edge, and under it the closing seam and the footer's trailing line stay off whatever `withBottomBorder` says.
+
+A footer always separates from the body with the same seam above it while row borders are on (`data-with-footer` on the root). The pagination bar draws its own top line only when no other edge exists — no frame and no closing line.
 
 ## The Styles API
 
@@ -99,10 +108,10 @@ Style states by attribute selector (the Mantine convention). The inventory:
 
 | Element | Attributes |
 | --- | --- |
-| root | `data-striped="odd" \| "even"`, `data-highlight-on-hover`, `data-loading`, `data-empty`, `data-virtualized-rows`, `data-virtualized-columns`, `data-with-table-border`, `data-with-row-borders`, `data-with-column-borders`, `data-scrolled-start`, `data-scrolled-end` |
+| root | `data-striped="odd" \| "even"`, `data-highlight-on-hover`, `data-loading`, `data-empty`, `data-virtualized-rows`, `data-virtualized-columns`, `data-with-table-border`, `data-with-row-borders`, `data-with-column-borders`, `data-with-bottom-border`, `data-with-footer`, `data-scrolled-start`, `data-scrolled-end` |
 | header cell | `data-align`, `data-sortable`, `data-sorted` (on the indicator), `data-pinned="start" \| "end"`, `data-pinned-edge`, `data-resizing`, `data-dragging`, `data-drop-side="before" \| "after"` |
-| row | `data-selected`, `data-expanded`, `data-clickable`, `data-parity="odd" \| "even"`, `data-pinned-row="top" \| "bottom"`, `data-row-id`, `data-detail-row`, `data-dragging` (a reorder lifted it), `data-drop-side="before" \| "after"` (the reorder drop edge) |
-| cell | `data-align`, `data-editable`, `data-editing`, `data-leading` (its column is first in display order — DOM order cannot say so once `spanRows` drops covered cells), `data-pinned`, `data-pinned-edge`, `data-truncate` (inner span), `data-group-cell` / `data-group-count` (grouped) |
+| row | `data-selected`, `data-expanded`, `data-clickable`, `data-parity="odd" \| "even"`, `data-pinned-row="top" \| "bottom"`, `data-row-id`, `data-detail-row`, `data-last` (the body's final row), `data-dragging` (a reorder lifted it), `data-drop-side="before" \| "after"` (the reorder drop edge) |
+| cell | `data-align`, `data-editable`, `data-editing`, `data-last` (a `spanRows` anchor ending on the last row), `data-leading` (its column is first in display order — DOM order cannot say so once `spanRows` drops covered cells), `data-pinned`, `data-pinned-edge`, `data-truncate` (inner span), `data-group-cell` / `data-group-count` (grouped) |
 | editor | `data-pending` |
 
 ```css

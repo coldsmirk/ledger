@@ -552,6 +552,59 @@ describe("DataTable", () => {
     expect(root.style.getPropertyValue("--ledger-radius")).toBe("");
   });
 
+  it("marks the body's last row, and none while a loader row trails the data", () => {
+    const { container, rerender } = render(
+      <DataTable columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    const lastFlags = () => [...container.querySelectorAll<HTMLElement>(":scope .ledger-tbody .ledger-row")]
+      .map(row => Object.hasOwn(row.dataset, "last"));
+    expect(lastFlags()).toEqual([false, false, true]);
+
+    rerender(<DataTable loadingMore columns={columns} data={people} getRowId={getRowId} />);
+    expect(lastFlags()).toEqual([false, false, false]);
+  });
+
+  it("makes a bottom-pinned row the body's last row", () => {
+    const { container } = render(
+      <DataTable
+        enableRowPinning
+        columns={columns}
+        data={people}
+        defaultRowPinning={{ top: [], bottom: ["1"] }}
+        getRowId={getRowId}
+      />,
+      { wrapper }
+    );
+
+    const rows = [...container.querySelectorAll<HTMLElement>(":scope .ledger-tbody .ledger-row")];
+    expect(rows.map(row => row.dataset.rowId)).toEqual(["2", "3", "1"]);
+    expect(rows.map(row => Object.hasOwn(row.dataset, "last"))).toEqual([false, false, true]);
+  });
+
+  it("exposes the closing line and footer presence as root attributes", () => {
+    const { container, rerender } = render(
+      <DataTable withBottomBorder columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    const root = container.querySelector<HTMLElement>(".ledger-root")!;
+    expect(Object.hasOwn(root.dataset, "withBottomBorder")).toBe(true);
+    expect(Object.hasOwn(root.dataset, "withFooter")).toBe(false);
+
+    const withFooter: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        footer: "Total"
+      }
+    ];
+    rerender(<DataTable columns={withFooter} data={people} getRowId={getRowId} />);
+    expect(Object.hasOwn(root.dataset, "withBottomBorder")).toBe(false);
+    expect(Object.hasOwn(root.dataset, "withFooter")).toBe(true);
+  });
+
   it("mirrors the body's horizontal scroll onto the header and forwards header wheel", () => {
     // Regression: a sticky in-scroller header made the vertical scrollbar span (and hide
     // under) the header; the split keeps the regions aligned through a scrollLeft mirror.
