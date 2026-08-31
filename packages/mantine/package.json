@@ -1,6 +1,6 @@
 {
   "name": "@coldsmirk/ledger-mantine",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Mantine-native <DataTable> on TanStack Table and TanStack Virtual: sorting, filtering, pagination, selection, pinning, inline editing, and adaptive row virtualization.",
   "keywords": [
     "data-table",
