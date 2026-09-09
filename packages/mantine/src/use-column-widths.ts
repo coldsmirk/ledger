@@ -23,7 +23,7 @@ import type { Column, TableInstance } from "./types";
  */
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 
-import { rawColumnSizing } from "./build-columns";
+import { isInternalColumn, rawColumnSizing } from "./build-columns";
 
 /**
  * Grow basis for columns that declare neither `size` nor `minSize`.
@@ -222,7 +222,12 @@ export function useColumnWidths<TData extends RowData>(
    */
   columns: Array<Column<TData, unknown>>,
   viewport: HTMLDivElement | null,
-  tableMinWidth: number | string | undefined
+  tableMinWidth: number | string | undefined,
+  /**
+   * The injected columns' width — the table's `size` decides it (`size.ts`) — for every
+   * bound an override left unsaid.
+   */
+  injectedWidth: number
 ): ColumnWidths {
   const [availableWidth, setAvailableWidth] = useState(0);
 
@@ -257,6 +262,15 @@ export function useColumnWidths<TData extends RowData>(
       const specs = columns.map<ColumnWidthSpec>(column => {
         const raw = rawColumnSizing(column.columnDef);
 
+        if (isInternalColumn(column.id)) {
+          return {
+            id: column.id,
+            size: raw?.size ?? injectedWidth,
+            minSize: raw?.minSize ?? injectedWidth,
+            maxSize: raw?.maxSize ?? injectedWidth
+          };
+        }
+
         return {
           id: column.id,
           size: raw ? raw.size ?? defaultColumn?.size : column.columnDef.size,
@@ -267,7 +281,7 @@ export function useColumnWidths<TData extends RowData>(
 
       return resolveColumnWidths(specs, columnSizing, availableWidth);
     },
-    [columns, columnSizing, availableWidth, defaultColumn]
+    [columns, columnSizing, availableWidth, defaultColumn, injectedWidth]
   );
 
   /* Stable identity while the numbers are unchanged — downstream memos depend on it. */

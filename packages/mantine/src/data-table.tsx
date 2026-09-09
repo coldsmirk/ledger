@@ -4,6 +4,7 @@ import type {
   Factory,
   MantineColor,
   MantineRadius,
+  MantineSize,
   MantineSpacing,
   StylesApiProps,
   TableTrProps
@@ -43,6 +44,7 @@ import {
   createVarsResolver,
   EmptyState,
   genericFactory,
+  getFontSize,
   getRadius,
   getThemeColor,
   LoadingOverlay,
@@ -66,6 +68,7 @@ import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from ".
 import { RowReorderScope, useRowReorder } from "./row-reorder";
 import { DataTableSearch } from "./search";
 import { DataTableSelectionBar } from "./selection-bar";
+import { DEFAULT_SIZE, SIZES } from "./size";
 import { buildDisplayRows, countDisplayRows, TableBody } from "./table-body";
 import { TableFooter, tableHasFooter, visibleFooterGroups } from "./table-footer";
 import { TableHeader } from "./table-header";
@@ -114,7 +117,7 @@ export type DataTableStylesNames
     | "paginationBar";
 
 export interface DataTableCssVariables {
-  root: "--ledger-striped-color" | "--ledger-hover-color" | "--ledger-border-color" | "--ledger-radius";
+  root: "--ledger-striped-color" | "--ledger-hover-color" | "--ledger-border-color" | "--ledger-radius" | "--ledger-font-size";
 }
 
 /**
@@ -207,6 +210,12 @@ export interface DataTableBaseProps<TData extends RowData>
    * vocabulary: `Paper.radius`).
    */
   radius?: MantineRadius;
+  /**
+   * The table's size (docs/styling.md#size): the type, the cell padding, a row's height and
+   * the size of every control drawn in a cell, as one Mantine size — `sm` by default, which is
+   * Mantine's own `Table`. The two spacing props override the size's padding when set.
+   */
+  size?: MantineSize;
   verticalSpacing?: MantineSpacing;
   horizontalSpacing?: MantineSpacing;
   tabularNums?: boolean;
@@ -339,8 +348,7 @@ const defaultProps = {
   withColumnBorders: false,
   withRowBorders: true,
   withBottomBorder: false,
-  verticalSpacing: "xs",
-  horizontalSpacing: "xs",
+  size: DEFAULT_SIZE,
   tabularNums: false,
   virtualizedRows: false,
   virtualizedColumns: false,
@@ -361,7 +369,8 @@ const varsResolver = createVarsResolver<DataTableFactory>(
     stripedColor,
     highlightOnHoverColor,
     borderColor,
-    radius
+    radius,
+    size
   }) => {
     return {
       root: {
@@ -372,7 +381,9 @@ const varsResolver = createVarsResolver<DataTableFactory>(
         // The frame border around header + body lives outside both tables (docs/styling.md).
         "--ledger-border-color": borderColor ? getThemeColor(borderColor, theme) : undefined,
         // Rounds root and frame alike (docs/styling.md); absent, the stylesheet's `0` stands.
-        "--ledger-radius": radius === undefined ? undefined : getRadius(radius)
+        "--ledger-radius": radius === undefined ? undefined : getRadius(radius),
+        // The size's type, on the root so every table under it inherits it (docs/styling.md#size).
+        "--ledger-font-size": getFontSize(size)
       }
     };
   }
@@ -601,6 +612,7 @@ function DataTableCore<TData extends RowData>({
     withBottomBorder,
     borderColor: _borderColor,
     radius: _radius,
+    size: sizeProp,
     verticalSpacing,
     horizontalSpacing,
     tabularNums,
@@ -710,7 +722,10 @@ function DataTableCore<TData extends RowData>({
   const ledgerColumns = table.options.meta?.ledger?.columns;
   // eslint-disable-next-line @eslint-react/exhaustive-deps -- the signature encodes order/composition; meta.ledger.columns identity covers definition swaps (options.columns re-resolves per v9 state tick)
   const visibleLeafColumns = useMemo(() => displayColumns, [displayOrderSignature, ledgerColumns]);
-  const columnWidths = useColumnWidths(table, visibleLeafColumns, viewport, tableMinWidth);
+  // `useProps` filled the default; the type alone still says it may be absent.
+  const size = sizeProp ?? DEFAULT_SIZE;
+  const scale = SIZES[size];
+  const columnWidths = useColumnWidths(table, visibleLeafColumns, viewport, tableMinWidth, scale.injectedWidth);
 
   /* ---- virtualization config ---- */
   const virtualization: VirtualizationConfig | null = virtualizedRows
@@ -718,7 +733,7 @@ function DataTableCore<TData extends RowData>({
         estimateHeight:
           typeof virtualizedRows === "object" && virtualizedRows.estimateHeight !== undefined
             ? virtualizedRows.estimateHeight
-            : 44,
+            : scale.rowHeight,
         overscan: typeof virtualizedRows === "object" && virtualizedRows.overscan !== undefined
           ? virtualizedRows.overscan
           : 8
@@ -1425,11 +1440,11 @@ function DataTableCore<TData extends RowData>({
   // Row/column borders are ledger-owned at cell level (docs/styling.md), so the border props
   // become root data-attributes instead of Mantine Table props.
   const sharedTableProps = {
-    horizontalSpacing,
+    horizontalSpacing: horizontalSpacing ?? scale.horizontalSpacing,
     layout: "fixed" as const,
     role: "presentation" as const,
     tabularNums,
-    verticalSpacing
+    verticalSpacing: verticalSpacing ?? scale.verticalSpacing
   };
   // Exact table width (the engine's total) — the browser never redistributes column widths;
   // `border-collapse: separate` is inline because the host's unlayered `collapse` would win,
@@ -1479,6 +1494,7 @@ function DataTableCore<TData extends RowData>({
         getStyles: stylesRevision,
         labels,
         icons,
+        size,
         filterMode,
         virtualizedRows: virtualEnabled,
         withColumnHeaders: columnHeadersVisible,
@@ -1503,6 +1519,7 @@ function DataTableCore<TData extends RowData>({
       stylesRevision,
       labels,
       icons,
+      size,
       filterMode,
       virtualEnabled,
       columnHeadersVisible,
@@ -1527,6 +1544,7 @@ function DataTableCore<TData extends RowData>({
           data-loading={loading || undefined}
           data-scrolled-end={scrollEdges.end || undefined}
           data-scrolled-start={scrollEdges.start || undefined}
+          data-size={size}
           data-striped={stripedMode}
           data-virtualized-columns={columnWindow !== null || undefined}
           data-virtualized-rows={virtualEnabled || undefined}

@@ -16,12 +16,17 @@ import { useLayoutEffect, useReducer, useRef } from "react";
 import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
 import { cellValue, normalizeEdit } from "./edit-meta";
+import { SIZES } from "./size";
 import { useEventCallback } from "./utils";
 
 export { canEditCell } from "./edit-meta";
 
 export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
-  const { labels, getStyles } = useDataTableContext();
+  const {
+    labels,
+    getStyles,
+    size
+  } = useDataTableContext();
   const { table } = cell.getContext();
   const editing = table.options.meta?.ledger?.editing;
   const normalized = normalizeEdit(cell.column.columnDef.meta?.edit);
@@ -98,7 +103,8 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
     pending,
     mode: "cell",
     autoFocus: true,
-    label: labels.editColumn(columnHeaderText(cell.column))
+    label: labels.editColumn(columnHeaderText(cell.column)),
+    size: SIZES[size].control
   });
 
   return (
@@ -129,7 +135,11 @@ export function CellEditor({ cell }: { cell: Cell<any, unknown> }) {
  * a virtualized unmount), blur never commits, and Enter/Escape commit or cancel the whole row.
  */
 export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
-  const { labels, getStyles } = useDataTableContext();
+  const {
+    labels,
+    getStyles,
+    size
+  } = useDataTableContext();
   const { table } = cell.getContext();
   const editing = table.options.meta?.ledger?.editing;
   const rowApi = editing?.row;
@@ -214,7 +224,8 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
           },
           error: editError,
           pending,
-          label
+          label,
+          size: SIZES[size].control
         })
       : normalized.render({
           row: cell.row,
@@ -230,7 +241,8 @@ export function RowCellEditor({ cell }: { cell: Cell<any, unknown> }) {
           pending,
           mode: "row",
           autoFocus,
-          label
+          label,
+          size: SIZES[size].control
         });
 
   return (

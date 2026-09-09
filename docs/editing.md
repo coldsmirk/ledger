@@ -70,10 +70,11 @@ The context is `DataTableEditContext`:
 | `mode` | `"cell"` or `"row"` — a renderer may adapt (the select helper opens its dropdown and commits on pick only in cell mode) |
 | `autoFocus` | Whether to take focus on mount: always in cell mode, only the entry column in row mode |
 | `label` | The localized accessible name (`labels.editColumn` over the column title) — one of many identical controls in the grid, told apart by the column it edits |
+| `size` | The Mantine size the cell's controls are drawn at — the table's `size` a step down ([styling.md](styling.md#size)) — so the editor fits the row it opens in |
 
 ### The shipped editors
 
-Each is implemented purely on the public context above — proof the context suffices, and the reference for writing your own. All render default-variant Mantine inputs filling the cell (the border marks the cell as an open editor) and honor `autoFocus`, `pending`, `error`, and `label`.
+Each is implemented purely on the public context above — proof the context suffices, and the reference for writing your own. All render default-variant Mantine inputs filling the cell (the border marks the cell as an open editor) and honor `autoFocus`, `pending`, `error`, `label`, and `size`.
 
 | Helper | Control | Commit behavior |
 | --- | --- | --- |

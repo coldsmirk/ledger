@@ -1,3 +1,4 @@
+import type { MantineSize } from "@mantine/core";
 import type { RowData } from "@tanstack/react-table";
 import type { CSSProperties } from "react";
 
@@ -17,6 +18,7 @@ import { useId } from "react";
 
 import { useDataTableContext } from "./context";
 import { resolveLabels } from "./labels";
+import { SIZES } from "./size";
 
 export const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -24,6 +26,10 @@ interface PaginationBarCoreProps<TData extends RowData> {
   table: TableInstance<TData>;
   labels: DataTableLabels;
   pageSizeOptions: number[];
+  /**
+   * The table's size: the words at its type, the controls at its control size (`size.ts`).
+   */
+  size: MantineSize;
   className?: string;
   style?: CSSProperties;
 }
@@ -32,6 +38,7 @@ function PaginationBarCore<TData extends RowData>({
   table,
   labels,
   pageSizeOptions,
+  size,
   className,
   style
 }: PaginationBarCoreProps<TData>) {
@@ -50,7 +57,7 @@ function PaginationBarCore<TData extends RowData>({
 
   return (
     <Group className={className} gap="md" justify="space-between" style={style} wrap="wrap">
-      <Text c="dimmed" size="sm">
+      <Text c="dimmed" size={size}>
         {labels.paginationSummary(from, to, total)}
       </Text>
 
@@ -58,7 +65,7 @@ function PaginationBarCore<TData extends RowData>({
         <Group gap="xs" wrap="nowrap">
           {/* The visible text IS the label — pointing at it beats duplicating it into an
               aria-label, which would let the two drift apart (WCAG 2.5.3, label in name). */}
-          <Text key="label" c="dimmed" id={pageSizeLabelId} size="sm">
+          <Text key="label" c="dimmed" id={pageSizeLabelId} size={size}>
             {labels.rowsPerPage}
           </Text>
 
@@ -66,7 +73,7 @@ function PaginationBarCore<TData extends RowData>({
             allowDeselect={false}
             aria-labelledby={pageSizeLabelId}
             data={sizeOptions.map(String)}
-            size="xs"
+            size={SIZES[size].control}
             value={String(pageSize)}
             w={84}
             onChange={value => value !== null && table.setPageSize(Number(value))}
@@ -74,7 +81,7 @@ function PaginationBarCore<TData extends RowData>({
         </Group>
 
         <Pagination
-          size="sm"
+          size={SIZES[size].control}
           total={pageCount}
           value={pageIndex + 1}
           onChange={page => table.setPageIndex(page - 1)}
@@ -88,7 +95,11 @@ function PaginationBarCore<TData extends RowData>({
  * The built-in bar rendered by <DataTable> (context-styled).
  */
 export function PaginationBar<TData extends RowData>({ table, pageSizeOptions }: { table: TableInstance<TData>; pageSizeOptions: number[] }) {
-  const { labels, getStyles } = useDataTableContext();
+  const {
+    labels,
+    getStyles,
+    size
+  } = useDataTableContext();
   const { className, style } = getStyles("paginationBar");
 
   return (
@@ -96,6 +107,7 @@ export function PaginationBar<TData extends RowData>({ table, pageSizeOptions }:
       className={className}
       labels={labels}
       pageSizeOptions={pageSizeOptions}
+      size={size}
       style={style}
       table={table}
     />
@@ -106,11 +118,16 @@ export interface DataTablePaginationProps<TData extends RowData> {
   table: TableInstance<TData>;
   pageSizeOptions?: number[];
   labels?: Partial<DataTableLabels>;
+  /**
+   * The size of the table the bar stands under (docs/styling.md#size); `sm`, the table's own
+   * default, unless said.
+   */
+  size?: MantineSize;
   className?: string;
   style?: CSSProperties;
 }
 
-const paginationDefaultProps = {} satisfies Partial<DataTablePaginationProps<RowData>>;
+const paginationDefaultProps = { size: "sm" } satisfies Partial<DataTablePaginationProps<RowData>>;
 
 /**
  * Standalone compound (`DataTable.Pagination`) — place it anywhere, theme it via defaultProps.
@@ -120,6 +137,7 @@ export function DataTablePagination<TData extends RowData>(props: DataTablePagin
     table,
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
     labels,
+    size,
     className,
     style
   } = useProps("DataTablePagination", paginationDefaultProps, props);
@@ -129,6 +147,7 @@ export function DataTablePagination<TData extends RowData>(props: DataTablePagin
       className={clsx("ledger-pagination-bar", className)}
       labels={resolveLabels(labels)}
       pageSizeOptions={pageSizeOptions}
+      size={size}
       style={style}
       table={table}
     />

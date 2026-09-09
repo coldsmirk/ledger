@@ -552,6 +552,66 @@ describe("DataTable", () => {
     expect(root.style.getPropertyValue("--ledger-radius")).toBe("");
   });
 
+  it("draws at sm unless told: the type variable, Mantine's Table spacing and the controls a step down", () => {
+    const { container, rerender } = render(
+      <DataTable enableRowSelection columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    const root = container.querySelector<HTMLElement>(".ledger-root")!;
+    const table = container.querySelector<HTMLElement>(".ledger-table")!;
+    const checkbox = container.querySelector<HTMLElement>(".mantine-Checkbox-root")!;
+    expect(root.dataset.size).toBe("sm");
+    expect(root.hasAttribute("size")).toBe(false);
+    expect(root.style.getPropertyValue("--ledger-font-size")).toBe("var(--mantine-font-size-sm)");
+    // Mantine's own Table: 7px over the xs spacing.
+    expect(table.style.getPropertyValue("--table-vertical-spacing")).toBe("calc(0.4375rem * var(--mantine-scale))");
+    expect(table.style.getPropertyValue("--table-horizontal-spacing")).toBe("calc(0.625rem * var(--mantine-scale))");
+    expect(checkbox.style.getPropertyValue("--checkbox-size")).toBe("var(--checkbox-size-xs)");
+
+    rerender(<DataTable enableRowSelection columns={columns} data={people} getRowId={getRowId} size="md" />);
+
+    expect(root.dataset.size).toBe("md");
+    expect(root.style.getPropertyValue("--ledger-font-size")).toBe("var(--mantine-font-size-md)");
+    expect(table.style.getPropertyValue("--table-vertical-spacing")).toBe("calc(0.5rem * var(--mantine-scale))");
+    expect(table.style.getPropertyValue("--table-horizontal-spacing")).toBe("calc(0.75rem * var(--mantine-scale))");
+    expect(checkbox.style.getPropertyValue("--checkbox-size")).toBe("var(--checkbox-size-sm)");
+  });
+
+  it("lets a spacing prop override the size's padding on its own side alone", () => {
+    const { container } = render(
+      <DataTable columns={columns} data={people} getRowId={getRowId} size="xs" verticalSpacing="md" />,
+      { wrapper }
+    );
+
+    const table = container.querySelector<HTMLElement>(".ledger-table")!;
+    expect(table.style.getPropertyValue("--table-vertical-spacing")).toBe("var(--mantine-spacing-md)");
+    expect(table.style.getPropertyValue("--table-horizontal-spacing")).toBe("calc(0.5rem * var(--mantine-scale))");
+  });
+
+  it("hands an editor the control size of the table it opens in", () => {
+    const sized: Array<ColumnDef<Person, any>> = [
+      {
+        accessorKey: "name",
+        header: "Name",
+        meta: { edit: { render: context => <span data-testid="editor">{context.size}</span> } }
+      },
+      { accessorKey: "age", header: "Age" }
+    ];
+    // Editing is gated on a commit handler; the size is the subject, so it hears nothing.
+    const onEditCommit = vi.fn();
+    const { rerender } = render(
+      <DataTable columns={sized} data={people} getRowId={getRowId} onEditCommit={onEditCommit} />,
+      { wrapper }
+    );
+
+    fireEvent.doubleClick(screen.getByText("Carol"));
+    expect(screen.getByTestId("editor").textContent).toBe("xs");
+
+    rerender(<DataTable columns={sized} data={people} getRowId={getRowId} size="lg" onEditCommit={onEditCommit} />);
+    expect(screen.getByTestId("editor").textContent).toBe("md");
+  });
+
   it("marks the body's last row, and none while a loader row trails the data", () => {
     const { container, rerender } = render(
       <DataTable columns={columns} data={people} getRowId={getRowId} />,

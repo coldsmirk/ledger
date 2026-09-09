@@ -1,4 +1,4 @@
-import type { GetStylesApi, TableTrProps } from "@mantine/core";
+import type { GetStylesApi, MantineSize, TableTrProps } from "@mantine/core";
 import type { ColumnFiltersState } from "@tanstack/react-table";
 import type { KeyboardEvent, MouseEvent } from "react";
 
@@ -34,6 +34,11 @@ export interface DataTableContextValue {
   getStyles: GetStylesApi<DataTableFactory>;
   labels: DataTableLabels;
   icons: DataTableIcons;
+  /**
+   * The table's `size` (docs/styling.md#size) — what every control drawn in the tree reads
+   * its own size from (`size.ts`).
+   */
+  size: MantineSize;
   filterMode: "client" | "server";
   /**
    * Row virtualization active — rows must then carry aria-rowindex (header rows included).

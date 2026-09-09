@@ -6,9 +6,23 @@ The presentation layer is Mantine's, end to end: forwarded `Table` style props f
 
 Eleven `Table` appearance props forward with Mantine's names and semantics:
 
-`striped` (`boolean | "odd" | "even"`), `stripedColor`, `highlightOnHover`, `highlightOnHoverColor`, `withTableBorder`, `withColumnBorders`, `withRowBorders` (default `true`), `borderColor`, `verticalSpacing` / `horizontalSpacing` (default `"xs"`), `tabularNums`.
+`striped` (`boolean | "odd" | "even"`), `stripedColor`, `highlightOnHover`, `highlightOnHoverColor`, `withTableBorder`, `withColumnBorders`, `withRowBorders` (default `true`), `borderColor`, `verticalSpacing` / `horizontalSpacing` (default: the [size](#size)'s), `tabularNums`.
 
 One more comes from `Paper`: **`radius`** (`MantineRadius`) rounds the table box — the root and the header + body + footer frame, which clips its content to the curve — and the `withTableBorder` frame follows it, so a framed table can be its own card instead of sitting inside one. The closing line under the last row is ledger's own switch, `withBottomBorder` — see [Borders](#borders).
+
+## Size
+
+`size` (`MantineSize`, default `"sm"`) sets the table's density as one word, the way `size` sizes an input: the type, the cell padding, a row's natural height and the size of every control drawn in a cell — the selection checkbox, the expander and the drag handle, the filter button, the inline editors, the pagination bar's controls — move together. Rows land on Mantine's input heights, so a row reads level with an input of the same size beside it; `sm` is Mantine's own `Table` (7px over 14px type). Controls in a cell take the size one step down from `sm` up, as Mantine's composites do (a `MultiSelect`'s pills under its input), and the editing contexts carry that control size as `size` ([editing.md](editing.md#editors)).
+
+| `size` | Type | Padding (block / inline) | Row | Controls | Injected column |
+| --- | --- | --- | --- | --- | --- |
+| `xs` | `--mantine-font-size-xs` | 5px / 8px | 30px | `xs` | 36px |
+| `sm` | `--mantine-font-size-sm` | 7px / 10px | 36px | `xs` | 40px |
+| `md` | `--mantine-font-size-md` | 8px / 12px | 42px | `sm` | 48px |
+| `lg` | `--mantine-font-size-lg` | 10px / 16px | 50px | `md` | 62px |
+| `xl` | `--mantine-font-size-xl` | 14px / 20px | 60px | `lg` | 76px |
+
+`verticalSpacing` / `horizontalSpacing` override the size's padding when set (a Mantine spacing key or a number of px), and `fz` on the root overrides its type. The type rides `--ledger-font-size` on the root (a `vars`-reachable variable), the row height is the virtualizer's default estimate ([virtualization.md](virtualization.md)), and the injected columns' width follows the size unless an override sets bounds of its own ([sizing.md](sizing.md)). An application sets its default through the theme: `theme.components.DataTable` with `defaultProps: { size: "xs" }`.
 
 All the border and background props are rendered by ledger itself rather than Mantine:
 
@@ -108,7 +122,7 @@ Style states by attribute selector (the Mantine convention). The inventory:
 
 | Element | Attributes |
 | --- | --- |
-| root | `data-striped="odd" \| "even"`, `data-highlight-on-hover`, `data-loading`, `data-empty`, `data-virtualized-rows`, `data-virtualized-columns`, `data-with-table-border`, `data-with-row-borders`, `data-with-column-borders`, `data-with-bottom-border`, `data-with-footer`, `data-scrolled-start`, `data-scrolled-end` |
+| root | `data-size="xs" \| "sm" \| "md" \| "lg" \| "xl"`, `data-striped="odd" \| "even"`, `data-highlight-on-hover`, `data-loading`, `data-empty`, `data-virtualized-rows`, `data-virtualized-columns`, `data-with-table-border`, `data-with-row-borders`, `data-with-column-borders`, `data-with-bottom-border`, `data-with-footer`, `data-scrolled-start`, `data-scrolled-end` |
 | header cell | `data-align`, `data-sortable`, `data-sorted` (on the indicator), `data-pinned="start" \| "end"`, `data-pinned-edge`, `data-resizing`, `data-dragging`, `data-drop-side="before" \| "after"` |
 | row | `data-selected`, `data-expanded`, `data-clickable`, `data-parity="odd" \| "even"`, `data-pinned-row="top" \| "bottom"`, `data-row-id`, `data-detail-row`, `data-last` (the body's final row), `data-dragging` (a reorder lifted it), `data-drop-side="before" \| "after"` (the reorder drop edge) |
 | cell | `data-align`, `data-editable`, `data-editing`, `data-last` (a `spanRows` anchor ending on the last row), `data-leading` (its column is first in display order — DOM order cannot say so once `spanRows` drops covered cells), `data-pinned`, `data-pinned-edge`, `data-truncate` (inner span), `data-group-cell` / `data-group-count` (grouped) |
@@ -127,14 +141,15 @@ Style states by attribute selector (the Mantine convention). The inventory:
 | `--ledger-header-bg` | you, in CSS (see below) | Header cell background; defaults to `--mantine-color-body`. Opaque by contract, not by decoration — a pinned header cell has to occlude the cells scrolling under it |
 | `--ledger-border-color` | `borderColor` prop (or your `vars`) | Every ledger-painted line: the `withTableBorder` frame, row/column borders, and the seam overlays; defaults to `--mantine-color-default-border` |
 | `--ledger-radius` | `radius` prop (or your `vars`) | The table box's corner radius, on the root and on the `main` frame (which clips to it); defaults to `0` |
+| `--ledger-font-size` | `size` prop (or your `vars`) | The table's type, set on the root so every table under it inherits it ([Size](#size)) |
 | `--ledger-col-width-<id>`, `--ledger-col-start-<id>`, `--ledger-col-after-<id>` | column geometry | Width and pinned offsets per column; disjoint prefixes prevent one family from shadowing another, and resizing never re-renders rows |
 
 The column-variable `<id>` suffix is a collision-free CSS-safe encoding, not necessarily the raw
 column id: ASCII letters, digits, and hyphens stay readable, while punctuation and Unicode code
 points are escaped.
 
-The `vars` resolver accepts the four variables a prop also writes — `--ledger-striped-color`,
-`--ledger-hover-color`, `--ledger-border-color`, `--ledger-radius`:
+The `vars` resolver accepts the five variables a prop also writes — `--ledger-striped-color`,
+`--ledger-hover-color`, `--ledger-border-color`, `--ledger-radius`, `--ledger-font-size`:
 
 ```tsx
 <DataTable vars={() => ({ root: { "--ledger-striped-color": "var(--mantine-color-blue-0)" } })} … />

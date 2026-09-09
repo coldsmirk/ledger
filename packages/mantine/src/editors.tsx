@@ -6,7 +6,8 @@ import type { DataTableEditRenderer, DataTableInstantEditRenderer } from "./type
  * The shipped editor renderers — conveniences, never the mechanism. Each is an ordinary
  * renderer over the public editing contexts (docs/editing.md#editors), which is the proof the
  * contexts suffice: anything these do, an application's own renderer can do the same way.
- * All are default-variant Mantine inputs — the border marks the cell as an open editor.
+ * All are default-variant Mantine inputs at the context's `size` — the border marks the cell as an
+ * open editor, and the size keeps it inside the row.
  */
 import { Checkbox, NumberInput, Select, TextInput } from "@mantine/core";
 
@@ -16,14 +17,15 @@ const renderTextEditor: DataTableEditRenderer<any, any> = ({
   error,
   pending,
   autoFocus,
-  label
+  label,
+  size
 }) => (
   <TextInput
     aria-label={label}
     autoFocus={autoFocus}
     disabled={pending}
     error={error}
-    size="xs"
+    size={size}
     value={value === null || value === undefined ? "" : String(value)}
     onChange={event => setValue(event.currentTarget.value)}
   />
@@ -42,7 +44,8 @@ const renderNumberEditor: DataTableEditRenderer<any, any> = ({
   error,
   pending,
   autoFocus,
-  label
+  label,
+  size
 }) => (
   <NumberInput
     hideControls
@@ -50,7 +53,7 @@ const renderNumberEditor: DataTableEditRenderer<any, any> = ({
     autoFocus={autoFocus}
     disabled={pending}
     error={error}
-    size="xs"
+    size={size}
     value={typeof value === "number" || typeof value === "string" ? value : ""}
     onChange={next => setValue(next === "" ? null : next)}
   />
@@ -77,7 +80,8 @@ export function selectEditor(options: ComboboxData): DataTableEditRenderer<any, 
     pending,
     mode,
     autoFocus,
-    label
+    label,
+    size
   }) => (
     <Select
       aria-label={label}
@@ -87,7 +91,7 @@ export function selectEditor(options: ComboboxData): DataTableEditRenderer<any, 
       defaultDropdownOpened={mode === "cell"}
       disabled={pending}
       error={error}
-      size="xs"
+      size={size}
       value={value === null || value === undefined ? null : String(value)}
       onChange={next => {
         setValue(next);
@@ -105,7 +109,8 @@ const renderCheckboxEditor: DataTableInstantEditRenderer<any, any> = ({
   commit,
   pending,
   error,
-  label
+  label,
+  size
 }) => (
   <Checkbox
     aria-label={label}
@@ -113,7 +118,7 @@ const renderCheckboxEditor: DataTableInstantEditRenderer<any, any> = ({
     disabled={pending}
     // Styles only — the instant host renders the message in its own alert region.
     error={Boolean(error)}
-    size="xs"
+    size={size}
     onChange={event => void commit(event.currentTarget.checked)}
   />
 );

@@ -15,7 +15,7 @@ Mantine deliberately ships no data grid; the community options either reimplemen
 ## Features
 
 - **TanStack-verbatim behavior** — columns are raw TanStack `ColumnDef`s (presentation concerns ride a typed `meta` extension); every state slice is independently controllable as `x` / `defaultX` / `onXChange`; behavior switches use TanStack's real option names (`enableSorting`, `enableColumnPinning`, …).
-- **Mantine-native presentation** — forwarded `Table` style props (`striped`, `highlightOnHover`, `withTableBorder`, …), `BoxProps` sizing (`h`, `mah`, `flex`), Styles API theming, and dark mode / RTL inherited from the host theme.
+- **Mantine-native presentation** — forwarded `Table` style props (`striped`, `highlightOnHover`, `withTableBorder`, …), `size` on Mantine's five sizes, `BoxProps` sizing (`h`, `mah`, `flex`), Styles API theming, and dark mode / RTL inherited from the host theme.
 - **Sorting, filtering, and pagination** — multi-sort, per-column filter variants with faceted options, global search, and a pagination bar; each with a documented server mode.
 - **Rows** — selection (multi/single, shift ranges, selection bar), master–detail expansion, tree data, grouping with aggregation, row pinning, and drag or keyboard row reordering.
 - **Columns** — pinning, resizing, drag reordering, visibility with a ready-made columns panel, and header groups.

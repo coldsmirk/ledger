@@ -38,6 +38,7 @@ import { ActionIcon, Portal, Tooltip, VisuallyHidden } from "@mantine/core";
 import { useMemo, useRef, useState } from "react";
 
 import { useDataTableContext } from "./context";
+import { SIZES } from "./size";
 import { useEventCallback } from "./utils";
 
 /**
@@ -575,7 +576,8 @@ export function RowDragCell<TData extends RowData>({ row, table }: { row: Row<TD
   const {
     labels,
     icons,
-    rowReorderKeyboard
+    rowReorderKeyboard,
+    size
   } = useDataTableContext();
   const orderable = table.options.meta?.ledger?.rowOrdering.orderable === true;
 
@@ -677,7 +679,7 @@ export function RowDragCell<TData extends RowData>({ row, table }: { row: Row<TD
         aria-label={labels.reorderRow}
         aria-pressed={lifted || undefined}
         color="gray"
-        size="sm"
+        size={SIZES[size].control}
         variant="subtle"
         onBlur={() => {
           // A keyboard lift is bound to the handle that owns the keys — focus leaving it would
@@ -688,7 +690,7 @@ export function RowDragCell<TData extends RowData>({ row, table }: { row: Row<TD
         }}
         onKeyDown={handleKeyDown}
       >
-        <icons.reorderRow size={14} />
+        <icons.reorderRow size={SIZES[size].glyph} />
       </ActionIcon>
     </Tooltip>
   );

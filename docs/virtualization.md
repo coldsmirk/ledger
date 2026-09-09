@@ -15,7 +15,7 @@ Virtualization keeps the DOM small at any data size while remaining a **real `<t
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `estimateHeight` | `44` | Initial row-height estimate in px (real heights are measured per row) |
+| `estimateHeight` | the size's row height (`37` at `sm`, [styling.md](styling.md#size)) | Initial row-height estimate in px (real heights are measured per row) |
 | `overscan` | `8` | Extra rows rendered beyond the viewport in each direction |
 
 ## How row virtualization works

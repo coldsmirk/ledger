@@ -29,6 +29,10 @@
     min-height: 0;
     overflow: hidden;
 
+    /* `size` (the --ledger-font-size variable, docs/styling.md#size): the type every table under
+       the root inherits; a `fz` on the root is inline and still wins. */
+    font-size: var(--ledger-font-size);
+
     /* `radius` (the --ledger-radius variable): the root rounds with the frame so a `bg` or the
        pagination bar follows the same corners. */
     border-radius: var(--ledger-radius, 0);
@@ -461,6 +465,11 @@
     padding-block: 2px;
   }
 
+  /* An `xs` row is as tall as the smallest input Mantine draws: the editor takes the whole of it. */
+  .ledger-root[data-size="xs"] .ledger-cell[data-editing] {
+    padding-block: 0;
+  }
+
   .ledger-cell-editor {
     display: flex;
     gap: 4px;
@@ -590,7 +599,6 @@
     gap: 8px;
     align-items: center;
     justify-content: center;
-    font-size: var(--mantine-font-size-sm);
   }
 
   /* The retry button carries its own horizontal padding, so the pair needs less between them. */

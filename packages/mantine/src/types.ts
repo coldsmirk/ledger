@@ -8,7 +8,7 @@
  * (`ColumnDef<TData, TValue>`, `Row<TData>`, …) — the feature set is an implementation
  * detail of the package, never a parameter consumers manage.
  */
-import type { ComboboxData, MantineBreakpoint, TableTdProps, TableThProps } from "@mantine/core";
+import type { ComboboxData, MantineBreakpoint, MantineSize, TableTdProps, TableThProps } from "@mantine/core";
 import type {
   CellData,
   ColumnFiltersState,
@@ -171,6 +171,11 @@ export interface DataTableEditContext<TData extends RowData, TValue> {
    * editor is one of many identical controls in the grid, told apart by the column it edits.
    */
   label: string;
+  /**
+   * The Mantine size the cell's controls are drawn at — the table's `size` a step down
+   * (docs/styling.md#size) — so an editor fits the row it opens in.
+   */
+  size: MantineSize;
 }
 
 export interface DataTableInstantEditContext<TData extends RowData, TValue> {
@@ -198,6 +203,10 @@ export interface DataTableInstantEditContext<TData extends RowData, TValue> {
    * Localized accessible name for the control (`labels.editColumn` over the column title).
    */
   label: string;
+  /**
+   * The Mantine size the cell's controls are drawn at (docs/styling.md#size).
+   */
+  size: MantineSize;
 }
 
 export interface DataTableEditCommit<TData extends RowData> {

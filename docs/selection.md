@@ -28,7 +28,7 @@ enableRowSelection={row => row.original.status !== "archived"}
 
 ## Overriding the injected column
 
-The selection column is an ordinary `ColumnDef`, so `selectionColumn` merges over it — a wider column, a custom cell (a tooltip explaining why a row is disabled, say), a different header. The injected def fixes `size` / `minSize` / `maxSize` at 40, so a `size` override alone is clamped straight back to 40 — raise `maxSize` alongside it to widen. Only `id` is reserved: it is how ledger recognizes its own column and keeps the centered layout, the stop-propagation covenant, and the exclusions from CSV export and the columns panel.
+The selection column is an ordinary `ColumnDef`, so `selectionColumn` merges over it — a wider column, a custom cell (a tooltip explaining why a row is disabled, say), a different header. The injected column is fixed at the width the table's `size` gives it (40px at `sm`, [styling.md](styling.md#size)), and every bound an override leaves unsaid stays there — so a `size` override alone is clamped straight back; raise `maxSize` alongside it to widen. Only `id` is reserved: it is how ledger recognizes its own column and keeps the centered layout, the stop-propagation covenant, and the exclusions from CSV export and the columns panel.
 
 ```tsx
 <DataTable

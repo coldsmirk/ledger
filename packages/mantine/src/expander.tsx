@@ -9,12 +9,14 @@ import type { Row, TableInstance } from "./types";
 import { ActionIcon } from "@mantine/core";
 
 import { useDataTableContext } from "./context";
+import { SIZES } from "./size";
 
 export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
   const {
     labels,
     icons,
-    expansion
+    expansion,
+    size
   } = useDataTableContext();
 
   // Expand-all only makes sense over a tree; a master–detail table opens panels one at a time.
@@ -29,14 +31,14 @@ export function ExpanderHeaderCell<TData extends RowData>({ table }: { table: Ta
     <ActionIcon
       aria-label={allExpanded ? labels.collapseAll : labels.expandAll}
       data-expanded={allExpanded || undefined}
-      size="sm"
+      size={SIZES[size].control}
       variant="subtle"
       onClick={event => {
         event.stopPropagation();
         expansion?.toggleAll(!allExpanded, canSomeExpand);
       }}
     >
-      <icons.expandRow />
+      <icons.expandRow size={SIZES[size].glyph} />
     </ActionIcon>
   );
 }
@@ -45,7 +47,8 @@ export function ExpanderCell<TData extends RowData>({ row }: { row: Row<TData> }
   const {
     labels,
     icons,
-    expansion
+    expansion,
+    size
   } = useDataTableContext();
   const canExpand = row.getCanExpand();
 
@@ -60,14 +63,14 @@ export function ExpanderCell<TData extends RowData>({ row }: { row: Row<TData> }
       aria-expanded={expanded}
       aria-label={expanded ? labels.collapseRow : labels.expandRow}
       data-expanded={expanded || undefined}
-      size="sm"
+      size={SIZES[size].control}
       variant="subtle"
       onClick={event => {
         event.stopPropagation();
         expansion?.toggle(row.id, expanded, canExpand);
       }}
     >
-      <icons.expandRow />
+      <icons.expandRow size={SIZES[size].glyph} />
     </ActionIcon>
   );
 }

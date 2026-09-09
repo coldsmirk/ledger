@@ -103,11 +103,10 @@ export function buildColumns<TData extends RowData>({
   const result: Array<ColumnDef<TData, any>> = [];
 
   if (withRowDrag) {
+    // The injected columns declare no sizing: the width engine sizes them by the table's
+    // `size` (docs/sizing.md), and an override's own bounds win bound by bound.
     result.push(injectedColumn<TData>({
       id: ROW_DRAG_COLUMN_ID,
-      size: 36,
-      minSize: 36,
-      maxSize: 36,
       enableSorting: false,
       enableHiding: false,
       enableResizing: false,
@@ -124,9 +123,6 @@ export function buildColumns<TData extends RowData>({
   if (withSelection) {
     result.push(injectedColumn<TData>({
       id: SELECTION_COLUMN_ID,
-      size: 40,
-      minSize: 40,
-      maxSize: 40,
       enableSorting: false,
       enableHiding: false,
       enableResizing: false,
@@ -143,9 +139,6 @@ export function buildColumns<TData extends RowData>({
   if (withExpander) {
     result.push(injectedColumn<TData>({
       id: EXPANDER_COLUMN_ID,
-      size: 36,
-      minSize: 36,
-      maxSize: 36,
       enableSorting: false,
       enableHiding: false,
       enableResizing: false,

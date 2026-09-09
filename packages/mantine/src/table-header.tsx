@@ -23,6 +23,7 @@ import { mergeElementProps, resolveElementProps } from "./element-props";
 import { FilterPopover } from "./filter-popover";
 import { ledgerCommands } from "./ledger-commands";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
+import { SIZES } from "./size";
 import { syncTruncationTitle } from "./truncate";
 import { useColumnReorder } from "./use-column-reorder";
 import { useColumnResize } from "./use-column-resize";
@@ -122,9 +123,11 @@ function HeaderCell<TData extends RowData>({
   const {
     getStyles,
     labels,
-    icons
+    icons,
+    size
   } = useDataTableContext();
   const { column } = header;
+  const { glyph } = SIZES[size];
   const { meta } = column.columnDef;
   const internal = isInternalColumn(column.id);
 
@@ -233,9 +236,9 @@ function HeaderCell<TData extends RowData>({
                         <span data-truncate onPointerEnter={syncTruncationTitle}>{label}</span>
 
                         <span {...getStyles("sortIndicator")} data-sorted={sorted || undefined}>
-                          {sorted === "asc" && <icons.sortAsc size={14} />}
-                          {sorted === "desc" && <icons.sortDesc size={14} />}
-                          {sorted === false && <icons.sortable size={14} />}
+                          {sorted === "asc" && <icons.sortAsc size={glyph} />}
+                          {sorted === "desc" && <icons.sortDesc size={glyph} />}
+                          {sorted === false && <icons.sortable size={glyph} />}
                           {sorted !== false && sortCount > 1 && sortIndex >= 0 && <sup>{sortIndex + 1}</sup>}
                         </span>
                       </button>

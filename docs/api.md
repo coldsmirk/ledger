@@ -137,11 +137,12 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `withBottomBorder` | `boolean` | `false` | The closing line under the last row (and a footer) for a table without a frame ([styling.md](styling.md#borders)) |
 | `borderColor` | `MantineColor` | theme default border | |
 | `radius` | `MantineRadius` | — | Rounds the table box (root and the header + body + footer frame) and clips to it; the `withTableBorder` frame follows ([styling.md](styling.md#forwarded-mantine-props)) |
-| `verticalSpacing` | `MantineSpacing` | `"xs"` | |
-| `horizontalSpacing` | `MantineSpacing` | `"xs"` | |
+| `size` | `MantineSize` | `"sm"` | The type, the cell padding, a row's height and every control's size as one word ([styling.md](styling.md#size)) |
+| `verticalSpacing` | `MantineSpacing` | the size's | Overrides the size's block padding |
+| `horizontalSpacing` | `MantineSpacing` | the size's | Overrides the size's inline padding |
 | `tabularNums` | `boolean` | `false` | |
 | `tableMinWidth` | `number \| string` | — | Content-width floor ([sizing.md](sizing.md)) |
-| `virtualizedRows` | `boolean \| { estimateHeight?: number; overscan?: number }` | `false` | Object defaults: 44 / 8 ([virtualization.md](virtualization.md)) |
+| `virtualizedRows` | `boolean \| { estimateHeight?: number; overscan?: number }` | `false` | Object defaults: the size's row height / 8 ([virtualization.md](virtualization.md)) |
 | `virtualizedColumns` | `boolean \| { overscan?: number }` | `false` | Center-zone column window; overscan default 4, nothing to estimate ([virtualization.md](virtualization.md#column-virtualization)) |
 | `onEndReached` | `() => void` | — | Deduped per `data` identity — a new array re-arms it ([virtualization.md](virtualization.md)) |
 | `endReachedOffset` | `number` | `240` | px before the bottom |
@@ -163,7 +164,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `icons` | `Partial<DataTableIcons>` | `defaultIcons` | Per-slot glyph replacement ([Icons](#icons)) |
 | `aria-label` / `aria-labelledby` / `aria-describedby` | `string` | — | Routed to the ARIA table (`.ledger-main`), not the root wrapper |
 
-Styles API selector names (`DataTableStylesNames`) and the `vars` surface (`DataTableCssVariables`: root `--ledger-striped-color` / `--ledger-hover-color` / `--ledger-border-color` / `--ledger-radius`) are catalogued in [styling.md](styling.md).
+Styles API selector names (`DataTableStylesNames`) and the `vars` surface (`DataTableCssVariables`: root `--ledger-striped-color` / `--ledger-hover-color` / `--ledger-border-color` / `--ledger-radius` / `--ledger-font-size`) are catalogued in [styling.md](styling.md).
 
 ## Column `meta`
 
@@ -215,6 +216,7 @@ interface DataTableEditContext<TData, TValue> {
   mode: DataTableEditMode;                   // which session hosts the editor — a renderer may adapt
   autoFocus: boolean;                        // take focus on mount: always in cell mode, entry column in row mode
   label: string;                             // localized accessible name (labels.editColumn over the column title)
+  size: MantineSize;                         // the cell's control size — the table's size a step down (styling.md#size)
 }
 
 interface DataTableInstantEditContext<TData, TValue> {
@@ -225,6 +227,7 @@ interface DataTableInstantEditContext<TData, TValue> {
   pending: boolean;
   error: string | null;
   label: string;
+  size: MantineSize;                         // the cell's control size (styling.md#size)
 }
 
 interface DataTableRowEditCommit<TData> {
@@ -314,7 +317,7 @@ All take the `table` instance, compose anywhere, and are individually themeable 
 | --- | --- | --- |
 | `DataTable.Search` | `{ table, debounce?: number /* 200 */, labels?, icons? }` + every `TextInputProps` except the value trio | Global filter input; clear/external reset cancels pending input ([filtering.md](filtering.md#global-filter)) |
 | `DataTable.ColumnsPanel` | `{ table, children?, popoverProps?, labels?, icons?, className?, style? }` | Order / visibility / pinning / width / grouping. `children` is the trigger and the panel opens from it in a Popover; without one it renders bare ([columns.md](columns.md#the-columns-panel)) |
-| `DataTable.Pagination` | `{ table, pageSizeOptions?, labels?, className?, style? }` | Standalone bar ([pagination.md](pagination.md)) |
+| `DataTable.Pagination` | `{ table, pageSizeOptions?, labels?, size?, className?, style? }` | Standalone bar ([pagination.md](pagination.md)); `size` the table's, `sm` unless said |
 | `DataTable.SelectionBar` | `{ table, labels?, icons?, children?, className?, style? }` | Renders only while rows are selected; `children` = bulk actions ([selection.md](selection.md)) |
 
 Each is also exported standalone (`DataTableSearch`, …) for tree-shaken imports.

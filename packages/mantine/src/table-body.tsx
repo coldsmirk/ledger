@@ -25,13 +25,14 @@ import { cellValue, normalizeEdit } from "./edit-meta";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
+import { SIZES } from "./size";
 import { syncTruncationTitle } from "./truncate";
 import { renderedColCount, windowRowCells } from "./use-column-window";
 import { usePinnedRowOffsets } from "./use-pinned-row-offsets";
 import { useEventCallback } from "./utils";
 
 const TREE_INDENT_PX = 20;
-const DEFAULT_ESTIMATED_ROW_HEIGHT = 44;
+const DEFAULT_ESTIMATED_ROW_HEIGHT = SIZES.sm.rowHeight;
 const DEFAULT_OVERSCAN = 8;
 
 export interface VirtualizationConfig {
@@ -121,7 +122,8 @@ function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
   const {
     labels,
     icons,
-    expansion
+    expansion,
+    size
   } = useDataTableContext();
   const { row } = cell;
   const expandedGroup = row.getIsExpanded();
@@ -133,14 +135,14 @@ function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
         aria-expanded={expandedGroup}
         aria-label={expandedGroup ? labels.collapseRow : labels.expandRow}
         data-expanded={expandedGroup || undefined}
-        size="xs"
+        size={SIZES[size].control}
         variant="subtle"
         onClick={event => {
           event.stopPropagation();
           expansion?.toggle(row.id, expandedGroup, canExpandGroup);
         }}
       >
-        <icons.expandRow size={12} />
+        <icons.expandRow size={SIZES[size].glyph} />
       </ActionIcon>
 
       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -164,7 +166,11 @@ function GroupCell({ cell }: { cell: Cell<any, unknown> }) {
  * `onRowClick` out.
  */
 function InstantCell({ cell, render }: { cell: Cell<any, unknown>; render: DataTableInstantEditRenderer<any, unknown> }) {
-  const { labels, getStyles } = useDataTableContext();
+  const {
+    labels,
+    getStyles,
+    size
+  } = useDataTableContext();
   const { table } = cell.getContext();
   const instant = table.options.meta?.ledger?.editing.instant;
   const rowId = cell.row.id;
@@ -204,7 +210,8 @@ function InstantCell({ cell, render }: { cell: Cell<any, unknown>; render: DataT
         commit: next => instant.commit(rowId, columnId, next),
         pending,
         error,
-        label: labels.editColumn(columnHeaderText(cell.column))
+        label: labels.editColumn(columnHeaderText(cell.column)),
+        size: SIZES[size].control
       })}
 
       {/* Out of flow (`instantSpinner`): the control must not move while its write is out. */}

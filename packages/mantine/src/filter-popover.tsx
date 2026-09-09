@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import { columnHeaderText } from "./build-columns";
 import { useDataTableContext } from "./context";
 import { warnOnce } from "./env";
+import { SIZES } from "./size";
 
 const FACETED_OPTIONS_CAP = 100;
 
@@ -36,7 +37,8 @@ export function FilterPopover<TData extends RowData>({ column }: FilterPopoverPr
     labels,
     icons,
     getStyles,
-    filterMode
+    filterMode,
+    size
   } = useDataTableContext();
   const filter = column.columnDef.meta?.filter;
 
@@ -54,7 +56,7 @@ export function FilterPopover<TData extends RowData>({ column }: FilterPopoverPr
         <ActionIcon
           aria-label={name}
           data-active={active || undefined}
-          size="sm"
+          size={SIZES[size].control}
           variant={active ? "light" : "subtle"}
           onClick={event => event.stopPropagation()}
         >

@@ -195,7 +195,7 @@ describe("useColumnWidths", () => {
           ...table.getEndVisibleLeafColumns()
         ];
 
-        return useColumnWidths(table, displayColumns, null, undefined);
+        return useColumnWidths(table, displayColumns, null, undefined, 40);
       },
       { initialProps: { columns: firstColumns } }
     );
@@ -205,5 +205,51 @@ describe("useColumnWidths", () => {
     rerender({ columns: secondColumns });
 
     expect(result.current.byId).toEqual({ "a:20,b": 20, c: 30 });
+  });
+
+  it("sizes the injected columns by the width the table's size gives, an override's own bounds winning", () => {
+    interface Sized {
+      value: number;
+    }
+
+    interface Props {
+      injectedWidth: number;
+      selectionColumn?: Partial<ColumnDef<Sized>>;
+    }
+
+    const sizedColumns: Array<ColumnDef<Sized>> = [
+      {
+        id: "a",
+        accessorKey: "value",
+        size: 100
+      }
+    ];
+    const initial: Props = { injectedWidth: 40 };
+    const { result, rerender } = renderHook(
+      ({ injectedWidth, selectionColumn }: Props) => {
+        const table = useDataTable({
+          columns: sizedColumns,
+          data: [],
+          enableRowSelection: true,
+          selectionColumn
+        });
+        const displayColumns = [
+          ...table.getStartVisibleLeafColumns(),
+          ...table.getCenterVisibleLeafColumns(),
+          ...table.getEndVisibleLeafColumns()
+        ];
+
+        return useColumnWidths(table, displayColumns, null, undefined, injectedWidth);
+      },
+      { initialProps: initial }
+    );
+
+    expect(result.current.byId["ledger:select"]).toBe(40);
+
+    rerender({ injectedWidth: 48 });
+    expect(result.current.byId["ledger:select"]).toBe(48);
+
+    rerender({ injectedWidth: 48, selectionColumn: { size: 56, maxSize: 56 } });
+    expect(result.current.byId["ledger:select"]).toBe(56);
   });
 });

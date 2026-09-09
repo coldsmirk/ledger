@@ -1,3 +1,5 @@
+import type { MantineSize } from "@mantine/core";
+
 import type { Product } from "../data";
 
 import { createColumnHelper, DataTable } from "@coldsmirk/ledger-mantine";
@@ -25,7 +27,7 @@ const copy = {
     closingLine: "Closing line",
     striped: "Stripes",
     hover: "Hover",
-    roomy: "Roomy rows",
+    size: "Size",
     loading: "Loading",
     empty: "No data",
     tintedHeader: "Tinted header",
@@ -48,7 +50,7 @@ const copy = {
     closingLine: "收口线",
     striped: "斑马纹",
     hover: "悬停高亮",
-    roomy: "宽松行距",
+    size: "尺寸",
     loading: "加载中",
     empty: "空数据",
     tintedHeader: "表头底色",
@@ -57,6 +59,9 @@ const copy = {
 };
 
 const helper = createColumnHelper<Product>();
+
+/* The five sizes, as the segmented control offers them. */
+const SIZES: MantineSize[] = ["xs", "sm", "md", "lg", "xl"];
 
 export function AppearanceDemo() {
   const t = useCopy(copy);
@@ -67,7 +72,7 @@ export function AppearanceDemo() {
   const [closingLine, setClosingLine] = useState(false);
   const [striped, setStriped] = useState(false);
   const [hover, setHover] = useState(true);
-  const [roomy, setRoomy] = useState(false);
+  const [size, setSize] = useState<MantineSize>("sm");
   const [loading, setLoading] = useState(false);
   const [empty, setEmpty] = useState(false);
   const [tintedHeader, setTintedHeader] = useState(false);
@@ -147,11 +152,13 @@ export function AppearanceDemo() {
           onChange={event => setHover(event.currentTarget.checked)}
         />
 
-        <Switch
-          checked={roomy}
-          label={t.roomy}
+        <SegmentedControl
+          aria-label={t.size}
+          data={SIZES}
+          role="radiogroup"
           size="xs"
-          onChange={event => setRoomy(event.currentTarget.checked)}
+          value={size}
+          onChange={value => setSize(value as MantineSize)}
         />
 
         <Switch
@@ -197,8 +204,8 @@ export function AppearanceDemo() {
         loading={loading}
         mih={0}
         radius={rounded ? "md" : undefined}
+        size={size}
         striped={striped}
-        verticalSpacing={roomy ? "md" : "xs"}
         withBottomBorder={closingLine}
         withColumnBorders={borders === "grid"}
         withColumnHeaders={showHeader}

@@ -15,6 +15,7 @@ import type { Row, TableInstance } from "./types";
 import { Checkbox, Radio } from "@mantine/core";
 
 import { useDataTableContext } from "./context";
+import { SIZES } from "./size";
 
 function noop() {
   // Selection is applied in onClick (where shiftKey exists); the controlled checkbox still
@@ -22,7 +23,11 @@ function noop() {
 }
 
 export function SelectionHeaderCell<TData extends RowData>({ table }: { table: TableInstance<TData> }) {
-  const { labels, selection } = useDataTableContext();
+  const {
+    labels,
+    selection,
+    size
+  } = useDataTableContext();
 
   if (table.options.enableMultiRowSelection === false) {
     return null;
@@ -39,7 +44,7 @@ export function SelectionHeaderCell<TData extends RowData>({ table }: { table: T
       aria-label={labels.selectAllRows}
       checked={allSelected}
       indeterminate={!allSelected && someSelected}
-      size="xs"
+      size={SIZES[size].control}
       onChange={noop}
       onClick={(event: MouseEvent<HTMLInputElement>) => {
         event.stopPropagation();
@@ -55,7 +60,8 @@ export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> 
   const {
     labels,
     instanceId,
-    selection
+    selection,
+    size
   } = useDataTableContext();
   const selected = row.getIsSelected();
 
@@ -78,7 +84,7 @@ export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> 
         checked={selected}
         disabled={!row.getCanSelect()}
         name={`${instanceId}-selection`}
-        size="xs"
+        size={SIZES[size].control}
         onChange={noop}
         onClick={select}
       />
@@ -93,7 +99,7 @@ export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> 
       // Sub-row selection (escape hatch `enableSubRowSelection`): a parent with a partly
       // selected subtree reads as indeterminate.
       indeterminate={!selected && row.getIsSomeSelected()}
-      size="xs"
+      size={SIZES[size].control}
       onChange={noop}
       onClick={select}
     />
