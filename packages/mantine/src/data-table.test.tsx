@@ -254,6 +254,29 @@ describe("DataTable", () => {
     expect((onRowActivate.mock.calls[0]?.[1] as { type: string }).type).toBe("keydown");
   });
 
+  it("makes the viewport a focus stop while its content scrolls, so the keyboard can scroll it", () => {
+    const { container, unmount } = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+    const viewport = () => container.querySelector(":scope .ledger-scroller [role=\"rowgroup\"]") as HTMLElement;
+
+    // Content that fits: no stop, so Tab is never spent on a region with nothing to scroll.
+    expect(viewport().hasAttribute("tabindex")).toBe(false);
+    unmount();
+
+    // jsdom lays nothing out, so the overflow is stated: the content is taller than the viewport.
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(600);
+    const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
+
+    try {
+      const overflowing = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+      const stop = overflowing.container.querySelector(":scope .ledger-scroller [role=\"rowgroup\"]") as HTMLElement;
+
+      expect(stop.getAttribute("tabindex")).toBe("0");
+    } finally {
+      scrollHeight.mockRestore();
+      clientHeight.mockRestore();
+    }
+  });
+
   it("describes the row-navigation focus stop and speaks each move of the current row", () => {
     const { container } = render(
       <DataTable enableActiveRow columns={columns} data={people} getRowId={getRowId} />,

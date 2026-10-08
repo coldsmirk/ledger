@@ -76,6 +76,7 @@ import { useColumnWidths } from "./use-column-widths";
 import { DEFAULT_COLUMN_OVERSCAN, useColumnWindow } from "./use-column-window";
 import { useDataTable } from "./use-data-table";
 import { useStylesRevision } from "./use-styles-revision";
+import { useViewportOverflow } from "./use-viewport-overflow";
 import { columnAfterVar, columnStartVar, columnWidthVar, toPx, useEventCallback } from "./utils";
 
 // ------------------------------------------------------------------------------------------------
@@ -701,6 +702,7 @@ function DataTableCore<TData extends RowData>({
     viewportRef.current = element;
     setViewport(element);
   }, []);
+  const viewportOverflows = useViewportOverflow(viewport);
 
   // ---- the width engine (docs/sizing.md) ----
   // Display order is pinned-aware (start + center + end) — header groups and row cells
@@ -1617,13 +1619,14 @@ function DataTableCore<TData extends RowData>({
                 style: { overscrollBehavior: "none" as const },
                 // The body viewport is the body's row group. A `table` owns only rows and row
                 // groups, and a roleless div stops being transparent the moment it carries an
-                // ARIA attribute or a tab stop, as this one does: with the active row on, it is
-                // the keyboard focus stop, and it carries the description of the keyboard model
-                // (`rowNavigationHintId`, composed after any the consumer passed). It stays the
-                // focus stop so the browser's own scrolling keys keep reaching the scroller.
+                // ARIA attribute or a tab stop, as this one does: it is a keyboard focus stop
+                // whenever its content scrolls, so the browser's own scrolling keys can reach it,
+                // and always with the active row on, when it also carries the description of the
+                // keyboard model (`rowNavigationHintId`, composed after any the consumer passed).
                 role: "rowgroup",
                 "aria-describedby": viewportDescribedBy,
-                ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
+                tabIndex: activeRowEnabled || viewportOverflows ? 0 : undefined,
+                ...activeRowEnabled && { onKeyDown: handleActiveRowKeyDown }
               })}
               onScrollPositionChange={handleScrollPositionChange}
             >

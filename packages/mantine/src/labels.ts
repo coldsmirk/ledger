@@ -28,7 +28,7 @@ export interface DataTableLabels {
   /**
    * Describes the body viewport — the keyboard focus stop — while `enableActiveRow` is on. It
    * is the only place the arrow-key row model is announced, so say what the keys do. A
-   * description, never a name: that div is roleless, and `generic` prohibits a name.
+   * description, not a name: it says how to work the rows, not what they are.
    */
   rowNavigation: string;
   /**
