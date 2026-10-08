@@ -114,6 +114,37 @@ const builtInFilterFns = {
   weakEquals: filterFn_weakEquals
 };
 
+/**
+ * Typed through the exported definitions on purpose: since 9.2 several of their value types
+ * name an alias TanStack does not export, and an inferred registry would carry that alias into
+ * ledger's declaration files, where no consumer can resolve it.
+ */
+const builtInAggregationFns: {
+  count: typeof aggregationFn_count;
+  extent: typeof aggregationFn_extent;
+  first: typeof aggregationFn_first;
+  last: typeof aggregationFn_last;
+  max: typeof aggregationFn_max;
+  mean: typeof aggregationFn_mean;
+  median: typeof aggregationFn_median;
+  min: typeof aggregationFn_min;
+  sum: typeof aggregationFn_sum;
+  unique: typeof aggregationFn_unique;
+  uniqueCount: typeof aggregationFn_uniqueCount;
+} = {
+  count: aggregationFn_count,
+  extent: aggregationFn_extent,
+  first: aggregationFn_first,
+  last: aggregationFn_last,
+  max: aggregationFn_max,
+  mean: aggregationFn_mean,
+  median: aggregationFn_median,
+  min: aggregationFn_min,
+  sum: aggregationFn_sum,
+  unique: aggregationFn_unique,
+  uniqueCount: aggregationFn_uniqueCount
+};
+
 export const ledgerFeatures = tableFeatures({
   cellSpanningFeature,
   columnFacetingFeature,
@@ -138,19 +169,7 @@ export const ledgerFeatures = tableFeatures({
   groupedRowModel: createGroupedRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
   sortedRowModel: createSortedRowModel(),
-  aggregationFns: {
-    count: aggregationFn_count,
-    extent: aggregationFn_extent,
-    first: aggregationFn_first,
-    last: aggregationFn_last,
-    max: aggregationFn_max,
-    mean: aggregationFn_mean,
-    median: aggregationFn_median,
-    min: aggregationFn_min,
-    sum: aggregationFn_sum,
-    unique: aggregationFn_unique,
-    uniqueCount: aggregationFn_uniqueCount
-  },
+  aggregationFns: builtInAggregationFns,
   filterFns: { ...builtInFilterFns, ...ledgerFilterFns },
   sortFns: {
     alphanumeric: sortFn_alphanumeric,
