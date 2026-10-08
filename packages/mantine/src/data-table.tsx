@@ -172,7 +172,7 @@ const NO_ARIA_ROWS: never[] = [];
 // Mantine styles the EmptyState title as a headline (bright, 600) for full-page empties with
 // description and actions; a bare table caption reads better dimmed.
 const EMPTY_STATE_STYLES = {
-  title: { color: "var(--mantine-color-dimmed)", fontWeight: 500 }
+  title: { color: "var(--ledger-color-dimmed)", fontWeight: 500 }
 } as const;
 
 // ------------------------------------------------------------------------------------------------

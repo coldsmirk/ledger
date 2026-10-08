@@ -142,6 +142,7 @@ Style states by attribute selector (the Mantine convention). The inventory:
 | `--ledger-border-color` | `borderColor` prop (or your `vars`) | Every ledger-painted line: the `withTableBorder` frame, row/column borders, and the seam overlays; defaults to `--mantine-color-default-border` |
 | `--ledger-radius` | `radius` prop (or your `vars`) | The table box's corner radius, on the root and on the `main` frame (which clips to it); defaults to `0` |
 | `--ledger-font-size` | `size` prop (or your `vars`) | The table's type, set on the root so every table under it inherits it ([Size](#size)) |
+| `--ledger-color-dimmed` | the root, the pagination bar, and the columns panel (override it there) | Secondary text: the state panels' titles, the pagination words, group counts, the loading-more row, the columns panel's captions. Mantine's `--mantine-color-dimmed` pulled halfway toward `--mantine-color-text`, because `dimmed` alone is below WCAG AA's 4.5:1 for text (3.3:1 on a light body, 4.0:1 on a dark one); the half mix clears it in both schemes on the body, on stripes, and on selected rows, and follows a theme that retunes either color |
 | `--ledger-col-width-<id>`, `--ledger-col-start-<id>`, `--ledger-col-after-<id>` | column geometry | Width and pinned offsets per column; disjoint prefixes prevent one family from shadowing another, and resizing never re-renders rows |
 
 The column-variable `<id>` suffix is a collision-free CSS-safe encoding, not necessarily the raw

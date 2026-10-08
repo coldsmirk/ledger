@@ -64,7 +64,7 @@ function PaginationBarCore<TData extends RowData>({
 
   return (
     <Group className={className} gap="md" justify="space-between" style={style} wrap="wrap">
-      <Text c="dimmed" size={size}>
+      <Text c="var(--ledger-color-dimmed)" size={size}>
         {labels.paginationSummary(from, to, total)}
       </Text>
 
@@ -72,7 +72,7 @@ function PaginationBarCore<TData extends RowData>({
         <Group gap="xs" wrap="nowrap">
           {/* The visible text IS the label — pointing at it beats duplicating it into an
               aria-label, which would let the two drift apart (WCAG 2.5.3, label in name). */}
-          <Text key="label" c="dimmed" id={pageSizeLabelId} size={size}>
+          <Text key="label" c="var(--ledger-color-dimmed)" id={pageSizeLabelId} size={size}>
             {labels.rowsPerPage}
           </Text>
 

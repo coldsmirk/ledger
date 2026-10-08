@@ -38,6 +38,18 @@
     border-radius: var(--ledger-radius, 0);
   }
 
+  /* Secondary text (captions, counts, the state panels' titles, the pagination words): Mantine's
+     `dimmed` pulled halfway toward the text color. `dimmed` alone is below the 4.5:1 WCAG AA asks
+     of text (3.3:1 on a light body, 4.0:1 on a dark one); the half mix clears it in both schemes
+     on the body, on stripes and on selected rows, which a smaller share does not on dark stripes,
+     and still follows a theme that retunes either color. Overridable on these elements
+     (docs/styling.md#css-custom-properties). */
+  .ledger-root,
+  .ledger-pagination-bar,
+  .ledger-columns-panel {
+    --ledger-color-dimmed: color-mix(in srgb, var(--mantine-color-dimmed), var(--mantine-color-text) 50%);
+  }
+
   /* The frame around header + body — the elastic middle; carries the outer table border
      (painted in the Borders section: four real sides). It clips its
      own content so a `radius` rounds the header tint, the rows, and the frame together — every
@@ -458,7 +470,7 @@
 
   [data-group-count] {
     font-size: var(--mantine-font-size-xs);
-    color: var(--mantine-color-dimmed);
+    color: var(--ledger-color-dimmed);
   }
 
   .ledger-cell[data-editing] {
@@ -584,7 +596,7 @@
 
   .ledger-loader-row td {
     padding-block: var(--mantine-spacing-sm);
-    color: var(--mantine-color-dimmed);
+    color: var(--ledger-color-dimmed);
     border-bottom: 0;
   }
 
@@ -697,7 +709,7 @@
     font-size: var(--mantine-font-size-xs);
     font-weight: 500;
     line-height: 1;
-    color: var(--mantine-color-dimmed);
+    color: var(--ledger-color-dimmed);
   }
 
   /* Radii across the panel — the tinted shelves, this hover pill, and the toolbar backdrop —
@@ -758,7 +770,7 @@
      a stylesheet the host may load unlayered, where it would beat anything the ledger layer
      says — but inheritance it can only obey. */
   .ledger-columns-panel-item[data-hidden] .ledger-columns-panel-label {
-    color: var(--mantine-color-dimmed);
+    color: var(--ledger-color-dimmed);
   }
 
   .ledger-columns-panel-indicators {
@@ -767,7 +779,7 @@
     gap: 6px;
     align-items: center;
     font-variant-numeric: tabular-nums;
-    color: var(--mantine-color-dimmed);
+    color: var(--ledger-color-dimmed);
     white-space: nowrap;
   }
 
