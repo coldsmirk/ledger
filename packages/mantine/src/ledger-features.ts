@@ -121,7 +121,7 @@ const builtInFilterFns = {
  * private `RangeValue` alias behind the min/max/extent value types becomes nameable only by a
  * deep path the package's `exports` map hides, and an inferred registry fails declaration emit
  * (TS2883). Naming each definition by its public export emits the type the upstream fix will
- * emit anyway. Upstream: sxzz/rolldown-plugin-dts#312 (fix: #310), rolldown/tsdown#1087.
+ * emit anyway. Upstream: TanStack/table#6619, sxzz/rolldown-plugin-dts#312 (fix: #310).
  */
 const builtInAggregationFns: {
   count: typeof aggregationFn_count;
