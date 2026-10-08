@@ -4,7 +4,7 @@ Single canonical source of agent guidance for this repository. `CLAUDE.md` impor
 
 ## Project Overview
 
-ledger is a Mantine-native `<DataTable>` built on TanStack Table v9 (headless table logic) and TanStack Virtual v3 (row virtualization). It is a pnpm-workspace monorepo (Node >= 24, `pnpm@11.6.0`) on TypeScript; the root is `private`, and one package publishes to npm:
+ledger is a Mantine-native `<DataTable>` built on TanStack Table v9 (headless table logic) and TanStack Virtual v3 (row virtualization). It is a pnpm-workspace monorepo (Node >= 24, `pnpm@12.10.1`) on TypeScript; the root is `private`, and one package publishes to npm:
 
 - `@coldsmirk/ledger-mantine` (`packages/mantine`) — the `<DataTable>` component, the `useDataTable` hook, compound components (`DataTable.Search` / `.ColumnsPanel` / `.Pagination` / `.SelectionBar`), curated TanStack re-exports, the `zhCN` locale (`./locales`), the `toCsv` utility, and the layered `styles.css`.
 - `ledger-playground` (`packages/playground`, private) — a Vite demo app with one page per feature area, resolving the library straight from TypeScript source (no build step in the loop). `pnpm --filter ledger-playground dev`. Every page is bilingual (English default, `zhCN` one click away — see `src/i18n.tsx`) and carries a **View source** drawer, so a demo file is read as much as it is run: keep each one self-contained and idiomatic, with its two-language copy block at the top.
