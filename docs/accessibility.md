@@ -41,6 +41,7 @@ Every control ledger renders carries an accessible name from [`labels`](i18n.md)
 | Expander | `expandRow` / `collapseRow`, `expandAll` / `collapseAll` |
 | Global search | its placeholder, so the visible text and the name agree |
 | Rows-per-page select | `aria-labelledby` the visible "Rows per page" text |
+| Page arrows | `firstPage` / `previousPage` / `nextPage` / `lastPage` (the first and last only where a theme turns on `withEdges`) |
 
 Column titles come from `meta.label`, then the def's `header` when it is a string; a JSX header with no `meta.label` falls back to the column id, so give such columns a `meta.label`.
 

@@ -7,6 +7,10 @@ export interface DataTableLabels {
   /* Pagination */
   paginationSummary: (from: number, to: number, total: number) => string;
   rowsPerPage: string;
+  firstPage: string;
+  previousPage: string;
+  nextPage: string;
+  lastPage: string;
 
   /* Selection */
   selectAllRows: string;
@@ -124,6 +128,10 @@ export interface DataTableLabels {
 export const defaultLabels: DataTableLabels = {
   paginationSummary: (from, to, total) => `${from}–${to} of ${total}`,
   rowsPerPage: "Rows per page",
+  firstPage: "First page",
+  previousPage: "Previous page",
+  nextPage: "Next page",
+  lastPage: "Last page",
 
   selectAllRows: "Select all rows",
   selectRow: "Select row",

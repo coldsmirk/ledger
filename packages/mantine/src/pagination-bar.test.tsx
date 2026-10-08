@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 
 import type { ColumnDef } from "./types";
 
-import { MantineProvider } from "@mantine/core";
+import { createTheme, MantineProvider, Pagination } from "@mantine/core";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { DataTable } from "./data-table";
+import { zhCN } from "./locales";
 
 interface Person {
   id: string;
@@ -35,6 +36,20 @@ function wrapper({ children }: { children: ReactNode }) {
 const pageSizeSelect = () => screen.getByLabelText("Rows per page") as HTMLInputElement;
 
 describe("pagination bar", () => {
+  it("names the page arrows, the edge arrows too when a theme turns them on", () => {
+    const theme = createTheme({ components: { Pagination: Pagination.extend({ defaultProps: { withEdges: true } }) } });
+
+    render(
+      <MantineProvider theme={theme}>
+        <DataTable enablePagination columns={columns} data={people} getRowId={getRowId} labels={zhCN} />
+      </MantineProvider>
+    );
+
+    for (const name of ["第一页", "上一页", "下一页", "最后一页"]) {
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    }
+  });
+
   it("offers the page size on screen even when it is not one of the options", () => {
     render(
       <DataTable

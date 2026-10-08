@@ -12,6 +12,10 @@ import type { DataTableLabels } from "./labels";
 export const zhCN: DataTableLabels = {
   paginationSummary: (from, to, total) => `第 ${from}–${to} 条，共 ${total} 条`,
   rowsPerPage: "每页行数",
+  firstPage: "第一页",
+  previousPage: "上一页",
+  nextPage: "下一页",
+  lastPage: "最后一页",
 
   selectAllRows: "全选",
   selectRow: "选择行",

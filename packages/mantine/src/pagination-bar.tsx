@@ -22,6 +22,13 @@ import { SIZES } from "./size";
 
 export const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
+const CONTROL_LABELS = {
+  first: "firstPage",
+  previous: "previousPage",
+  next: "nextPage",
+  last: "lastPage"
+} as const satisfies Record<string, keyof DataTableLabels>;
+
 interface PaginationBarCoreProps<TData extends RowData> {
   table: TableInstance<TData>;
   labels: DataTableLabels;
@@ -81,6 +88,10 @@ function PaginationBarCore<TData extends RowData>({
         </Group>
 
         <Pagination
+          // The arrows are glyphs only, so each is named; the page buttons are named by their
+          // numbers. All four, since a theme may turn the edge arrows on (`withEdges`), and this
+          // prop replaces any `getControlProps` the theme gives Pagination.
+          getControlProps={control => { return { "aria-label": labels[CONTROL_LABELS[control]] }; }}
           size={SIZES[size].control}
           total={pageCount}
           value={pageIndex + 1}
