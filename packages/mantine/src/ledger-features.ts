@@ -115,9 +115,13 @@ const builtInFilterFns = {
 };
 
 /**
- * Typed through the exported definitions on purpose: since 9.2 several of their value types
- * name an alias TanStack does not export, and an inferred registry would carry that alias into
- * ledger's declaration files, where no consumer can resolve it.
+ * Typed through the exported definitions on purpose. Since 9.2.5 TanStack's published `.d.ts`
+ * files no longer end in an `export { … }` list (rolldown-plugin-dts 0.28 inlines the exports and
+ * drops the marker), so TypeScript treats every top-level declaration in them as exported: the
+ * private `RangeValue` alias behind the min/max/extent value types becomes nameable only by a
+ * deep path the package's `exports` map hides, and an inferred registry fails declaration emit
+ * (TS2883). Naming each definition by its public export emits the type the upstream fix will
+ * emit anyway. Upstream: sxzz/rolldown-plugin-dts#312 (fix: #310), rolldown/tsdown#1087.
  */
 const builtInAggregationFns: {
   count: typeof aggregationFn_count;
