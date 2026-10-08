@@ -176,14 +176,19 @@ export function OrdersDemo() {
         width={180}
         onClose={() => setContextMenu(null)}
       >
+        {/* A zero-size anchor that only places the dropdown at the pointer: not a control (the row
+            is what was clicked), so it is hidden from assistive technology along with the trigger
+            attributes Menu.Target gives it. */}
         <Menu.Target>
-          <div style={{
-            position: "fixed",
-            left: contextMenu?.x ?? 0,
-            top: contextMenu?.y ?? 0,
-            width: 1,
-            height: 1
-          }}
+          <div
+            aria-hidden
+            style={{
+              position: "fixed",
+              left: contextMenu?.x ?? 0,
+              top: contextMenu?.y ?? 0,
+              width: 1,
+              height: 1
+            }}
           />
         </Menu.Target>
 
@@ -220,7 +225,9 @@ export function OrdersDemo() {
         rowProps={row => row.original.status === "cancelled"
           ? {
               "data-cancelled": true,
-              style: { opacity: 0.55 },
+              // Still data, so still readable: 0.8 keeps the faded text above 4.5:1 in both schemes,
+              // dark stripes included.
+              style: { opacity: 0.8 },
               title: t.cancelledTitle
             }
           : undefined}

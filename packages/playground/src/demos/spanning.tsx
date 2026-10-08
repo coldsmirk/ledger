@@ -239,7 +239,8 @@ export function SpanningDemo() {
         const value = context.getValue();
 
         return (
-          <Text span c={value >= 0 ? "teal.7" : "red.7"} fw={context.row.original.total ? 700 : undefined} size="sm">
+          // The light-variant text colors: a deep shade in light, a pale one in dark, readable on either body.
+          <Text span c={value >= 0 ? "var(--mantine-color-teal-light-color)" : "var(--mantine-color-red-light-color)"} fw={context.row.original.total ? 700 : undefined} size="sm">
             {value >= 0 ? "+" : ""}
             {value.toFixed(1)}
             %

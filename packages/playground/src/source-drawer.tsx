@@ -65,6 +65,17 @@ export function SourceDrawer({
         copiedLabel={t.copied}
         copyLabel={t.copy}
         radius="sm"
+        // Long lines scroll inside the code block, which holds nothing focusable: its viewport takes
+        // a tab stop of its own (and a name) so the keyboard can scroll it too.
+        attributes={{
+          scrollarea: {
+            viewportProps: {
+              tabIndex: 0,
+              role: "region",
+              "aria-label": t.title
+            }
+          }
+        }}
         // Landing mid-file after a switch is disorienting — every file starts from its top.
         onTabChange={() => {
           document

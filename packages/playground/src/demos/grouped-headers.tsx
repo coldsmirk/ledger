@@ -207,7 +207,9 @@ function marginColumn(id: string, revenue: Metric, cost: Metric, header: string,
       const rate = (row[revenue] - row[cost]) / row[revenue];
 
       return (
-        <Text c={rate >= 0.32 ? "teal.7" : "orange.7"} fw={500} size="sm">
+        // The light-variant text colors (a deep shade in light, a pale one in dark), pulled toward the
+        // text color: orange's deep shade alone is 4.3:1 on white, under AA's 4.5:1.
+        <Text c={`color-mix(in srgb, var(--mantine-color-${rate >= 0.32 ? "teal" : "orange"}-light-color), var(--mantine-color-text) 30%)`} fw={500} size="sm">
           {(rate * 100).toFixed(1)}
           %
         </Text>
