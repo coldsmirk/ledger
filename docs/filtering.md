@@ -24,7 +24,7 @@ The funnel trigger renders subtle while inactive and filled (`data-active`) whil
 | `select` | clearable, searchable `Select` | `equalsString` | `string` |
 | `multi-select` | clearable, searchable `MultiSelect` | `ledger-one-of` — **strict set membership** | `string[]` |
 | `range` | two `NumberInput` bounds; faceted min/max as placeholders | `inNumberRange` | `[min?, max?]` |
-| `date-range` | an inline `@mantine/dates` range calendar (`DatePicker type="range"`; month names and first weekday follow the host's `DatesProvider` locale) | `ledger-date-range` | `[fromISO \| null, toISO \| null]` |
+| `date-range` | an inline `@mantine/dates` range calendar (`DatePicker type="range"`; month names and first weekday follow the host's `DatesProvider` locale; it shows its own month's days only, and its weekends in a red that keeps AA contrast) | `ledger-date-range` | `[fromISO \| null, toISO \| null]` |
 
 Two functions are ledger-registered because TanStack's built-ins have the wrong semantics:
 

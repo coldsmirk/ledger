@@ -36,6 +36,8 @@ Every control ledger renders carries an accessible name from [`labels`](i18n.md)
 | --- | --- |
 | Header filter trigger and the control inside it | `filterColumn(columnTitle)` — "Filter Amount" |
 | Range filter | The group is named; each input keeps `filterRangeMin` / `filterRangeMax` |
+| Date-range calendar arrows | `previousMonth` / `nextMonth`, `previousYear` / `nextYear`, `previousDecade` / `nextDecade` |
+| Filter trigger | At least 24 × 24 px at every table size (WCAG 2.2's minimum target): it sits against the sort label, so spacing alone cannot excuse a smaller one |
 | Inline editors (`ctx.label`, applied by the shipped editors) | `editColumn(columnTitle)` — "Edit Name" |
 | Selection checkbox / radio | `selectRow`, `selectAllRows` |
 | Expander | `expandRow` / `collapseRow`, `expandAll` / `collapseAll` |

@@ -8,6 +8,7 @@ import { createRef, StrictMode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { DataTable } from "./data-table";
+import { zhCN } from "./locales";
 
 interface Person {
   id: string;
@@ -125,6 +126,39 @@ describe("filter popover", () => {
 
     await waitFor(() => expect(document.querySelectorAll(".ledger-tbody .ledger-row")).toHaveLength(3));
     expect(clearCaption()).toBeUndefined();
+  });
+
+  it("names the range calendar's arrows and shows only its own month's days", async () => {
+    interface Entry {
+      id: string;
+      day: string;
+    }
+
+    const dateColumns: Array<ColumnDef<Entry, any>> = [
+      {
+        accessorKey: "day",
+        header: "Day",
+        meta: { filter: "date-range" }
+      }
+    ];
+
+    render(<DataTable columns={dateColumns} data={[{ id: "1", day: "2026-10-05" }]} getRowId={entry => entry.id} labels={zhCN} />, {
+      wrapper
+    });
+
+    fireEvent.click(screen.getByLabelText("筛选Day"));
+    await waitFor(() => expect(document.querySelector(".ledger-filter-popover")).toBeTruthy());
+
+    // The arrows are glyphs only, so their names come from the labels.
+    const arrow = (direction: string) => document.querySelector(`.ledger-filter-popover button[data-direction="${CSS.escape(direction)}"]`);
+
+    expect(arrow("previous")?.getAttribute("aria-label")).toBe("上个月");
+    expect(arrow("next")?.getAttribute("aria-label")).toBe("下个月");
+
+    // The neighboring months' days would be drawn at half opacity, under any contrast AA accepts.
+    const outside = [...document.querySelectorAll<HTMLButtonElement>(".ledger-filter-popover button[data-outside]")];
+
+    expect(outside.every(button => Object.hasOwn(button.dataset, "hidden"))).toBe(true);
   });
 
   it("applies pending text when the popover closes", async () => {

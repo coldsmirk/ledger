@@ -50,6 +50,12 @@ export const zhCN: DataTableLabels = {
   filterPlaceholder: "筛选…",
   filterRangeMin: "最小值",
   filterRangeMax: "最大值",
+  previousMonth: "上个月",
+  nextMonth: "下个月",
+  previousYear: "上一年",
+  nextYear: "下一年",
+  previousDecade: "上一个十年",
+  nextDecade: "下一个十年",
 
   searchPlaceholder: "搜索…",
 

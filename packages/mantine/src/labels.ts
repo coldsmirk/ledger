@@ -76,6 +76,16 @@ export interface DataTableLabels {
   filterPlaceholder: string;
   filterRangeMin: string;
   filterRangeMax: string;
+  /**
+   * The date-range calendar's arrows, one pair per calendar level (Mantine's `ariaLabels`):
+   * glyph-only buttons, so each needs a name.
+   */
+  previousMonth: string;
+  nextMonth: string;
+  previousYear: string;
+  nextYear: string;
+  previousDecade: string;
+  nextDecade: string;
 
   /* Global search */
   searchPlaceholder: string;
@@ -166,6 +176,12 @@ export const defaultLabels: DataTableLabels = {
   filterPlaceholder: "Filter…",
   filterRangeMin: "Min",
   filterRangeMax: "Max",
+  previousMonth: "Previous month",
+  nextMonth: "Next month",
+  previousYear: "Previous year",
+  nextYear: "Next year",
+  previousDecade: "Previous decade",
+  nextDecade: "Next decade",
 
   searchPlaceholder: "Search…",
 

@@ -1,4 +1,5 @@
 import type { RowData } from "@tanstack/react-table";
+import type { CSSProperties } from "react";
 
 import type { DateRangeFilterValue } from "./filter-fns";
 import type { Column, DataTableFilterConfig } from "./types";
@@ -32,6 +33,16 @@ export interface FilterPopoverProps<TData extends RowData> {
   column: Column<TData, unknown>;
 }
 
+/**
+ * The smallest pointer target WCAG 2.2 AA accepts without spacing around it, in px.
+ */
+const MIN_TARGET_SIZE = 24;
+
+/**
+ * The calendar's weekend color, as the variable Mantine's day rule reads (see DateRangeFilter).
+ */
+const WEEKEND_COLOR = { "--mantine-color-red-6": "color-mix(in srgb, var(--mantine-color-red-text), var(--mantine-color-text) 30%)" } as CSSProperties;
+
 export function FilterPopover<TData extends RowData>({ column }: FilterPopoverProps<TData>) {
   const {
     labels,
@@ -56,6 +67,10 @@ export function FilterPopover<TData extends RowData>({ column }: FilterPopoverPr
         <ActionIcon
           aria-label={name}
           data-active={active || undefined}
+          // WCAG 2.2's 24px minimum target (2.5.8): the trigger sits against the sort label, so
+          // the spacing exception cannot carry the smaller sizes; the box grows, the glyph does not.
+          mih={MIN_TARGET_SIZE}
+          miw={MIN_TARGET_SIZE}
           size={SIZES[size].control}
           variant={active ? "light" : "subtle"}
           onClick={event => event.stopPropagation()}
@@ -313,11 +328,26 @@ function DateRangeFilter<TData extends RowData>({ column, name }: { column: Colu
     <>
       <DatePicker
         allowSingleDateInRange
+        // Mantine draws the neighboring months' days at half opacity, under any contrast AA
+        // accepts for text; the calendar shows its own month only.
+        hideOutsideDates
         highlightToday
         aria-label={name}
         size="xs"
+        // Weekends stay red, pulled toward the text color to clear AA (red-6 is 3.3:1 on a light
+        // body). Set as the variable Mantine's day rule reads: that rule may be unlayered, and
+        // would beat a ledger-layer color.
+        style={WEEKEND_COLOR}
         type="range"
         value={value}
+        ariaLabels={{
+          previousMonth: labels.previousMonth,
+          nextMonth: labels.nextMonth,
+          previousYear: labels.previousYear,
+          nextYear: labels.nextYear,
+          previousDecade: labels.previousDecade,
+          nextDecade: labels.nextDecade
+        }}
         onChange={next => column.setFilterValue(!next[0] && !next[1] ? undefined : next)}
       />
 
