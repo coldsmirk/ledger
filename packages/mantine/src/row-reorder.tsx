@@ -50,8 +50,8 @@ const activationConstraints: PointerSensorOptions["activationConstraints"] = eve
   ? [new PointerActivationConstraints.Delay({ value: 250, tolerance: 5 })]
   : [new PointerActivationConstraints.Distance({ value: 5 })];
 
-export const ROW_REORDER_SENSORS = [PointerSensor.configure({ activationConstraints })];
-export const ROW_REORDER_PLUGINS = [AutoScroller, Cursor, PreventSelection];
+const ROW_REORDER_SENSORS = [PointerSensor.configure({ activationConstraints })];
+const ROW_REORDER_PLUGINS = [AutoScroller, Cursor, PreventSelection];
 
 export interface RowReorderTarget {
   rowId: string;
