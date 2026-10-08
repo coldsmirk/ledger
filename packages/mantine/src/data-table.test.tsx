@@ -98,6 +98,13 @@ describe("DataTable", () => {
     expect(container.querySelector<HTMLElement>(".ledger-root")?.dataset.empty).toBe("true");
     expect(container.querySelector(":scope .ledger-empty .mantine-EmptyState-root")).toBeTruthy();
     expect(screen.getByText("No data")).toBeTruthy();
+    // A table owns only rows: the panel is the one cell of a row spanning every column, its
+    // live region inside the cell.
+    const status = screen.getByRole("status");
+    const cell = status.closest(".ledger-empty") as HTMLElement;
+    expect(cell.getAttribute("role")).toBe("cell");
+    expect(cell.getAttribute("aria-colspan")).toBe("2");
+    expect(cell.parentElement?.getAttribute("role")).toBe("row");
 
     rerender(<DataTable columns={columns} data={[]} emptyState="nothing here" getRowId={getRowId} />);
 
@@ -151,9 +158,21 @@ describe("DataTable", () => {
     // Stale rows stay mounted beneath the scrim.
     expect(container.querySelectorAll(":scope .ledger-tbody .ledger-row")).toHaveLength(3);
     expect(container.querySelector(":scope .ledger-empty[data-variant=\"error\"][data-over-rows]")).toBeTruthy();
+    expect(screen.getByRole("alert").closest(".ledger-empty")?.getAttribute("role")).toBe("cell");
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("numbers the error panel's row after the body's last under virtualized rows", () => {
+    const { container } = render(
+      <DataTable error virtualizedRows columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    // One header row, three body rows, then the panel's row: the count matches the DOM.
+    expect(screen.getByRole("table").getAttribute("aria-rowcount")).toBe("5");
+    expect(container.querySelector(":scope .ledger-empty")?.parentElement?.getAttribute("aria-rowindex")).toBe("5");
   });
 
   it("replaces the trailing loader with the load-more error row and retries onEndReached", () => {
@@ -241,9 +260,10 @@ describe("DataTable", () => {
       { wrapper }
     );
 
-    // The focus stop is a roleless div: `generic` prohibits an accessible name but not a
-    // description, and the description has to be on the focused element to ever be read.
+    // The focus stop is the body's row group, the one role a table lets it take; the description
+    // has to be on the focused element to ever be read.
     const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
+    expect(viewport.getAttribute("role")).toBe("rowgroup");
     expect(viewport.hasAttribute("aria-label")).toBe(false);
 
     const hintId = viewport.getAttribute("aria-describedby") as string;

@@ -9,10 +9,14 @@ Header, body, and footer render as three synced native `<table>`s so the browser
 | Element | Role |
 | --- | --- |
 | `.ledger-main` | `table` |
+| the body's scroll viewport | `rowgroup` |
 | header, body, and footer rows | `row` |
 | header cells | `columnheader` (with `aria-sort` while sortable) |
 | body cells | `cell` |
 | footer cells | `cell` — totals are data, not headers |
+| the empty and error panels (`.ledger-empty`) | `cell` spanning every column (`aria-colspan`), alone in a `row` of its own |
+
+A table owns rows and row groups and nothing else, so anything ledger puts inside it that is neither (a live region, a button) sits inside a cell.
 
 Under `virtualizedRows`, rows carry `aria-rowindex` and the table carries `aria-rowcount`, so assistive technology reads "row 4,120 of 50,000" rather than counting the mounted window. Under `virtualizedColumns`, the table carries `aria-colcount` and every rendered header and data cell carries `aria-colindex`, so a windowed-out column still has an addressable position. Unvirtualized tables mount everything and need none of these.
 
@@ -43,7 +47,7 @@ Column titles come from `meta.label`, then the def's `header` when it is a strin
 ## Keyboard
 
 - **Sorting, filtering, the columns panel, pagination, and the selection controls** are ordinary focusable controls in DOM order.
-- **`enableActiveRow`** makes the body viewport a focus stop with a visible ring: `↑` / `↓` move the current row, `Home` / `End` jump to the edges, `Enter` fires `onRowActivate`, and `F2` starts editing ([rows.md](rows.md#active-row)). That keyboard model is carried by `labels.rowNavigation`, hung on the viewport itself through `aria-describedby` (composed after any `aria-describedby` you passed in `viewportProps`) — a description is read out for the element that has focus, and the ARIA table never does. It is a *description*, not a name: the viewport is a roleless `<div>`, and ARIA's `generic` role prohibits an accessible name but not a description. Focus stays on the viewport as the current row moves, so the move is also spoken through a polite live region (`labels.currentRow`, carrying the leading visible cell's text and the row's position — hiding or reordering columns re-speaks it). Deliberately *not* `aria-activedescendant`: that attribute is defined for composite widgets, and this is a `table` (see Boundaries).
+- **`enableActiveRow`** makes the body viewport a focus stop with a visible ring: `↑` / `↓` move the current row, `Home` / `End` jump to the edges, `Enter` fires `onRowActivate`, and `F2` starts editing ([rows.md](rows.md#active-row)). That keyboard model is carried by `labels.rowNavigation`, hung on the viewport itself (the body's `rowgroup`) through `aria-describedby` (composed after any `aria-describedby` you passed in `viewportProps`) — a description is read out for the element that has focus, and the ARIA table never does. It is a *description*, not a name: it says how to work the rows, not what they are. Focus stays on the viewport as the current row moves, so the move is also spoken through a polite live region (`labels.currentRow`, carrying the leading visible cell's text and the row's position — hiding or reordering columns re-speaks it). Deliberately *not* `aria-activedescendant`: that attribute is defined for composite widgets, and this is a `table` (see Boundaries).
 - **Inline editing** runs its own map — `Enter` / `Escape` / `Tab` commit, cancel, and move ([editing.md](editing.md#keyboard-and-lifecycle)).
 - **Row ordering** is fully keyboard-driven from the handle button ([rows.md](rows.md#row-ordering)): `Space` lifts (`aria-pressed`), `↑` / `↓` step the insertion point, `Home` / `End` jump, `Space` drops, `Escape` cancels, and losing focus abandons the lift. Lift, target, drop, and cancel are each spoken through a polite live region (`labels.rowReorder*`), naming rows by the leading data column exactly as `labels.currentRow` does.
 - **Wire navigation to `onRowActivate`, never `onRowClick`.** The latter is a pointer event by definition; a row whose only affordance is `onRowClick` cannot be reached by keyboard at all.
@@ -53,6 +57,7 @@ Column titles come from `meta.label`, then the def's `header` when it is a strin
 - `loading` sets `aria-busy` on the ARIA table (`.ledger-main`); with rows present it also dims them behind an overlay. The root keeps `data-loading` for styling.
 - The **error** panel is a `role="alert"` — it interrupts, because a failed load invalidates what is on screen.
 - The **empty / no-results** panel is a `role="status"` — polite, so filtering a table to nothing announces itself without interrupting the typing that caused it.
+- Both panels overlay the body, but in the accessibility tree each is the one cell of a full-width row after the body's last, its live region inside the cell; under `virtualizedRows` that row counts in `aria-rowcount` and carries its `aria-rowindex`.
 - The **load-more error** row puts its `role="alert"` on the message inside the cell, never on the cell: `role="alert"` would displace `role="cell"` and leave the row with no cell at all.
 - Async edits set `aria-busy` on the editor and expose validation through `aria-invalid` + `aria-describedby`.
 

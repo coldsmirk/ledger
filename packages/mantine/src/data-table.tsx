@@ -1015,10 +1015,11 @@ function DataTableCore<TData extends RowData>({
     },
     [topRows, centerRows, bottomRows, pageRows, leadingColumn, rowPinningActive, withDetailPanels]
   );
+  // The empty and error panels are a row of their own, after the body's last.
   const bodyAriaRowCount
     = loading && logicalDisplayRowCount === 0
       ? skeletonRowCount
-      : logicalDisplayRowCount + (loadMoreError || loadingMore ? 1 : 0);
+      : logicalDisplayRowCount + (loadMoreError || loadingMore ? 1 : 0) + (isEmpty || errorActive ? 1 : 0);
   // The rendered rows, not every mirrored header level — `aria-rowcount` must match the DOM.
   const footerRowCount = visibleFooterGroups(table).length;
   const ariaRowCount = headerRowCount + bodyAriaRowCount + footerRowCount;
@@ -1614,12 +1615,13 @@ function DataTableCore<TData extends RowData>({
               }}
               viewportProps={mergeElementProps(viewportProps, {
                 style: { overscrollBehavior: "none" as const },
-                // With the active row on, the body viewport is the keyboard focus stop, and it
-                // carries the description of the keyboard model (`rowNavigationHintId`, composed
-                // after any the consumer passed). Deliberately unnamed: this div is `generic`, a
-                // role that prohibits an accessible name, and it cannot take a role either —
-                // that would break `table`'s owned rows. It stays the focus stop so the browser's
-                // own scrolling keys keep reaching the scroller.
+                // The body viewport is the body's row group. A `table` owns only rows and row
+                // groups, and a roleless div stops being transparent the moment it carries an
+                // ARIA attribute or a tab stop, as this one does: with the active row on, it is
+                // the keyboard focus stop, and it carries the description of the keyboard model
+                // (`rowNavigationHintId`, composed after any the consumer passed). It stays the
+                // focus stop so the browser's own scrolling keys keep reaching the scroller.
+                role: "rowgroup",
                 "aria-describedby": viewportDescribedBy,
                 ...activeRowEnabled && { tabIndex: 0, onKeyDown: handleActiveRowKeyDown }
               })}
@@ -1644,55 +1646,70 @@ function DataTableCore<TData extends RowData>({
                 />
               </MantineTable>
 
+              {/* The empty and error panels overlay the body, yet sit inside the ARIA table,
+                which owns only rows: each panel is the one cell of a row spanning every
+                column, the load-more error row's shape, with its live region inside the cell
+                (a live role on the cell would displace `cell`). The row takes no box, since its
+                only child is positioned, so the panel still overlays the scroller. */}
               {isEmpty && (
-              // Polite, not assertive: filtering a table down to nothing is worth announcing,
-              // but it must not interrupt the typing that caused it.
-                <div
-                  {...getStyles("empty")}
-                  data-variant={filtersActive ? "no-results" : "no-data"}
-                  role="status"
-                >
-                  {emptyState ?? (
-                    <EmptyState
-                      withIndicatorBackground
-                      size="sm"
-                      styles={EMPTY_STATE_STYLES}
-                      title={filtersActive ? labels.noResults : labels.empty}
-                      // The indicator forces the svg to 1em (40px at `sm`), so the stroke is set for
-                      // that scale — the default (2, drawn for Lucide's 24px grid) turns chunky here.
-                      icon={filtersActive
-                        ? <icons.noResults size={40} strokeWidth={1.5} />
-                        : <icons.empty size={40} strokeWidth={1.5} />}
-                    />
-                  )}
+                <div aria-rowindex={virtualEnabled ? headerRowCount + bodyAriaRowCount : undefined} role="row">
+                  <div
+                    {...getStyles("empty")}
+                    aria-colspan={visibleLeafColumns.length}
+                    data-variant={filtersActive ? "no-results" : "no-data"}
+                    role="cell"
+                  >
+                    {/* Polite, not assertive: filtering a table down to nothing is worth
+                      announcing, but it must not interrupt the typing that caused it. */}
+                    <div role="status">
+                      {emptyState ?? (
+                        <EmptyState
+                          withIndicatorBackground
+                          size="sm"
+                          styles={EMPTY_STATE_STYLES}
+                          title={filtersActive ? labels.noResults : labels.empty}
+                          // The indicator forces the svg to 1em (40px at `sm`), so the stroke is set for
+                          // that scale — the default (2, drawn for Lucide's 24px grid) turns chunky here.
+                          icon={filtersActive
+                            ? <icons.noResults size={40} strokeWidth={1.5} />
+                            : <icons.empty size={40} strokeWidth={1.5} />}
+                        />
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {errorActive && (
-                <div
-                  {...getStyles("empty")}
-                  data-over-rows={rowsLength > 0 || undefined}
-                  data-variant="error"
-                  role="alert"
-                >
-                  <EmptyState
-                    withIndicatorBackground
-                    icon={<icons.error size={40} strokeWidth={1.5} />}
-                    size="sm"
-                    styles={EMPTY_STATE_STYLES}
-                    title={error === true ? labels.error : error}
+                <div aria-rowindex={virtualEnabled ? headerRowCount + bodyAriaRowCount : undefined} role="row">
+                  <div
+                    {...getStyles("empty")}
+                    aria-colspan={visibleLeafColumns.length}
+                    data-over-rows={rowsLength > 0 || undefined}
+                    data-variant="error"
+                    role="cell"
                   >
-                    {onRetry && (
-                      <Button
-                        leftSection={<icons.retry size={14} />}
-                        size="xs"
-                        variant="light"
-                        onClick={onRetry}
+                    <div role="alert">
+                      <EmptyState
+                        withIndicatorBackground
+                        icon={<icons.error size={40} strokeWidth={1.5} />}
+                        size="sm"
+                        styles={EMPTY_STATE_STYLES}
+                        title={error === true ? labels.error : error}
                       >
-                        {labels.retry}
-                      </Button>
-                    )}
-                  </EmptyState>
+                        {onRetry && (
+                          <Button
+                            leftSection={<icons.retry size={14} />}
+                            size="xs"
+                            variant="light"
+                            onClick={onRetry}
+                          >
+                            {labels.retry}
+                          </Button>
+                        )}
+                      </EmptyState>
+                    </div>
+                  </div>
                 </div>
               )}
             </ScrollArea>
