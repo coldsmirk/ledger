@@ -38,16 +38,17 @@
     border-radius: var(--ledger-radius, 0);
   }
 
-  /* Secondary text (captions, counts, the state panels' titles, the pagination words): Mantine's
-     `dimmed` pulled halfway toward the text color. `dimmed` alone is below the 4.5:1 WCAG AA asks
-     of text (3.3:1 on a light body, 4.0:1 on a dark one); the half mix clears it in both schemes
-     on the body, on stripes and on selected rows, which a smaller share does not on dark stripes,
-     and still follows a theme that retunes either color. Overridable on these elements
+  /* Secondary text (captions, counts, the state panels' titles, the pagination words): the text
+     color at 78% opacity, so it is defined against whatever it sits on rather than as one fixed
+     gray. A fixed tone cannot hold 4.5:1 (WCAG AA) on every background a row takes; text that
+     blends with its background keeps a share of the text color's own contrast on each of them —
+     at 78%, 4.8:1 on the dark scheme's stripes and hover, its lowest neutral background (Mantine's
+     own `dimmed` is 3.3:1 on a light body). Overridable on these elements
      (docs/styling.md#css-custom-properties). */
   .ledger-root,
   .ledger-pagination-bar,
   .ledger-columns-panel {
-    --ledger-color-dimmed: color-mix(in srgb, var(--mantine-color-dimmed), var(--mantine-color-text) 50%);
+    --ledger-color-dimmed: color-mix(in srgb, var(--mantine-color-text) 78%, transparent);
   }
 
   /* The frame around header + body — the elastic middle; carries the outer table border
@@ -342,6 +343,14 @@
      and it has to stay findable there without an accent bar. */
   .ledger-row[data-active]:where([data-selected]) {
     --ledger-row-bg: var(--mantine-primary-color-light-hover);
+  }
+
+  /* A primary tint leaves no room for a second tier of text: on its deepest step in the dark
+     scheme even the text color reaches only 5.8:1, so any lighter tone falls under AA. On a
+     selected or active row, secondary text takes the text color itself. */
+  .ledger-row[data-selected],
+  .ledger-row[data-active] {
+    --ledger-color-dimmed: var(--mantine-color-text);
   }
 
   .ledger-row[data-clickable] {
