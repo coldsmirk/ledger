@@ -62,6 +62,7 @@ import { DataTableProvider } from "./context";
 import { mergeElementProps } from "./element-props";
 import { warnOnce } from "./env";
 import { resolveIcons } from "./icons";
+import { isOwnEvent } from "./interactive";
 import { resolveLabels } from "./labels";
 import { ledgerCommands } from "./ledger-commands";
 import { DataTablePagination, DEFAULT_PAGE_SIZE_OPTIONS, PaginationBar } from "./pagination-bar";
@@ -1302,8 +1303,9 @@ function DataTableCore<TData extends RowData>({
       return;
     }
 
-    // Keys inside an interactive child (an editor, a checkbox, the retry button) belong to it.
-    if ((event.target as HTMLElement).closest("input, button, select, textarea, a, [contenteditable]")) {
+    // Keys inside an interactive child (an editor, a checkbox, the retry button) belong to it, and
+    // so do a portal's, which React bubbles through the cell that opened it (a menu's arrows).
+    if (!isOwnEvent(event, event.currentTarget)) {
       return;
     }
 

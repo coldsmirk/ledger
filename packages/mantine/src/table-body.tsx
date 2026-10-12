@@ -24,6 +24,7 @@ import { useDataTableContext } from "./context";
 import { cellValue, normalizeEdit } from "./edit-meta";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { warnOnce } from "./env";
+import { endsTextSelection, isOwnEvent } from "./interactive";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { SIZES } from "./size";
 import { syncTruncationTitle } from "./truncate";
@@ -487,20 +488,32 @@ function DataRowImpl({
         ? { bottom: `${pinnedOffset ?? 0}px` }
         : undefined;
 
-  const handler = (callback?: (row: Row<any>, event: MouseEvent) => void) => callback ? (event: MouseEvent) => callback(row, event) : undefined;
+  // The row's pointer handlers answer the row itself (docs/rows.md#row-interaction): never a link,
+  // button or other control inside it, which owns its click, nor a portal's event bubbling through
+  // React; and a click or a context menu never at the end of a text selection made in the row.
+  const handler = (callback: ((row: Row<any>, event: MouseEvent) => void) | undefined, selecting: boolean) => callback
+    ? (event: MouseEvent) => {
+        if (isOwnEvent(event, event.currentTarget) && !(selecting && endsTextSelection(event.currentTarget))) {
+          callback(row, event);
+        }
+      }
+    : undefined;
 
   // A click makes the row current before the consumer's own handlers see it. A click is also an
   // activation, so both fire here — `onRowClick` first, as the more specific of the two.
-  const handleClick = onRowClick || onRowActivate || activeRowEnabled
-    ? (event: MouseEvent) => {
-        if (activeRowEnabled) {
-          setActiveRow?.(row.id);
-        }
+  const handleClick = handler(
+    onRowClick || onRowActivate || activeRowEnabled
+      ? (_, event) => {
+          if (activeRowEnabled) {
+            setActiveRow?.(row.id);
+          }
 
-        onRowClick?.(row, event);
-        onRowActivate?.(row, event);
-      }
-    : undefined;
+          onRowClick?.(row, event);
+          onRowActivate?.(row, event);
+        }
+      : undefined,
+    true
+  );
 
   return (
     <MantineTable.Tr
@@ -523,8 +536,8 @@ function DataRowImpl({
         "data-selected": selected || undefined,
         role: "row",
         onClick: handleClick,
-        onContextMenu: handler(onRowContextMenu),
-        onDoubleClick: handler(onRowDoubleClick),
+        onContextMenu: handler(onRowContextMenu, true),
+        onDoubleClick: handler(onRowDoubleClick, false),
         ...getStyles("row", { style: pinnedStyle })
       })}
     >

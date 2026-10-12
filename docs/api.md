@@ -156,7 +156,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `withPaginationBar` | `boolean` | `true` | Renders only while pagination is enabled |
 | `pageSizeOptions` | `number[]` | `[10, 20, 50, 100]` | |
 | `onRowActivate` | `(row: Row<TData>, event: MouseEvent \| KeyboardEvent) => void` | — | Input-agnostic: click or `Enter` on the current row ([rows.md](rows.md)) |
-| `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | Literal pointer events ([rows.md](rows.md)) |
+| `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | Literal pointer events on the row itself — not on an interactive element inside it, not from a portal opened in it, and (except the double-click) not ending a text selection made in it ([rows.md](rows.md#row-interaction)) |
 | `rowProps` | `TableTrProps \| (row) => TableTrProps \| undefined` | — | DOM props per data row ([styling.md](styling.md#dom-props)) |
 | `headerRowProps` / `footerRowProps` | `TableTrProps \| (headerGroup) => TableTrProps \| undefined` | — | DOM props per header / footer row |
 | `viewportProps` | `ComponentProps<"div">` | — | DOM props for the scroll viewport (`onScroll`, …) |

@@ -5,6 +5,7 @@ import type { ColumnDef, DataTableHandle } from "./types";
 import { MantineProvider } from "@mantine/core";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createRef, StrictMode } from "react";
+import { createPortal } from "react-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable, resolveVirtualDisplayIndex } from "./data-table";
@@ -252,6 +253,121 @@ describe("DataTable", () => {
     // Enter is not a click: the pointer-only handler must never see a synthesized MouseEvent.
     expect(onRowClick).not.toHaveBeenCalled();
     expect((onRowActivate.mock.calls[0]?.[1] as { type: string }).type).toBe("keydown");
+  });
+
+  it("leaves a click on a control inside a row, or in a portal opened from one, to that control", () => {
+    const onActiveRowIdChange = vi.fn();
+    const onRowActivate = vi.fn();
+    const onRowClick = vi.fn();
+    const onRowContextMenu = vi.fn();
+    const onRowDoubleClick = vi.fn();
+    const withControls: Array<ColumnDef<Person, any>> = [
+      ...columns,
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <span>
+            <a href={`#person-${row.id}`}>Open</a>
+            <button type="button">Edit</button>
+            <span role="menuitem" tabIndex={-1}>Archive</span>
+            {createPortal(<button type="button">{`Menu item ${row.id}`}</button>, document.body)}
+          </span>
+        )
+      }
+    ];
+    const { container } = render(
+      <DataTable
+        enableActiveRow
+        columns={withControls}
+        data={people}
+        getRowId={getRowId}
+        onActiveRowIdChange={onActiveRowIdChange}
+        onRowActivate={onRowActivate}
+        onRowClick={onRowClick}
+        onRowContextMenu={onRowContextMenu}
+        onRowDoubleClick={onRowDoubleClick}
+      />,
+      { wrapper }
+    );
+
+    const controls = [
+      screen.getAllByRole("link", { name: "Open" })[0],
+      screen.getAllByRole("button", { name: "Edit" })[0],
+      screen.getAllByRole("menuitem", { name: "Archive" })[0],
+      // Outside the row's DOM, yet React bubbles its click through the cell that rendered it.
+      screen.getByRole("button", { name: "Menu item 1" })
+    ] as HTMLElement[];
+
+    for (const control of controls) {
+      fireEvent.click(control);
+      fireEvent.contextMenu(control);
+      fireEvent.doubleClick(control);
+    }
+
+    expect(onRowClick).not.toHaveBeenCalled();
+    expect(onRowActivate).not.toHaveBeenCalled();
+    expect(onRowContextMenu).not.toHaveBeenCalled();
+    expect(onRowDoubleClick).not.toHaveBeenCalled();
+    expect(onActiveRowIdChange).not.toHaveBeenCalled();
+
+    // The rest of the row is still the row's.
+    fireEvent.click(screen.getByText("Carol"));
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(onRowActivate).toHaveBeenCalledTimes(1);
+    expect(onActiveRowIdChange).toHaveBeenLastCalledWith("1");
+
+    // A key pressed in a portal opened from a cell is the portal's: the cursor stays put.
+    const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
+    expect(viewport).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Menu item 1" }), { key: "ArrowDown" });
+    expect(onActiveRowIdChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not take the click that ends a text selection in a row for a click on the row", () => {
+    const onRowActivate = vi.fn();
+    const onRowClick = vi.fn();
+    const onRowContextMenu = vi.fn();
+    const onRowDoubleClick = vi.fn();
+
+    render(
+      <DataTable
+        columns={columns}
+        data={people}
+        getRowId={getRowId}
+        onRowActivate={onRowActivate}
+        onRowClick={onRowClick}
+        onRowContextMenu={onRowContextMenu}
+        onRowDoubleClick={onRowDoubleClick}
+      />,
+      { wrapper }
+    );
+
+    const name = screen.getByText("Carol");
+    const selection = document.getSelection() as Selection;
+
+    // Dragged across "Carol": the release selected text, it chose no row — nor does the menu
+    // opened over the selection, which is for copying it.
+    selection.selectAllChildren(name);
+    fireEvent.click(name);
+    fireEvent.contextMenu(name);
+    expect(onRowClick).not.toHaveBeenCalled();
+    expect(onRowActivate).not.toHaveBeenCalled();
+    expect(onRowContextMenu).not.toHaveBeenCalled();
+
+    // A double-click selects the word it lands on as its own effect; it is still the row's.
+    fireEvent.doubleClick(name);
+    expect(onRowDoubleClick).toHaveBeenCalledTimes(1);
+
+    // A selection elsewhere on the page is not this row's.
+    selection.selectAllChildren(screen.getByText("Alice"));
+    fireEvent.click(name);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+
+    selection.removeAllRanges();
+    fireEvent.click(name);
+    expect(onRowClick).toHaveBeenCalledTimes(2);
+    expect(onRowActivate).toHaveBeenCalledTimes(2);
   });
 
   it("makes the viewport a focus stop while its content scrolls, so the keyboard can scroll it", () => {

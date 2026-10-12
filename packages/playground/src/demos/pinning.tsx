@@ -16,6 +16,7 @@ const copy = {
     statusCopy: "Status (copy)",
     actions: "Actions",
     columns: "Columns",
+    more: "More actions",
     barePanel: "The bare panel in a drawer",
     hint: "The ⚙ in the last header opens the columns panel: drag to reorder, tick to show or hide, pin to either side, type a width (clear it to go back to auto), reset. Header cells themselves also drag to reorder and resize from their right edge (double-click to fit). The layout is written to localStorage and survives a reload."
   },
@@ -23,6 +24,7 @@ const copy = {
     statusCopy: "状态（副本列）",
     actions: "操作",
     columns: "列设置",
+    more: "更多操作",
     barePanel: "抽屉里的裸面板",
     hint: "表头右上角 ⚙ 打开列设置：拖拽改序、勾选显隐、三态钉列、填宽度（清空即回自适应）、重置。列头本身也能拖着重排、拖右缘改宽（双击复位）。布局写入 localStorage，刷新后保留。"
   }
@@ -89,7 +91,7 @@ export function PinningDemo() {
         </Group>
       ),
       cell: () => (
-        <ActionIcon size="sm" variant="subtle" onClick={event => event.stopPropagation()}>
+        <ActionIcon aria-label={t.more} size="sm" variant="subtle">
           …
         </ActionIcon>
       )

@@ -132,7 +132,7 @@ import { rankItem } from "@tanstack/match-sorter-utils";   // app-side dependenc
 
 ## A row-actions column
 
-A `display` column, propagation-stopped like every injected control ([rows.md](rows.md#row-interaction)):
+A `display` column. Its controls need no `event.stopPropagation()`: a row's handlers ignore a click on a button inside the row and the clicks in a menu opened from it, which React bubbles through the row although the menu renders in a portal ([rows.md](rows.md#row-interaction)):
 
 ```tsx
 helper.display({
@@ -143,13 +143,13 @@ helper.display({
   cell: ({ row }) => (
     <Menu position="bottom-end">
       <Menu.Target>
-        <ActionIcon variant="subtle" size="sm" onClick={event => event.stopPropagation()}>
+        <ActionIcon aria-label="More actions" variant="subtle" size="sm">
           <IconDots size={14} />
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Item onClick={() => edit(row.original)}>编辑</Menu.Item>
-        <Menu.Item color="red" onClick={() => remove(row.original)}>删除</Menu.Item>
+        <Menu.Item onClick={() => edit(row.original)}>Edit</Menu.Item>
+        <Menu.Item color="red" onClick={() => remove(row.original)}>Delete</Menu.Item>
       </Menu.Dropdown>
     </Menu>
   )

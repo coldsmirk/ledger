@@ -17,7 +17,12 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 - **`onRowActivate` is the one to reach for.** It means "the user chose this row" and fires whatever the input device: a primary click, or `Enter` on the current row when `enableActiveRow` is on. Its event is therefore `MouseEvent | KeyboardEvent`.
 - `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` are literal pointer events and stay pointer-only — their signatures say `MouseEvent` and they never receive anything else. A click fires `onRowClick` first, then `onRowActivate`. Wiring navigation to `onRowClick` alone leaves it unreachable by keyboard.
 - Handlers receive the typed TanStack `Row`. A row that responds to a click renders `data-clickable` (pointer cursor).
-- **The stop-propagation covenant**: interactive things inside a row — selection checkboxes, expander chevrons, editing cells and editors, header/menu triggers — never leak their clicks to the row handlers. A `display` actions column you write yourself should follow the same rule (`event.stopPropagation()` in its buttons).
+- **A row's handlers answer the row itself.** Interactive things inside a row own their events, so `onRowClick`, `onRowActivate`, `onRowDoubleClick` and `onRowContextMenu` (and the click that makes a row current) ignore:
+  - a click on a link, a button, a form control, a `label` or `summary`, editable content, or an element with an interactive role (`menuitem`, `checkbox`, `tab`, …) inside the row — an actions column you write needs no `event.stopPropagation()`, and a link in a cell opens once. A bare `tabindex` does not count: focusable is not interactive.
+  - an event from a portal opened in the row — the items of a `Menu` whose target sits in a cell — which React bubbles through the row although the portal is elsewhere in the DOM;
+  - the click (and the context menu) that ends a text selection made inside the row: dragging across a value to copy it selects it, it does not open the row. A double-click selects the word it lands on as its own effect, so it still reaches `onRowDoubleClick`.
+
+  ledger's injected controls — selection checkboxes, expander chevrons, drag handles, editing cells and editors — keep stopping propagation at the cell, so a click beside the control inside its cell stays out of the row handlers too.
 - On editable columns, the double-click that starts editing does not fire `onRowDoubleClick` ([editing.md](editing.md)).
 - Anything else you need on the `<tr>` — attributes, `data-*`, hover handlers, inline styles — goes through `rowProps` ([DOM props](styling.md#dom-props)).
 
@@ -34,8 +39,8 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 />
 ```
 
-- **Mouse**: clicking a row makes it current (before the row handlers fire); the injected checkbox and expander keep their stop-propagation covenant and do not move it.
-- **Keyboard**: the body viewport becomes a focus stop (visible focus ring). `↑`/`↓` move the current row (scrolling it into view, virtualized included), `Home`/`End` jump to the edges, `Enter` fires `onRowActivate` for the current row, and `F2` starts editing it ([editing.md](editing.md#keyboard-and-lifecycle)).
+- **Mouse**: clicking a row makes it current (before the row handlers fire); a click a row's handlers ignore ([above](#row-interaction)) does not move it, and neither do the injected checkbox and expander.
+- **Keyboard**: the body viewport becomes a focus stop (visible focus ring). `↑`/`↓` move the current row (scrolling it into view, virtualized included), `Home`/`End` jump to the edges, `Enter` fires `onRowActivate` for the current row, and `F2` starts editing it ([editing.md](editing.md#keyboard-and-lifecycle)). A key pressed in an interactive element inside the body, or in a portal opened from a cell (a menu's arrow keys), stays that element's and never moves the cursor.
 - State rides the ledger-owned `activeRowId` trio (`activeRowId` / `defaultActiveRowId` / `onActiveRowIdChange`) — controlled works like every other slice, so a master–detail page can drive the highlight from the outside.
 - Focus stays on the viewport as the current row moves, so each change is announced through a polite live region (`labels.currentRow`, naming the row by its leading visible cell); the focus stop itself is *described* by `labels.rowNavigation` ([accessibility.md](accessibility.md)).
 - The current row renders `data-active` and `aria-current`, resting at Mantine's calm light step (`--mantine-primary-color-light`) exactly as selection does; with `highlightOnHover`, hovering either state deepens it to `--mantine-primary-color-light-hover` rather than replacing it with the gray hover color. Inside a block of selected rows the cursor rests one step deeper — exactly one row is ever current, so it stays findable without an accent bar.

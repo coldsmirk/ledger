@@ -26,7 +26,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `column-order.ts` | Pure edits over the flat `columnOrder` array, shared by the header drag and the panel |
 | `row-reorder.tsx` | Row ordering: the session (pointer via dnd-kit + keyboard index stepping), the handle cell, the row ghost and live region |
 | `search.tsx` / `pagination-bar.tsx` / `selection-bar.tsx` | Compound components |
-| `selection.tsx` / `expander.tsx` | Injected column cells (stop-propagation covenant, shift ranges, expand-all) |
+| `selection.tsx` / `expander.tsx` | Injected column cells (cell-level propagation fence, shift ranges, expand-all) |
 | `use-column-widths.ts` | The width engine: raw sizing specs → exact integer pixel widths (weighted grow, proportional fill) |
 | `use-column-window.ts` | Column virtualization: the center-zone window (binary search over the engine's prefix sums) and the tiling helpers every renderer shares |
 | `use-column-resize.ts` | Pointer-based column resizing (1:1 from resolved widths, Escape restore, RTL-aware) |
@@ -35,6 +35,7 @@ Contributor-facing: how the package is built, the internal pipelines, and the in
 | `use-pinned-row-offsets.ts` | Measured cumulative sticky offsets for pinned rows |
 | `element-props.ts` | The DOM escape hatch: the `TProps \| (subject) => TProps` shape, and the merge rules that keep ledger's structural props authoritative |
 | `truncate.ts` | The hover-time truncation tooltip — measured on the element, never at render |
+| `interactive.ts` | Whether an event is the row's (or the viewport's) own — not a control's inside it, not a portal's bubbling through React — and whether a click ended a text selection: the one definition the row's pointer handlers and the active-row keyboard share |
 | `pinning.ts` / `utils.ts` | Pinned-cell geometry; CSS-variable names; `useEventCallback`; `toPx` |
 | `filter-fns.ts` | `ledger-one-of`, `ledger-date-range`, variant → filterFn map |
 | `toggle-fns.ts` / `use-row-commands.ts` | v9's sort/selection/expansion updater bodies as pure functions, and the committed controllers that apply them |

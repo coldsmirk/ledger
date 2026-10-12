@@ -66,7 +66,7 @@ function RowActions({ row, table }: { row: Row<Person>; table: TableInstance<Per
 
   if (editing.row.id === row.id) {
     return (
-      <Group gap={4} wrap="nowrap" onClick={event => event.stopPropagation()}>
+      <Group gap={4} wrap="nowrap">
         <Button size="compact-xs" variant="light" onClick={() => editing.row.stop({ commit: true })}>
           {t.save}
         </Button>
@@ -79,7 +79,7 @@ function RowActions({ row, table }: { row: Row<Person>; table: TableInstance<Per
   }
 
   return (
-    <Group gap={4} wrap="nowrap" onClick={event => event.stopPropagation()}>
+    <Group gap={4} wrap="nowrap">
       <Button color="gray" size="compact-xs" variant="subtle" onClick={() => editing.row.start(row.id, { focusColumnId: "name" })}>
         {t.edit}
       </Button>
