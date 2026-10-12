@@ -21,5 +21,33 @@ export default defineConfig({
     host: "0.0.0.0",
     strictPort: true,
     port: 5330
+  },
+  build: {
+    rolldownOptions: {
+      output: {
+        // The libraries every page runs on, each a chunk of its own: none crosses the 500 kB the
+        // build warns at, and a release that changes only the library or a demo leaves them cached.
+        // The library itself resolves from source (above), so it rides with the shell.
+        codeSplitting: {
+          groups: [
+            {
+              name: "react",
+              test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+              priority: 30
+            },
+            {
+              name: "mantine",
+              test: /node_modules[\\/](?:@mantine|@floating-ui|react-number-format|react-remove-scroll[\\w-]*|react-style-singleton|use-callback-ref|use-sidecar|tabbable|clsx)[\\/]/,
+              priority: 20
+            },
+            {
+              name: "table",
+              test: /node_modules[\\/](?:@tanstack|@dnd-kit)[\\/]/,
+              priority: 20
+            }
+          ]
+        }
+      }
+    }
   }
 });

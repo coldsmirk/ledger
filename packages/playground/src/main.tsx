@@ -56,12 +56,21 @@ const DAYJS_LOCALE: Record<Lang, string> = {
   zh: "zh-cn"
 };
 
-// Shiki loads lazily on the first opened source drawer; the adapter carries Mantine's own
-// light/dark themes, so only the grammars the drawer shows are bundled into the async chunk.
+// Shiki loads lazily on the first opened source drawer, and only what the drawer shows: the core,
+// the two grammars the demos are written in, and the JavaScript regex engine (no WebAssembly).
+// The full bundle would build every grammar Shiki ships, and its default engine is Oniguruma's
+// WASM. The adapter carries Mantine's own light/dark themes, so none is loaded here.
 const shikiAdapter = createShikiAdapter(async () => {
-  const { createHighlighter } = await import("shiki");
+  const [{ createHighlighterCore }, { createJavaScriptRegexEngine }] = await Promise.all([
+    import("shiki/core"),
+    import("shiki/engine/javascript")
+  ]);
 
-  return createHighlighter({ langs: ["tsx", "ts"], themes: [] });
+  return createHighlighterCore({
+    engine: createJavaScriptRegexEngine(),
+    langs: [import("shiki/langs/tsx.mjs"), import("shiki/langs/typescript.mjs")],
+    themes: []
+  });
 });
 
 function Themed() {

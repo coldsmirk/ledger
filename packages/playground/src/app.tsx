@@ -1,31 +1,48 @@
-import type { ComponentType } from "react";
+import type { ComponentType, LazyExoticComponent } from "react";
 
 import type { Copy, Lang } from "./i18n";
 
-import { AppShell, Burger, Button, Group, NavLink, ScrollArea, SegmentedControl, Stack, Text, Title, useMatches } from "@mantine/core";
-import { useRef, useState } from "react";
+import { AppShell, Burger, Button, Center, Group, Loader, NavLink, ScrollArea, SegmentedControl, Stack, Text, Title, useMatches } from "@mantine/core";
+import { lazy, Suspense, useRef, useState } from "react";
 
-import { AppearanceDemo } from "./demos/appearance";
-import { BasicDemo } from "./demos/basic";
-import { ColumnVirtualizationDemo } from "./demos/column-virtualization";
-import { EditingDemo } from "./demos/editing";
-import { GroupedHeadersDemo } from "./demos/grouped-headers";
-import { GroupingDemo } from "./demos/grouping";
-import { HookToolbarDemo } from "./demos/hook-toolbar";
-import { MasterDetailDemo } from "./demos/master-detail";
-import { MenuTreeDemo } from "./demos/menu-tree";
-import { OrdersDemo } from "./demos/orders";
-import { PinningDemo } from "./demos/pinning";
-import { RowEditingDemo } from "./demos/row-editing";
-import { RowOrderingDemo } from "./demos/row-ordering";
-import { SelectionDemo } from "./demos/selection";
-import { ServerSideDemo } from "./demos/server-side";
-import { SpanningDemo } from "./demos/spanning";
-import { StatesDemo } from "./demos/states";
-import { TreeDemo } from "./demos/tree";
-import { VirtualizedDemo } from "./demos/virtualized";
 import { useCopy, useLang } from "./i18n";
-import { SourceDrawer } from "./source-drawer";
+
+/**
+ * A component as its own chunk, fetched the first time it renders: the shell and the library stay
+ * in the entry chunk, and each demo page (or the source drawer) brings only its own code.
+ */
+function chunk<TModule, TProps extends object>(
+  load: () => Promise<TModule>,
+  pick: (module: TModule) => ComponentType<TProps>
+): LazyExoticComponent<ComponentType<TProps>> {
+  return lazy(async () => {
+    return { default: pick(await load()) };
+  });
+}
+
+const AppearanceDemo = chunk(() => import("./demos/appearance"), module => module.AppearanceDemo);
+const BasicDemo = chunk(() => import("./demos/basic"), module => module.BasicDemo);
+const ColumnVirtualizationDemo = chunk(() => import("./demos/column-virtualization"), module => module.ColumnVirtualizationDemo);
+const EditingDemo = chunk(() => import("./demos/editing"), module => module.EditingDemo);
+const GroupedHeadersDemo = chunk(() => import("./demos/grouped-headers"), module => module.GroupedHeadersDemo);
+const GroupingDemo = chunk(() => import("./demos/grouping"), module => module.GroupingDemo);
+const HookToolbarDemo = chunk(() => import("./demos/hook-toolbar"), module => module.HookToolbarDemo);
+const MasterDetailDemo = chunk(() => import("./demos/master-detail"), module => module.MasterDetailDemo);
+const MenuTreeDemo = chunk(() => import("./demos/menu-tree"), module => module.MenuTreeDemo);
+const OrdersDemo = chunk(() => import("./demos/orders"), module => module.OrdersDemo);
+const PinningDemo = chunk(() => import("./demos/pinning"), module => module.PinningDemo);
+const RowEditingDemo = chunk(() => import("./demos/row-editing"), module => module.RowEditingDemo);
+const RowOrderingDemo = chunk(() => import("./demos/row-ordering"), module => module.RowOrderingDemo);
+const SelectionDemo = chunk(() => import("./demos/selection"), module => module.SelectionDemo);
+const ServerSideDemo = chunk(() => import("./demos/server-side"), module => module.ServerSideDemo);
+const SpanningDemo = chunk(() => import("./demos/spanning"), module => module.SpanningDemo);
+const StatesDemo = chunk(() => import("./demos/states"), module => module.StatesDemo);
+const TreeDemo = chunk(() => import("./demos/tree"), module => module.TreeDemo);
+const VirtualizedDemo = chunk(() => import("./demos/virtualized"), module => module.VirtualizedDemo);
+
+// The drawer holds the raw source of every demo and the code highlighter's UI: fetched the first
+// time a reader asks for it.
+const SourceDrawer = chunk(() => import("./source-drawer"), module => module.SourceDrawer);
 
 const en = {
   shell: {
@@ -290,6 +307,8 @@ export function App() {
   const [activeId, setActiveId] = useState<DemoId>("basic");
   const [mobileNavOpened, setMobileNavOpened] = useState(false);
   const [sourceOpened, setSourceOpened] = useState(false);
+  // Mounted from the first request on, so the drawer can play its closing transition.
+  const [sourceRequested, setSourceRequested] = useState(false);
   const desktop = useMatches({ base: false, xs: true }, { getInitialValueInEffect: false });
   const burgerRef = useRef<HTMLButtonElement>(null);
   const active = ALL_DEMOS.find(demo => demo.id === activeId) ?? ALL_DEMOS[0]!;
@@ -405,17 +424,34 @@ export function App() {
               size="xs"
               style={{ flexShrink: 0 }}
               variant="default"
-              onClick={() => setSourceOpened(true)}
+              onClick={() => {
+                setSourceRequested(true);
+                setSourceOpened(true);
+              }}
             >
               {t.shell.viewSource}
             </Button>
           </Group>
 
-          <ActiveComponent />
+          <Suspense
+            fallback={(
+              <Center style={{ flex: 1 }}>
+                <Loader size="sm" />
+              </Center>
+            )}
+          >
+            <ActiveComponent />
+          </Suspense>
         </Stack>
       </AppShell.Main>
 
-      <SourceDrawer demoId={active.id} opened={sourceOpened} onClose={() => setSourceOpened(false)} />
+      {sourceRequested
+        ? (
+            <Suspense fallback={null}>
+              <SourceDrawer demoId={active.id} opened={sourceOpened} onClose={() => setSourceOpened(false)} />
+            </Suspense>
+          )
+        : null}
     </AppShell>
   );
 }
