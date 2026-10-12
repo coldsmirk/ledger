@@ -46,7 +46,7 @@ A footer always separates from the body with the same seam above it while row bo
 
 | Selector | Class | Element |
 | --- | --- | --- |
-| `root` | `.ledger-root` | The outer flex column |
+| `root` | `.ledger-root` | The outer box: a one-column grid of the table and the pagination bar ([sizing.md](sizing.md#the-root-box)) |
 | `main` | `.ledger-main` | The header + body frame (ARIA table; carries the `withTableBorder` border) |
 | `header` | `.ledger-header` | The header viewport — mirrors the body's horizontal scroll |
 | `scroller` | `.ledger-scroller` | The body ScrollArea — the only elastic region |

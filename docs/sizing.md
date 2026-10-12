@@ -6,19 +6,20 @@ There is no "fixed-height mode" versus "flow mode" — the internal structure is
 
 ## The root box
 
-`.ledger-root` is a flex column that pre-defuses the flex/grid `min-size: auto` shrink trap and keeps all overflow internal. The header and the body render as **separate regions**: the header sits outside the vertical scroller, so the scrollbar belongs to the rows alone — it is never occluded by the header and never spans it.
+`.ledger-root` is a one-column grid — the elastic row, then the pagination bar — that pre-defuses the flex/grid `min-size: auto` shrink trap and keeps all overflow internal. A grid rather than a flex column because of the max-height case: a grid resolves its `1fr` row against a `max-height` (CSS Grid §12.7.1), so the region stretched into it has a definite height to scroll in, where a flex column's would stay indefinite and grow with its content. The header and the body render as **separate regions**: the header sits outside the vertical scroller, so the scrollbar belongs to the rows alone — it is never occluded by the header and never spans it.
 
 ```css
 .ledger-root {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;   /* the elastic row, then the pagination bar */
+  grid-template-columns: minmax(0, 1fr);
   width: 100%;
   height: 100%;      /* definite parent → fills exactly; indefinite parent → resolves to auto, grows with content */
   min-width: 0;
   min-height: 0;
   overflow: hidden;  /* overflow belongs to the internal scroller only */
 }
-.ledger-main           { flex: 1 1 auto; min-width: 0; min-height: 0; }  /* header + body frame (flex column) */
+.ledger-main           { min-width: 0; min-height: 0; }                  /* header + body frame (flex column) */
 .ledger-header         { flex: none; overflow: hidden; }                 /* header viewport; mirrors body scrollLeft */
 .ledger-scroller       { flex: 1 1 auto; min-height: 0; }                /* the ONLY elastic region; scrolls x and y */
 .ledger-pagination-bar { flex: none; }                                   /* chrome rows are rigid */
@@ -33,7 +34,7 @@ The scroller is a Mantine `ScrollArea` (`scrollbars="xy"`, hover type) holding t
 | Definite-height parent (app shell, `Modal`/`Drawer` body) | none | Fills it; internal scroll; fixed header |
 | Flex item taking the remaining space (the common case) | `flex={1} mih={0}` | Stretches with siblings; internal scroll |
 | Indefinite (content-driven) parent | none | Grows with rows; no internal vertical scroll; the page scrolls |
-| Explicit constraint | Mantine style props: `h={480}`, `mah="60vh"` | A constraint, not a mode |
+| Explicit constraint | Mantine style props: `h={480}`, `mah="60vh"` | A constraint, not a mode: under `mah` the table grows with its rows up to the cap, then scrolls inside it |
 
 There are **no** `height` / `maxHeight` props. The root extends Mantine `BoxProps`, so `h` / `mah` / `mih` / `w` / `miw` / `flex` are already the sizing vocabulary — a deliberate consequence of the naming rules (Mantine owns presentation vocabulary).
 

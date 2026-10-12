@@ -18,11 +18,19 @@
    * degrades to content height when the parent is indefinite. min-width/min-height: 0
    * pre-defuse the flex/grid min-size:auto shrink trap; overflow only ever appears on the
    * internal scroller.
+   *
+   * The root is a one-column grid, the elastic row first and the pagination bar under it — not
+   * a flex column: under a max height (`mah`) a grid resolves its `1fr` row against the cap
+   * (CSS Grid §12.7.1), so the main region stretched into it has a definite height, and so does
+   * the scroller's viewport (`height: 100%`). A flex column leaves that height indefinite: the
+   * viewport grows to its content and nothing scrolls. A definite parent's row fills it, and an
+   * indefinite parent's follows the content, as before.
    * ------------------------------------------------------------------------------------------ */
   .ledger-root {
     position: relative;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     width: 100%;
     min-width: 0;
     height: 100%;
@@ -58,7 +66,6 @@
      its box, and the row-drag ghost is portaled to the body. */
   .ledger-main {
     display: flex;
-    flex: 1 1 auto;
     flex-direction: column;
     min-width: 0;
     min-height: 0;
