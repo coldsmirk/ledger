@@ -127,7 +127,7 @@
   .ledger-header-cell {
     position: relative;
     vertical-align: middle;
-    background-color: var(--ledger-header-bg, var(--mantine-color-body));
+    background-color: var(--ledger-header-bg, var(--ledger-body-bg, var(--mantine-color-body)));
   }
 
   .ledger-header-cell[data-pinned] {
@@ -316,7 +316,7 @@
    * their hover step < the cursor inside a selection < pinned < the editing row (below).
    * ------------------------------------------------------------------------------------------ */
   .ledger-row {
-    --ledger-pinned-bg: var(--ledger-row-bg, var(--mantine-color-body));
+    --ledger-pinned-bg: var(--ledger-row-bg, var(--ledger-body-bg, var(--mantine-color-body)));
   }
 
   .ledger-row > td {
@@ -367,7 +367,7 @@
   /* Sticky pinned rows sit at the body scroller's edges, above the flow (the header lives
      outside the scroller, so top offsets start at 0). */
   .ledger-row[data-pinned-row] {
-    --ledger-row-bg: var(--mantine-color-body);
+    --ledger-row-bg: var(--ledger-body-bg, var(--mantine-color-body));
     position: sticky;
     z-index: 2;
   }
@@ -396,7 +396,7 @@
   .ledger-footer-cell[data-pinned] {
     position: sticky;
     z-index: 2;
-    background-color: var(--ledger-pinned-bg, var(--mantine-color-body));
+    background-color: var(--ledger-pinned-bg, var(--ledger-body-bg, var(--mantine-color-body)));
   }
 
   /* Pinned-edge scroll shadows, visible only while content is actually scrolled past. */
@@ -562,7 +562,7 @@
     z-index: var(--mantine-z-index-popover);
     overflow: hidden;
     pointer-events: none;
-    background-color: var(--mantine-color-body);
+    background-color: var(--ledger-body-bg, var(--mantine-color-body));
     border: 1px solid var(--mantine-color-default-border);
     border-radius: var(--mantine-radius-default);
     box-shadow: var(--mantine-shadow-md);
@@ -577,7 +577,7 @@
 
   .ledger-footer-cell {
     font-weight: 600;
-    background-color: var(--mantine-color-body);
+    background-color: var(--ledger-body-bg, var(--mantine-color-body));
   }
 
   /* Overlaid on the whole body region (the scroller is its positioning context): centered in
@@ -607,7 +607,7 @@
      rows survive as a ghost that says "still here, not current". */
   .ledger-empty[data-over-rows] {
     z-index: 2;
-    background-color: color-mix(in srgb, var(--mantine-color-body) 92%, transparent);
+    background-color: color-mix(in srgb, var(--ledger-body-bg, var(--mantine-color-body)) 92%, transparent);
   }
 
   .ledger-loader-row td {

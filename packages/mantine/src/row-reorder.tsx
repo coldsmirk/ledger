@@ -443,6 +443,14 @@ export function useRowReorder<TData extends RowData>({
       ghostTable.append(colgroup, body);
       element.replaceChildren(ghostTable);
 
+      // The surface the row sits on cannot reach the portal either: carried over the same way, so
+      // the ghost lifts off a card in the card's color.
+      const surface = getComputedStyle(source).getPropertyValue("--ledger-body-bg").trim();
+
+      if (surface !== "") {
+        element.style.setProperty("--ledger-body-bg", surface);
+      }
+
       // Anchored to where the row was lifted from, so the ghost reads as the row itself
       // coming off the table under the pointer's grab point.
       const rowRect = source.getBoundingClientRect();
