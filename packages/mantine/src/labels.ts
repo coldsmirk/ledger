@@ -24,11 +24,19 @@ export interface DataTableLabels {
   expandAll: string;
   collapseAll: string;
 
+  /* Body */
+  /**
+   * Names the body viewport, the table's row group, while it is a keyboard focus stop (its
+   * content scrolls, or `enableActiveRow` is on). A focused element needs a name of its own: left
+   * without one, a browser may name the row group by the text of every row it holds.
+   */
+  rows: string;
+
   /* Active row (enableActiveRow) */
   /**
-   * Describes the body viewport — the keyboard focus stop — while `enableActiveRow` is on. It
-   * is the only place the arrow-key row model is announced, so say what the keys do. A
-   * description, not a name: it says how to work the rows, not what they are.
+   * Describes the body viewport — the keyboard focus stop, named by `rows` — while
+   * `enableActiveRow` is on. It is the only place the arrow-key row model is announced, so say
+   * what the keys do, and only that: the name already says what the rows are.
    */
   rowNavigation: string;
   /**
@@ -148,7 +156,9 @@ export const defaultLabels: DataTableLabels = {
   selectedCount: count => `${count} selected`,
   clearSelection: "Clear selection",
 
-  rowNavigation: "Table rows — use the arrow keys to move between rows",
+  rows: "Rows",
+
+  rowNavigation: "Use the arrow keys to move between rows",
   currentRow: (row, index, count) => `${row}, row ${index} of ${count}`,
 
   expandRow: "Expand row",

@@ -49,7 +49,7 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
   ```
 
   The arrow keys and `Home`/`End` pass over the rows it rejects, and a click on one leaves the current row where it was. Activation follows the cursor, so such a row is never activated either — not by `Enter`, and not by a click (`onRowActivate` does not fire; the literal `onRowClick` still does). What the keyboard cannot reach, the pointer cannot choose: `data-clickable` is absent on a rejected row unless `onRowClick` is set. A controlled `activeRowId` may still name one — it shows as current, and `Enter` activates nothing.
-- Focus stays on the viewport as the current row moves, so each change is announced through a polite live region (`labels.currentRow`, naming the row by its leading visible cell); the focus stop itself is *described* by `labels.rowNavigation` ([accessibility.md](accessibility.md)).
+- Focus stays on the viewport as the current row moves, so each change is announced through a polite live region (`labels.currentRow`, naming the row by its leading visible cell); the focus stop itself is named by `labels.rows` and *described* by `labels.rowNavigation` ([accessibility.md](accessibility.md)).
 - The current row renders `data-active` and `aria-current`, resting at Mantine's calm light step (`--mantine-primary-color-light`) exactly as selection does; with `highlightOnHover`, hovering either state deepens it to `--mantine-primary-color-light-hover` rather than replacing it with the gray hover color. Inside a block of selected rows the cursor rests one step deeper — exactly one row is ever current, so it stays findable without an accent bar.
 
 ## Row ordering

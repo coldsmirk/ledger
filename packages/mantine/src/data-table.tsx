@@ -1251,6 +1251,7 @@ function DataTableCore<TData extends RowData>({
   // property that any element may carry: `generic` prohibits an accessible *name*, not a
   // description, and referencing an id adds no role and owns nothing. The consumer's own
   // description stays on the table; theirs on the viewport keeps the first read there.
+  const viewportFocusStop = activeRowEnabled || viewportOverflows;
   const viewportDescribedBy = activeRowEnabled
     ? [viewportProps?.["aria-describedby"], rowNavigationHintId].filter(Boolean).join(" ")
     : viewportProps?.["aria-describedby"];
@@ -1639,9 +1640,12 @@ function DataTableCore<TData extends RowData>({
                 // whenever its content scrolls, so the browser's own scrolling keys can reach it,
                 // and always with the active row on, when it also carries the description of the
                 // keyboard model (`rowNavigationHintId`, composed after any the consumer passed).
+                // A focus stop is named (`labels.rows`, unless the consumer named it): a browser
+                // names an unnamed focused row group by the text of all its rows.
                 role: "rowgroup",
+                "aria-label": viewportProps?.["aria-label"] ?? (viewportFocusStop ? labels.rows : undefined),
                 "aria-describedby": viewportDescribedBy,
-                tabIndex: activeRowEnabled || viewportOverflows ? 0 : undefined,
+                tabIndex: viewportFocusStop ? 0 : undefined,
                 ...activeRowEnabled && { onKeyDown: handleActiveRowKeyDown }
               })}
               onScrollPositionChange={handleScrollPositionChange}

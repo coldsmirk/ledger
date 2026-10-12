@@ -458,8 +458,10 @@ describe("DataTable", () => {
     const { container, unmount } = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
     const viewport = () => container.querySelector(":scope .ledger-scroller [role=\"rowgroup\"]") as HTMLElement;
 
-    // Content that fits: no stop, so Tab is never spent on a region with nothing to scroll.
+    // Content that fits: no stop, so Tab is never spent on a region with nothing to scroll, and
+    // nothing focuses it to need a name.
     expect(viewport().hasAttribute("tabindex")).toBe(false);
+    expect(viewport().hasAttribute("aria-label")).toBe(false);
     unmount();
 
     // jsdom lays nothing out, so the overflow is stated: the content is taller than the viewport.
@@ -471,6 +473,15 @@ describe("DataTable", () => {
       const stop = overflowing.container.querySelector(":scope .ledger-scroller [role=\"rowgroup\"]") as HTMLElement;
 
       expect(stop.getAttribute("tabindex")).toBe("0");
+      // A focused row group left unnamed is named by the browser from the text of all its rows.
+      expect(stop.getAttribute("aria-label")).toBe(defaultLabels.rows);
+      overflowing.unmount();
+
+      // The consumer's own name for it stands.
+      const named = render(<DataTable columns={columns} data={people} getRowId={getRowId} viewportProps={{ "aria-label": "People rows" }} />, { wrapper });
+      const consumerStop = named.container.querySelector(":scope .ledger-scroller [role=\"rowgroup\"]") as HTMLElement;
+
+      expect(consumerStop.getAttribute("aria-label")).toBe("People rows");
     } finally {
       scrollHeight.mockRestore();
       clientHeight.mockRestore();
@@ -483,11 +494,11 @@ describe("DataTable", () => {
       { wrapper }
     );
 
-    // The focus stop is the body's row group, the one role a table lets it take; the description
-    // has to be on the focused element to ever be read.
+    // The focus stop is the body's row group, the one role a table lets it take, named on its
+    // own; the description has to be on the focused element to ever be read.
     const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
     expect(viewport.getAttribute("role")).toBe("rowgroup");
-    expect(viewport.hasAttribute("aria-label")).toBe(false);
+    expect(viewport.getAttribute("aria-label")).toBe(defaultLabels.rows);
 
     const hintId = viewport.getAttribute("aria-describedby") as string;
     expect(hintId).toBeTruthy();
