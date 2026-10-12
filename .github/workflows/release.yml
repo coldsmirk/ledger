@@ -15,7 +15,7 @@ concurrency:
 
 permissions:
   contents: write # create the GitHub Release
-  id-token: write # OIDC for npm (enables trusted publishing later; npm provenance needs a public repo)
+  id-token: write # OIDC token that signs the npm provenance attestation
 
 jobs:
   release:
@@ -75,9 +75,9 @@ jobs:
         run: pnpm check:package
 
       - name: Publish to npm
-        # No --provenance: npm provenance requires a public source repo, and this
-        # repo is private. Add it back if the repo becomes public.
-        run: pnpm -r publish --access public --no-git-checks
+        # --provenance attests on npm that this workflow, at this commit of the public repo, built
+        # the tarball (signed through the id-token permission above).
+        run: pnpm -r publish --access public --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

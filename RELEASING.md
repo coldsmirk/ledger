@@ -9,7 +9,7 @@ Releases are **tag-driven**. Pushing a `v*` tag runs the [`Release`](.github/wor
 
 That is all the workflow needs — `GITHUB_TOKEN` is provided automatically.
 
-> npm provenance is **not** used yet: it was skipped while the repository was private. The repo is public now, so `--provenance` can be added to the publish step, or the workflow can switch to npm Trusted Publishing (OIDC, no stored token) — it already keeps `id-token: write` for that.
+Every release carries an npm **provenance** attestation: the publish step runs `pnpm -r publish --provenance`, and the workflow's `id-token: write` permission lets it sign, on npm, that this workflow built the tarball from the tagged commit of the public repository. The package page shows it, and `npm audit signatures` verifies it. Moving to npm Trusted Publishing (OIDC instead of the stored `NPM_TOKEN`) needs the trusted publisher configured on npmjs.com first; the workflow needs no other change for it.
 
 ## Cutting a release
 
