@@ -28,7 +28,7 @@ To place the controls elsewhere, opt out and use the standalone compound:
 </Group>
 ```
 
-`DataTable.Pagination` takes `table`, optional `pageSizeOptions` / `labels` / `className` / `style`, and is themeable app-wide via `DataTablePagination` `defaultProps`.
+`DataTable.Pagination` takes `table`, optional `pageSizeOptions` / `labels` / `size` / `className` / `style`, and is themeable app-wide via `DataTablePagination` `defaultProps`. `size` sizes its controls as the table's `size` sizes the built-in bar ([styling.md](styling.md#size)) — pass the table's own so a bar placed elsewhere matches it; it is `sm` unless said.
 
 ## State
 

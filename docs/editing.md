@@ -89,7 +89,7 @@ Each is implemented purely on the public context above — proof the context suf
 meta: {
   edit: {
     render: numberEditor(),
-    validate: (value, row) => (typeof value === "number" && value >= 0 ? null : "必须是非负数")
+    validate: (value, row) => (typeof value === "number" && value >= 0 ? null : "Must be a non-negative number")
   }
 }
 ```

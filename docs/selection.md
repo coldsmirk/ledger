@@ -56,7 +56,7 @@ The selection column is an ordinary `ColumnDef`, so `selectionColumn` merges ove
 
 A replacement `cell` builds its control from the public row API, as above. What the reserved `id` carries survives the swap — the centered layout, the stop-propagation covenant, the CSV and columns-panel exclusions — but the built-in control's own behavior does not: shift-click ranges, the single-select radio under `enableMultiRowSelection={false}`, the sub-row indeterminate state, and the `labels.selectRow` wiring all live in ledger's default cell, so a custom cell re-provides what it needs.
 
-`expanderColumn` does the same for the expander column ([rows.md](rows.md#masterdetail-panels)) — a different chevron, a wider gutter (its bounds are fixed at 36 the same way: raise `maxSize` alongside `size`), an "expand all" header of your own.
+`expanderColumn` does the same for the expander column ([rows.md](rows.md#masterdetail-panels)) — a different chevron, a wider gutter (its bounds are fixed at the size's width the same way, 40px at `sm`: raise `maxSize` alongside `size`), an "expand all" header of your own.
 
 ## The selection bar
 
@@ -70,7 +70,7 @@ A replacement `cell` builds its control from the public row API, as above. What 
     leftSection={<IconDownload size={14} />}
     onClick={() => download("people.csv", toCsv(table, { scope: "selected" }))}
   >
-    导出所选
+    Export selected
   </Button>
 </DataTable.SelectionBar>
 ```

@@ -100,7 +100,7 @@ function downloadCsv(filename: string, csv: string) {
 <DataTable.SelectionBar table={table}>
   <Button size="compact-xs" variant="light" leftSection={<IconDownload size={14} />}
     onClick={() => downloadCsv("selected.csv", toCsv(table, { scope: "selected" }))}>
-    导出所选
+    Export selected
   </Button>
 </DataTable.SelectionBar>;
 ```
