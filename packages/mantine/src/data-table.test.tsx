@@ -602,6 +602,22 @@ describe("DataTable", () => {
     expect(container.querySelectorAll("[data-selected]")).toHaveLength(0);
   });
 
+  it("reserves the rows' estimated height while the virtual viewport has none, so the table can grow into it", () => {
+    // jsdom lays nothing out: the viewport reads 0px tall, as it does under a max height or an
+    // indefinite parent before the first window — which therefore holds no row at all.
+    const { container } = render(
+      <DataTable virtualizedRows columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    expect(container.querySelectorAll(":scope .ledger-tbody [data-row-id]")).toHaveLength(0);
+
+    // Three rows at the default size's estimate (37px at `sm`): the body claims their height, the
+    // viewport takes it, and the window then fills it in. Nothing claimed would stay 0px forever.
+    const spacers = [...container.querySelectorAll<HTMLElement>(":scope .ledger-tbody [data-ledger-spacer]")];
+    expect(spacers.map(spacer => spacer.style.height)).toEqual([`${String(people.length * 37)}px`]);
+  });
+
   it("drops the header region and its rows from the ARIA row numbering", () => {
     const { container } = render(
       <DataTable

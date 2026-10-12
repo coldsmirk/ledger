@@ -1070,7 +1070,11 @@ export function TableBody({
     const firstItem = items[0];
     const lastItem = items.at(-1);
     const topSpace = firstItem ? firstItem.start : 0;
-    const bottomSpace = lastItem ? virtualizer.getTotalSize() - lastItem.end : 0;
+    // A viewport with no height yet windows nothing, so the rows' estimated height has to stand
+    // in for them: under a max height (`mah`) or an indefinite parent the table grows into the
+    // space they claim and the window then fills it. Without the reservation the body would
+    // measure empty, the viewport would never get a height, and the table would stay empty.
+    const bottomSpace = lastItem ? virtualizer.getTotalSize() - lastItem.end : virtualizer.getTotalSize();
 
     center = (
       <>
