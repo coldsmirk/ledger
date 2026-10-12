@@ -69,7 +69,7 @@ Accepted by `useDataTable(options)` and, flattened, by `<DataTable …>` in suga
 | `enableColumnOrdering` | `false` (ledger-owned name) | [columns.md](columns.md) |
 | `enableHiding` | `true` | [columns.md](columns.md) |
 | `enableEditing` | `true` (columns still opt in via `meta.edit`) | [editing.md](editing.md) |
-| `enableActiveRow` | `false` (ledger-owned; keyboard-reachable current row) | [rows.md](rows.md#active-row) |
+| `enableActiveRow` | `false` — `boolean \| (row) => boolean` (ledger-owned; keyboard-reachable current row; a predicate keeps the rows it rejects out of the cursor's reach and out of activation) | [rows.md](rows.md#active-row) |
 | `enableRowOrdering` | `false` (ledger-owned; drag-handle reordering — inert without `onRowReorder`, flat data only) | [rows.md](rows.md#row-ordering) |
 | `enableGrouping` | `false` | [grouping.md](grouping.md) |
 | `enableRowPinning` | `false` | [pinning.md](pinning.md) |
@@ -155,7 +155,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `withColumnHeaders` | `boolean` | `true` | Renders the header region ([columns.md](columns.md#hiding-the-header)) |
 | `withPaginationBar` | `boolean` | `true` | Renders only while pagination is enabled |
 | `pageSizeOptions` | `number[]` | `[10, 20, 50, 100]` | |
-| `onRowActivate` | `(row: Row<TData>, event: MouseEvent \| KeyboardEvent) => void` | — | Input-agnostic: click or `Enter` on the current row ([rows.md](rows.md)) |
+| `onRowActivate` | `(row: Row<TData>, event: MouseEvent \| KeyboardEvent) => void` | — | Input-agnostic: click or `Enter` on the current row; never on a row `enableActiveRow`'s predicate rejects ([rows.md](rows.md)) |
 | `onRowClick` / `onRowDoubleClick` / `onRowContextMenu` | `(row: Row<TData>, event: MouseEvent) => void` | — | Literal pointer events on the row itself — not on an interactive element inside it, not from a portal opened in it, and (except the double-click) not ending a text selection made in it ([rows.md](rows.md#row-interaction)) |
 | `rowProps` | `TableTrProps \| (row) => TableTrProps \| undefined` | — | DOM props per data row ([styling.md](styling.md#dom-props)) |
 | `headerRowProps` / `footerRowProps` | `TableTrProps \| (headerGroup) => TableTrProps \| undefined` | — | DOM props per header / footer row |
@@ -386,7 +386,7 @@ interface DataTableIcons {
 
 ## `meta.ledger`
 
-`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the stable processed `columns` (the render layer's memo token — v9 re-resolves `table.options` per state tick), the `editing` controller (below), filter-set subscriptions (`filtering.subscribeColumnFilters` / `.subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `onRowEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), `activeRow` (`enabled` / `id` / `set`), `rowOrdering` (`enabled` / `orderable` / `onRowReorder` — [rows.md](rows.md#row-ordering)), `enableColumnOrdering`, `enableColumnResizing`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
+`table.options.meta.ledger` (typed `LedgerMeta<TData>`) carries ledger-private plumbing on TanStack's sanctioned extension point: the stable processed `columns` (the render layer's memo token — v9 re-resolves `table.options` per state tick), the `editing` controller (below), filter-set subscriptions (`filtering.subscribeColumnFilters` / `.subscribeGlobalFilter`) used to cancel debounced controls even on no-op resets, `editTrigger`, `enableEditing`, `onEditCommit`, `onRowEditCommit`, `renderDetailPanel`, `selectAllScope` (`"page" | "all"`), `activeRow` (`enabled` / `id` / `set` / `canActivate`), `rowOrdering` (`enabled` / `orderable` / `onRowReorder` — [rows.md](rows.md#row-ordering)), `enableColumnOrdering`, `enableColumnResizing`, and `enablePagination`. Compound components read it; applications normally shouldn't write it. `tableOptions.meta` is merged beneath it — only the `ledger` key is reserved.
 
 `meta.ledger.editing` carries both modes at once; `mode` says which one is live. Both sessions live in the controller and the editors are views of them — an editor is unmounted by a hidden column or a virtual scroll at any moment, while the session is not ([architecture.md](architecture.md#load-bearing-internals)).
 

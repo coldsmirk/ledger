@@ -370,6 +370,90 @@ describe("DataTable", () => {
     expect(onRowActivate).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps the rows enableActiveRow's predicate rejects out of the cursor's reach and out of activation", () => {
+    Element.prototype.scrollIntoView ??= () => undefined;
+
+    const onActiveRowIdChange = vi.fn();
+    const onRowActivate = vi.fn();
+    const crew: Person[] = [
+      ...people,
+      {
+        id: "4",
+        name: "Dan",
+        age: 50
+      }
+    ];
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        data={crew}
+        // Rows 1 and 4, the edges, cannot be current.
+        enableActiveRow={row => row.id !== "1" && row.id !== "4"}
+        getRowId={getRowId}
+        onActiveRowIdChange={onActiveRowIdChange}
+        onRowActivate={onRowActivate}
+      />,
+      { wrapper }
+    );
+
+    const rowFor = (id: string) => container.querySelector<HTMLElement>(`:scope [data-row-id="${CSS.escape(id)}"]`) as HTMLElement;
+    const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
+
+    // Entering the rows lands on the first that can be current; the keys never stop on the others.
+    fireEvent.keyDown(viewport, { key: "ArrowDown" });
+    expect(onActiveRowIdChange).toHaveBeenLastCalledWith("2");
+    fireEvent.keyDown(viewport, { key: "End" });
+    expect(onActiveRowIdChange).toHaveBeenLastCalledWith("3");
+    fireEvent.keyDown(viewport, { key: "ArrowDown" });
+    expect(rowFor("3").dataset.active).toBe("true");
+    fireEvent.keyDown(viewport, { key: "Home" });
+    expect(onActiveRowIdChange).toHaveBeenLastCalledWith("2");
+    fireEvent.keyDown(viewport, { key: "ArrowUp" });
+    expect(rowFor("2").dataset.active).toBe("true");
+
+    // A click on a rejected row neither moves the cursor nor activates it, so it reads as inert.
+    const moves = onActiveRowIdChange.mock.calls.length;
+    fireEvent.click(rowFor("4").querySelector(":scope td") as Element);
+    expect(onActiveRowIdChange).toHaveBeenCalledTimes(moves);
+    expect(onRowActivate).not.toHaveBeenCalled();
+    expect(rowFor("4").dataset.clickable).toBeUndefined();
+    expect(rowFor("3").dataset.clickable).toBe("true");
+
+    fireEvent.click(rowFor("3").querySelector(":scope td") as Element);
+    expect(onRowActivate).toHaveBeenCalledTimes(1);
+    expect(rowFor("3").dataset.active).toBe("true");
+  });
+
+  it("still fires the literal onRowClick on a row the predicate rejects, but never activates it by Enter", () => {
+    const onRowActivate = vi.fn();
+    const onRowClick = vi.fn();
+    const { container } = render(
+      <DataTable
+        activeRowId="1"
+        columns={columns}
+        data={people}
+        enableActiveRow={row => row.id !== "1"}
+        getRowId={getRowId}
+        onRowActivate={onRowActivate}
+        onRowClick={onRowClick}
+      />,
+      { wrapper }
+    );
+
+    const row = container.querySelector<HTMLElement>(":scope [data-row-id=\"1\"]") as HTMLElement;
+
+    // A click is a click: the pointer-only handler sees it, the activation does not happen.
+    fireEvent.click(row.querySelector(":scope td") as Element);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(onRowActivate).not.toHaveBeenCalled();
+    expect(row.dataset.clickable).toBe("true");
+
+    // Controlled onto a row the predicate rejects, the cursor shows — but Enter activates nothing.
+    const viewport = container.querySelector(":scope .ledger-scroller [tabindex=\"0\"]") as HTMLElement;
+    fireEvent.keyDown(viewport, { key: "Enter" });
+    expect(onRowActivate).not.toHaveBeenCalled();
+  });
+
   it("makes the viewport a focus stop while its content scrolls, so the keyboard can scroll it", () => {
     const { container, unmount } = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
     const viewport = () => container.querySelector(":scope .ledger-scroller [role=\"rowgroup\"]") as HTMLElement;

@@ -1345,59 +1345,73 @@ function DataTableCore<TData extends RowData>({
     }
 
     const rows = displaySnapshot.ordered;
+    const canActivate = ledger?.activeRow.canActivate;
 
-    if (rows.length === 0) {
+    if (rows.length === 0 || !canActivate) {
       return;
     }
 
     const currentIndex = activeRowId === null ? -1 : rows.findIndex(row => row.id === activeRowId);
 
-    const moveTo = (index: number) => {
-      const row = rows[Math.min(Math.max(index, 0), rows.length - 1)];
+    // The cursor rests only on the rows `enableActiveRow`'s predicate accepts: a move walks from
+    // `from` in `step`'s direction to the first of them. With none there it stays put, brought
+    // back into view as an edge-clamped move always was.
+    const moveFrom = (from: number, step: 1 | -1) => {
+      for (let index = from; index >= 0 && index < rows.length; index += step) {
+        const row = rows[index] as Row<TData>;
 
-      if (row) {
-        setActiveRow(row.id);
-        scrollRowIntoView(row.id);
+        if (canActivate(row)) {
+          setActiveRow(row.id);
+          scrollRowIntoView(row.id);
+
+          return;
+        }
+      }
+
+      if (currentIndex !== -1 && activeRowId !== null) {
+        scrollRowIntoView(activeRowId);
       }
     };
 
     switch (event.key) {
       case "ArrowDown": {
         event.preventDefault();
-        moveTo(currentIndex + 1);
+        moveFrom(currentIndex + 1, 1);
 
         break;
       }
 
       case "ArrowUp": {
         event.preventDefault();
-        moveTo(currentIndex - 1);
+        // With no current row yet, both arrows enter at the top.
+        moveFrom(currentIndex === -1 ? 0 : currentIndex - 1, currentIndex === -1 ? 1 : -1);
 
         break;
       }
 
       case "Home": {
         event.preventDefault();
-        moveTo(0);
+        moveFrom(0, 1);
 
         break;
       }
 
       case "End": {
         event.preventDefault();
-        moveTo(rows.length - 1);
+        moveFrom(rows.length - 1, -1);
 
         break;
       }
 
       case "Enter": {
-        const row = currentIndex >= 0 ? rows[currentIndex] : null;
+        const row = currentIndex >= 0 ? rows[currentIndex] as Row<TData> : null;
 
         // Only `onRowActivate` is input-agnostic. `onRowClick` stays literal — synthesizing a
-        // MouseEvent for it would make its own type signature a lie.
-        if (row && onRowActivate) {
+        // MouseEvent for it would make its own type signature a lie. A controlled current row the
+        // predicate rejects is not activated, as a click on it would not be.
+        if (row && onRowActivate && canActivate(row)) {
           event.preventDefault();
-          onRowActivate(row as Row<TData>, event);
+          onRowActivate(row, event);
         }
 
         break;

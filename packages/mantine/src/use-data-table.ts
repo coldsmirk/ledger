@@ -58,6 +58,11 @@ const NO_COLUMN_ORDER: ColumnOrderState = [];
 const NO_COLUMN_SIZING: ColumnSizingState = {};
 const NO_GROUPING: GroupingState = [];
 const NO_ROW_PINNING: RowPinningState = { top: [], bottom: [] };
+
+/**
+ * `enableActiveRow` without a predicate: the cursor can rest on any row.
+ */
+const everyRow = () => true;
 const DEFAULT_PAGINATION: PaginationState = { pageIndex: 0, pageSize: 20 };
 
 export function useDataTable<TData extends RowData>(options: UseDataTableOptions<TData>): TableInstance<TData> {
@@ -384,9 +389,10 @@ export function useDataTable<TData extends RowData>(options: UseDataTableOptions
         renderDetailPanel,
         selectAllScope,
         activeRow: {
-          enabled: enableActiveRow,
+          enabled: enableActiveRow !== false,
           id: activeRowId,
-          set: setActiveRowId
+          set: setActiveRowId,
+          canActivate: typeof enableActiveRow === "function" ? enableActiveRow : everyRow
         },
         enableColumnOrdering,
         enableColumnResizing,

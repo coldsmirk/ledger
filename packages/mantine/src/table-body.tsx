@@ -412,6 +412,10 @@ interface DataRowProps {
   dropSide: "before" | "after" | null;
   selected: boolean;
   active: boolean;
+  /**
+   * The row can be the current row, and so be activated (`enableActiveRow`'s predicate).
+   */
+  activatable: boolean;
   expanded: boolean;
   depth: number;
   pinKey: string;
@@ -456,6 +460,7 @@ function DataRowImpl({
   dropSide,
   selected,
   active,
+  activatable,
   expanded,
   depth,
   spanning,
@@ -499,17 +504,24 @@ function DataRowImpl({
       }
     : undefined;
 
+  // Activation follows the cursor: with the active row on, a row its predicate keeps out of the
+  // keyboard's reach is not activated by a click either, so pointer and keyboard can do the same.
+  const activates = !activeRowEnabled || activatable;
+
   // A click makes the row current before the consumer's own handlers see it. A click is also an
   // activation, so both fire here — `onRowClick` first, as the more specific of the two.
   const handleClick = handler(
-    onRowClick || onRowActivate || activeRowEnabled
+    onRowClick || (onRowActivate && activates) || (activeRowEnabled && activatable)
       ? (_, event) => {
-          if (activeRowEnabled) {
+          if (activeRowEnabled && activatable) {
             setActiveRow?.(row.id);
           }
 
           onRowClick?.(row, event);
-          onRowActivate?.(row, event);
+
+          if (activates) {
+            onRowActivate?.(row, event);
+          }
         }
       : undefined,
     true
@@ -1021,6 +1033,7 @@ export function TableBody({
     return (
       <DataRow
         key={displayRow.key}
+        activatable={ledger?.activeRow.canActivate(row) ?? true}
         active={activeRowId === row.id}
         ariaRowIndex={ariaRowIndex}
         columnsKey={columnsKey}

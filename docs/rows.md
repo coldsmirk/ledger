@@ -41,7 +41,14 @@ Row-level interaction, master–detail panels, tree data, and the loading/empty 
 
 - **Mouse**: clicking a row makes it current (before the row handlers fire); a click a row's handlers ignore ([above](#row-interaction)) does not move it, and neither do the injected checkbox and expander.
 - **Keyboard**: the body viewport becomes a focus stop (visible focus ring). `↑`/`↓` move the current row (scrolling it into view, virtualized included), `Home`/`End` jump to the edges, `Enter` fires `onRowActivate` for the current row, and `F2` starts editing it ([editing.md](editing.md#keyboard-and-lifecycle)). A key pressed in an interactive element inside the body, or in a portal opened from a cell (a menu's arrow keys), stays that element's and never moves the cursor.
-- State rides the ledger-owned `activeRowId` trio (`activeRowId` / `defaultActiveRowId` / `onActiveRowIdChange`) — controlled works like every other slice, so a master–detail page can drive the highlight from the outside.
+- State rides the ledger-owned `activeRowId` trio (`activeRowId` / `defaultActiveRowId` / `onActiveRowIdChange`) — controlled works like every other slice, so a master–detail page can drive the highlight from the outside. A controlled change is not scrolled to: the page that moved the cursor scrolls with `handleRef.scrollToRow` when it wants the row in view ([api.md](api.md#imperative-handle)).
+- **Rows the cursor cannot rest on**: `enableActiveRow` also takes a predicate, `(row) => boolean`, shaped like TanStack's `enableRowSelection` — for rows that are part of the table but not things to choose (a summary, a group's caption, a fixed system entry):
+
+  ```tsx
+  <DataTable enableActiveRow={row => row.original.kind === "field"} … />
+  ```
+
+  The arrow keys and `Home`/`End` pass over the rows it rejects, and a click on one leaves the current row where it was. Activation follows the cursor, so such a row is never activated either — not by `Enter`, and not by a click (`onRowActivate` does not fire; the literal `onRowClick` still does). What the keyboard cannot reach, the pointer cannot choose: `data-clickable` is absent on a rejected row unless `onRowClick` is set. A controlled `activeRowId` may still name one — it shows as current, and `Enter` activates nothing.
 - Focus stays on the viewport as the current row moves, so each change is announced through a polite live region (`labels.currentRow`, naming the row by its leading visible cell); the focus stop itself is *described* by `labels.rowNavigation` ([accessibility.md](accessibility.md)).
 - The current row renders `data-active` and `aria-current`, resting at Mantine's calm light step (`--mantine-primary-color-light`) exactly as selection does; with `highlightOnHover`, hovering either state deepens it to `--mantine-primary-color-light-hover` rather than replacing it with the gray hover color. Inside a block of selected rows the cursor rests one step deeper — exactly one row is ever current, so it stays findable without an accent bar.
 

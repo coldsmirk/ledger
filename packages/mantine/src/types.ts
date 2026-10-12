@@ -370,9 +370,12 @@ export interface UseDataTableOptions<TData extends RowData> {
 
   /**
    * A single keyboard-reachable current row (row click or ↑/↓/Home/End on the focused body;
-   * Enter fires `onRowClick`), independent from checkbox selection. Off by default.
+   * Enter fires `onRowActivate`), independent from checkbox selection. Off by default. A
+   * predicate keeps the rows it rejects out of the cursor's reach — the keys pass over them and
+   * a click leaves the current row where it was — and so out of activation too: what the
+   * keyboard cannot reach, a click does not activate ([rows.md](../docs/rows.md#active-row)).
    */
-  enableActiveRow?: boolean;
+  enableActiveRow?: boolean | ((row: Row<TData>) => boolean);
 
   /* Row ordering (docs/rows.md#row-ordering) */
   /**
@@ -708,6 +711,11 @@ export interface LedgerMeta<TData extends RowData> {
     enabled: boolean;
     id: string | null;
     set: (id: string | null) => void;
+    /**
+     * Whether a row can be the current row, and so be activated: `enableActiveRow`'s predicate,
+     * or every row.
+     */
+    canActivate: (row: Row<TData>) => boolean;
   };
   /**
    * Header drag-reorder affordance (ledger-owned; TanStack has state but no switch).
