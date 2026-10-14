@@ -148,10 +148,14 @@
     text-align: end;
   }
 
+  /* A block box, sized to its content: an inline one sat on the cell's text baseline, which
+     pushed the header row two pixels past a body row and dropped each label by however its own
+     baseline fell — a sort mark leading an end-aligned label lifted that one by a pixel. */
   .ledger-header-label {
-    display: inline-flex;
+    display: flex;
     gap: 6px;
     align-items: center;
+    width: fit-content;
     max-width: 100%;
     font: inherit;
     color: inherit;
