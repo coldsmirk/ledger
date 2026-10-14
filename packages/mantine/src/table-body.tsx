@@ -699,7 +699,10 @@ function SkeletonRows({
         >
           {Array.from({ length: columnCount }, (_, columnIndex) => (
             <MantineTable.Td key={columnIndex} data-leading={columnIndex === 0 || undefined} role="cell" {...getStyles("cell")}>
-              <Skeleton height={10} radius="sm" />
+              {/* One line tall, like the text the row will hold: a bare 10px bar made every
+                  skeleton row a line shorter than a data row, and the table jumped when the data
+                  arrived. */}
+              <Skeleton height={10} my="calc((1lh - 10px) / 2)" radius="sm" />
             </MantineTable.Td>
           ))}
         </MantineTable.Tr>
