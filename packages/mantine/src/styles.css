@@ -399,11 +399,16 @@
     background-color: var(--ledger-pinned-bg, var(--ledger-body-bg, var(--mantine-color-body)));
   }
 
-  /* Pinned-edge scroll shadows, visible only while content is actually scrolled past. */
+  /* Pinned-edge scroll shades: what a pinned block casts over the columns scrolling under it,
+     drawn only while content is actually scrolled past that edge. The edge is a hairline in the
+     border color — the plane the rows pass beneath — and the shade only its depth: narrow, and in
+     `--ledger-edge-shade`, the ink thinned to a breath on light and a dusk on dark, so the edge
+     reads as one plane over another and never as a bar beside it. */
   [data-pinned-edge]::after {
+    --ledger-pinned-shade: var(--ledger-edge-shade, light-dark(rgb(15 19 24 / 7%), rgb(0 0 0 / 36%)));
     position: absolute;
     inset-block: 0;
-    width: 8px;
+    width: 7px;
     pointer-events: none;
     content: "";
     opacity: 0;
@@ -411,24 +416,32 @@
 
   [data-pinned-edge="start"]::after {
     inset-inline-end: 0;
-    background: linear-gradient(to right, rgb(0 0 0 / 10%), transparent);
+    background-image: linear-gradient(to right, var(--ledger-pinned-shade), transparent);
+    border-inline-start: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
     translate: 100% 0;
   }
 
   [data-pinned-edge="end"]::after {
     inset-inline-start: 0;
-    background: linear-gradient(to left, rgb(0 0 0 / 10%), transparent);
+    background-image: linear-gradient(to left, var(--ledger-pinned-shade), transparent);
+    border-inline-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
     translate: -100% 0;
   }
 
   [dir="rtl"] [data-pinned-edge="start"]::after {
-    background: linear-gradient(to left, rgb(0 0 0 / 10%), transparent);
+    background-image: linear-gradient(to left, var(--ledger-pinned-shade), transparent);
     translate: -100% 0;
   }
 
   [dir="rtl"] [data-pinned-edge="end"]::after {
-    background: linear-gradient(to right, rgb(0 0 0 / 10%), transparent);
+    background-image: linear-gradient(to right, var(--ledger-pinned-shade), transparent);
     translate: 100% 0;
+  }
+
+  /* Column borders already draw an end-pinned block's edge: its own leading border, which stays
+     with it while the rows pass beneath. A second hairline beside it would double the line. */
+  .ledger-root[data-with-column-borders] [data-pinned-edge="end"]::after {
+    border-inline-end: 0;
   }
 
   .ledger-root[data-scrolled-start] [data-pinned-edge="start"]::after,

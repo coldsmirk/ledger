@@ -140,7 +140,8 @@ Style states by attribute selector (the Mantine convention). The inventory:
 | `--ledger-striped-color`, `--ledger-hover-color` | `stripedColor` / `highlightOnHoverColor` props (or your `vars`) | Tint overrides; default to `--mantine-color-default-hover` |
 | `--ledger-header-bg` | you, in CSS (see below) | Header cell background; defaults to `--mantine-color-body`. Opaque by contract, not by decoration — a pinned header cell has to occlude the cells scrolling under it |
 | `--ledger-body-bg` | you, in CSS | The surface the table sits on, painted only where something must be opaque: pinned cells and pinned rows (so content scrolls beneath them), footer cells, the row-drag ghost, and the scrim of the error panel over stale rows. Defaults to `--mantine-color-body`; set it when the table sits on another surface — a card, a drawer, a `Paper` — so a pinned column does not show as a band of the page color. The header defaults to it too |
-| `--ledger-border-color` | `borderColor` prop (or your `vars`) | Every ledger-painted line: the `withTableBorder` frame, row/column borders, and the seam overlays; defaults to `--mantine-color-default-border` |
+| `--ledger-border-color` | `borderColor` prop (or your `vars`) | Every ledger-painted line: the `withTableBorder` frame, row/column borders, the seam overlays, and a pinned block's edge; defaults to `--mantine-color-default-border` |
+| `--ledger-edge-shade` | you, in CSS | The shade a pinned block casts over the columns scrolling beneath it ([pinning.md](pinning.md)), fading to nothing across six pixels beside its edge; defaults to the ink at 7% on the light scheme and black at 36% on the dark (`light-dark()`, on the `color-scheme` Mantine sets) |
 | `--ledger-radius` | `radius` prop (or your `vars`) | The table box's corner radius, on the root and on the `main` frame (which clips to it); defaults to `0` |
 | `--ledger-font-size` | `size` prop (or your `vars`) | The table's type, set on the root so every table under it inherits it ([Size](#size)) |
 | `--ledger-color-dimmed` | the root, the pagination bar, and the columns panel (override it there) | Secondary text: the state panels' titles, the pagination words, group counts, the loading-more row, the columns panel's captions. `--mantine-color-text` at 78% opacity, so it blends with whatever it sits on instead of being one fixed gray: a fixed tone cannot hold WCAG AA's 4.5:1 on every background a row takes (Mantine's `dimmed` is 3.3:1 on a light body), while blended text keeps a share of the text color's own contrast on each (at least 4.8:1 on the neutral backgrounds, stripes and hover included, in both schemes). On a selected or active row it is the text color itself: the primary tint leaves no room for a second tier, since even the text color reaches only 5.8:1 on its deepest dark step |
@@ -229,7 +230,7 @@ Those rendered outside the table's tree sit outside its Styles API and carry sta
 
 - Everything ships inside `@layer ledger`; cross-library layer order is the application's call (declare `@layer mantine, ledger;` first if you need to arbitrate).
 - Colors and metrics are Mantine variables only → dark mode is automatic.
-- Offsets and gradients use logical properties with explicit `[dir="rtl"]` mirrors for the pinned-edge shadows → RTL is automatic.
+- Offsets and gradients use logical properties with explicit `[dir="rtl"]` mirrors for the pinned-edge shades → RTL is automatic.
 - Chevron rotations and columns-panel reveals respect `prefers-reduced-motion: reduce`; on devices
   without hover, columns-panel controls stay inline and clickable instead of relying on a reveal.
 
