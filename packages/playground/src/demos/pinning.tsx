@@ -115,7 +115,7 @@ export function PinningDemo() {
           {t.hint}
         </Text>
 
-        <Button size="xs" variant="default" onClick={drawer.open}>
+        <Button flex="none" size="xs" variant="default" onClick={drawer.open}>
           {t.barePanel}
         </Button>
       </Group>
