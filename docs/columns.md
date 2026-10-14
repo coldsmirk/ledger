@@ -54,7 +54,7 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 | Key | Type | Effect |
 | --- | --- | --- |
 | `label` | `string` | Plain-text column name for every surface that cannot render the `header` — the columns panel, CSV headers, filter and editor field names. Wins over a string `header`; without either, those surfaces fall back to the column id, so a column whose `header` is a render function should declare one |
-| `align` | `"start" \| "center" \| "end"` | Logical text alignment for header, cells, and footer — RTL-correct by construction |
+| `align` | `"start" \| "center" \| "end"` | Logical text alignment for header, cells, and footer — RTL-correct by construction. An `end` header leads with its sort mark and opens its filter from the leading edge, so its text lines up with the values under it |
 | `truncate` | `boolean` | Single-line ellipsis, plus a `title` tooltip **when the text is actually clipped** (host vocabulary: `Text.truncate`) |
 | `filter` | variant \| config \| render function | Header filter UI — see [filtering.md](filtering.md) |
 | `edit` | renderer \| config \| instant config | Inline cell editing — the renderer is the application's; see [editing.md](editing.md) |

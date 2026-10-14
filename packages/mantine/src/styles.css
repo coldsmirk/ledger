@@ -175,8 +175,12 @@
     width: 100%;
   }
 
+  /* An end-aligned label leads with its sort mark, so the text ends where the column's values
+     end: the mark keeps its room while hidden, and on the trailing side it held every header of
+     a numeric column a glyph short of the figures under it. */
   .ledger-header-label[data-align="end"] {
-    justify-content: flex-end;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
     width: 100%;
   }
 
@@ -243,6 +247,13 @@
      hit the invisible resizer, and the button crowds within 1px of the drag line. */
   .ledger-header-cell:has(.ledger-resizer) .ledger-header-actions {
     inset-inline-end: 12px;
+  }
+
+  /* An end-aligned label fills the trailing edge, so its actions overlay the leading one — on
+     the trailing edge they covered the label itself. */
+  .ledger-header-cell[data-align="end"] .ledger-header-actions {
+    inset-inline: 4px auto;
+    padding-inline: 0 4px;
   }
 
   /* Resize handle on the trailing edge; the visible line appears on hover or while dragging. */
