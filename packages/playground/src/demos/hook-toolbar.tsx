@@ -30,7 +30,7 @@ export function HookToolbarDemo() {
     <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
       <Group justify="space-between">
         {/* No `labels` here: every compound component has its own theme key, and the app sets
-            them all in one place (src/main.tsx). */}
+            them all in one place (src/themed.tsx). */}
         <DataTable.Search table={table} w={260} />
 
         {/* children IS the trigger — the panel never assumes what opens it. */}
