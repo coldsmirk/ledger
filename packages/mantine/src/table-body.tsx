@@ -15,7 +15,7 @@ import type { ColumnWindowView } from "./use-column-window";
  */
 import { ActionIcon, Button, Loader, Table as MantineTable, Skeleton } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { measureElement, useVirtualizer } from "@tanstack/react-virtual";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useReducer } from "react";
 
 import { columnHeaderText, EXPANDER_COLUMN_ID, isInternalColumn, ROW_DRAG_COLUMN_ID, SELECTION_COLUMN_ID } from "./build-columns";
@@ -35,6 +35,17 @@ import { useEventCallback } from "./utils";
 const TREE_INDENT_PX = 20;
 const DEFAULT_ESTIMATED_ROW_HEIGHT = SIZES.sm.rowHeight;
 const DEFAULT_OVERSCAN = 8;
+
+/**
+ * A row's height as layout has it, fractions included. TanStack Virtual rounds every measurement
+ * to the pixel, and a row is seldom a whole number of pixels tall (Mantine's line height is 1.55):
+ * each measured row then counted up to half a pixel wrong, the virtualizer's idea of where a row
+ * starts drifted from the DOM by that much per row, and `scrollToRow` landed its row a few pixels
+ * under the header. The resize entry's border box is exact. Without an entry (a row mounting) the
+ * default answers from its cache or the element, and the entry that follows corrects it.
+ */
+const measureRow: typeof measureElement = (element, entry, instance) => entry?.borderBoxSize[0]?.blockSize
+  ?? measureElement(element, entry, instance);
 
 export interface VirtualizationConfig {
   estimateHeight: number;
@@ -896,6 +907,7 @@ export function TableBody({
     estimateSize,
     getItemKey,
     getScrollElement: () => viewportRef.current,
+    measureElement: measureRow,
     overscan: virtualization?.overscan ?? DEFAULT_OVERSCAN,
     // The upstream React 19 compatibility setting: with it on, a row measured as its ref
     // attaches (a scrollToIndex landing in unmeasured territory) has the virtualizer calling
