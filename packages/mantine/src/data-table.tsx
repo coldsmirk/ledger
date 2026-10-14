@@ -855,6 +855,10 @@ function DataTableCore<TData extends RowData>({
       }
     }
 
+    // Where the scrolling columns begin: what sticks to the start of the scrolling region (a
+    // group header's label) sticks here, clear of the pinned block.
+    varsMap["--ledger-pinned-start-width"] = `${leftOffset}px`;
+
     let rightOffset = 0;
 
     for (let index = visibleLeafColumns.length - 1; index >= 0; index -= 1) {

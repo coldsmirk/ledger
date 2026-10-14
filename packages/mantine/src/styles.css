@@ -171,6 +171,7 @@
      author rules always beat UA button styles, whereas Mantine's UnstyledButton carries an
      unlayered font-size that would defeat the layered `font: inherit` above (the unlayered-host
      rule, docs/styling.md). */
+
   .ledger-header-label[type="button"] {
     padding: 0;
     appearance: none;
@@ -205,6 +206,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* A group header's label stays in view while its columns scroll beneath it: it sticks just past
+     the start-pinned block for as long as the group reaches that far, as a spreadsheet's merged
+     heading does. Scrolled off with the group's first column, a month over a year of daily
+     columns left a blank band over every other day of it. */
+  .ledger-header-cell:not([colspan="1"], [data-pinned]) > .ledger-header-label {
+    position: sticky;
+    inset-inline-start: calc(var(--ledger-pinned-start-width, 0px) + var(--table-horizontal-spacing, 0px));
   }
 
   /* Sort affordance: invisible until hover on unsorted columns, always visible once sorted. */

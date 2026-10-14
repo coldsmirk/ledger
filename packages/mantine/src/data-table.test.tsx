@@ -1162,6 +1162,20 @@ describe("DataTable", () => {
     expect(member?.dataset.editable).toBe("true");
   });
 
+  it("tells the stylesheet where the scrolling columns begin", () => {
+    const { container } = render(
+      <DataTable columns={columns} data={people} defaultColumnPinning={{ start: ["name"], end: [] }} getRowId={getRowId} />,
+      { wrapper }
+    );
+    const root = container.querySelector<HTMLElement>(".ledger-root");
+
+    // A group header's label sticks just past the start-pinned block (docs/styling.md).
+    expect(root?.style.getPropertyValue("--ledger-pinned-start-width")).not.toBe("");
+    expect(root?.style.getPropertyValue("--ledger-pinned-start-width")).toBe(
+      root?.style.getPropertyValue("--ledger-col-width-name")
+    );
+  });
+
   it("skips the footer levels a grouped header mirrors but nothing fills", () => {
     // getFooterGroups() mirrors every header level. With totals only on the leaves the group
     // level came out as an empty row that still drew row and column borders under the totals.
