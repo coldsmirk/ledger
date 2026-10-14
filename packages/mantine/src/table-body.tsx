@@ -267,17 +267,23 @@ function DataCell({
   const { meta } = column.columnDef;
 
   const grouped = cell.getIsGrouped();
+  // A group row is not a data row: it holds its grouping cell and the aggregates of the columns
+  // that have one. Every other data cell in it is empty — the column's leaf renderer would draw a
+  // value the group does not have (an empty badge, a "NaN") — and none is editable (edit-meta.ts).
+  const groupRow = row.getIsGrouped();
   // getIsAggregated() is true for ANY row with subRows — a grouping concept that leaks into
   // trees (getSubRows) and would swallow the expander button and the author's cell renderer
   // on every parent row. Aggregated rendering only exists on real grouping rows.
-  const aggregated = cell.getIsAggregated() && row.getIsGrouped();
-  const placeholder = cell.getIsPlaceholder();
+  const aggregated = cell.getIsAggregated() && groupRow;
+  // Nothing to show: TanStack's placeholder (a grouped column's cell in a row of its group), or a
+  // group row's data cell with no aggregate.
+  const empty = cell.getIsPlaceholder() || (groupRow && !grouped && !aggregated && !isInternalColumn(column.id));
   // The gate, asked in the render that has to answer it. Ending a session whose eligibility is
   // gone is a side effect, so reconciliation runs after the paint — but whether an editor is on
   // the screen is this render's own question, and this render already knows the gate is shut. Ask
   // it later and the commit that shuts the gate still paints a live editor for one frame, which
   // is a frame the user can type into.
-  const gateOpen = !grouped && !aggregated && !placeholder && canEditCell(cell, row);
+  const gateOpen = !empty && canEditCell(cell, row);
   const editable = !editing && gateOpen;
   // `editing` / `rowEditing` are the other half: they already mean a live *session*, not merely a
   // slice that names this target — a gate that shut ends the session even when a controlled
@@ -293,8 +299,10 @@ function DataCell({
   if (grouped) {
     content = <GroupCell cell={cell} />;
   } else if (aggregated) {
-    content = flexRender(column.columnDef.aggregatedCell ?? column.columnDef.cell, cell.getContext());
-  } else if (placeholder) {
+    // Never undefined: TanStack's aggregation feature defaults every column's `aggregatedCell` to
+    // the aggregate as text.
+    content = flexRender(column.columnDef.aggregatedCell, cell.getContext());
+  } else if (empty) {
     content = null;
   } else if (cellEditorActive) {
     content = <CellEditor cell={cell} />;

@@ -1093,6 +1093,75 @@ describe("DataTable", () => {
     expect(container.querySelector(":scope .ledger-detail-panel")?.hasAttribute("data-leading")).toBe(true);
   });
 
+  it("shows a group row's grouping cell and aggregates only, and edits none of it", () => {
+    interface Member { id: string; team: string; name: string; age: number }
+
+    const members: Member[] = [
+      {
+        id: "m1",
+        team: "Red",
+        name: "Ann",
+        age: 30
+      },
+      {
+        id: "m2",
+        team: "Red",
+        name: "Ben",
+        age: 40
+      },
+      {
+        id: "m3",
+        team: "Blue",
+        name: "Cy",
+        age: 25
+      }
+    ];
+    const memberColumns: Array<ColumnDef<Member, any>> = [
+      { accessorKey: "team", header: "Team" },
+      {
+        accessorKey: "name",
+        header: "Name",
+        cell: context => <span data-leaf-name>{String(context.getValue())}</span>,
+        meta: { edit: textEditor() }
+      },
+      {
+        accessorKey: "age",
+        header: "Age",
+        aggregationFn: "sum"
+      }
+    ];
+
+    const { container } = render(
+      <DataTable
+        defaultExpanded
+        enableGrouping
+        columns={memberColumns}
+        data={members}
+        defaultGrouping={["team"]}
+        getRowId={member => member.id}
+        onEditCommit={vi.fn()}
+      />,
+      { wrapper }
+    );
+
+    const groupRow = [...container.querySelectorAll(":scope .ledger-tbody .ledger-row")]
+      .find(row => row.querySelector(":scope [data-group-cell]")?.textContent?.includes("Red"));
+    const nameCell = groupRow?.querySelector<HTMLElement>(":scope td[data-ledger-column-id=\"name\"]");
+
+    // Regression: a column with no aggregate fell through to its leaf renderer over the group's
+    // `undefined`, and its cell in the group row was editable — over a row whose `original` is
+    // merely its first member.
+    expect(nameCell?.querySelector(":scope [data-leaf-name]")).toBeNull();
+    expect(nameCell?.dataset.editable).toBeUndefined();
+    expect(groupRow?.querySelector(":scope td[data-ledger-column-id=\"age\"]")?.textContent).toBe("70");
+
+    // The members themselves still render and edit as data rows.
+    const member = container.querySelector<HTMLElement>(":scope [data-row-id=\"m1\"] td[data-ledger-column-id=\"name\"]");
+
+    expect(member?.querySelector(":scope [data-leaf-name]")?.textContent).toBe("Ann");
+    expect(member?.dataset.editable).toBe("true");
+  });
+
   it("skips the footer levels a grouped header mirrors but nothing fills", () => {
     // getFooterGroups() mirrors every header level. With totals only on the leaves the group
     // level came out as an empty row that still drew row and column borders under the totals.

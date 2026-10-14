@@ -99,7 +99,9 @@ export function canEditWith(
     return false;
   }
 
-  if (!edit) {
+  // A group row stands for its rows and holds no value of its own: its `original` is one of them,
+  // so an edit there would land on whichever row happened to come first.
+  if (!edit || row.getIsGrouped()) {
     return false;
   }
 

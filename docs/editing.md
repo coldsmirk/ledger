@@ -30,6 +30,7 @@ const columns = [
 - `editMode`: `"cell"` (default) edits one cell at a time; `"row"` opens every editable cell of a row at once and commits atomically — see [Row mode](#row-mode).
 - Editable cells carry `data-editable` for styling hooks; ledger draws no hover affordance of its own.
 - A per-row gate refines eligibility: `meta.edit = { render, enabled: row => … }`.
+- A group row is never editable, whatever the gates say: it stands for its rows and holds no value of its own ([grouping.md](grouping.md)).
 
 ## Editors
 
