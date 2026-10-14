@@ -72,6 +72,8 @@ The context is `DataTableEditContext`:
 | `label` | The localized accessible name (`labels.editColumn` over the column title) — one of many identical controls in the grid, told apart by the column it edits |
 | `size` | The Mantine size the cell's controls are drawn at — the table's `size` a step down ([styling.md](styling.md#size)) — so the editor fits the row it opens in |
 
+The host lays the editor out in a flex line that follows the column's `align`: a control that keeps its own size sits where the column's values do, and a Mantine input's text takes the same alignment (through `--input-text-align`, the variable Mantine's input reads). A field that should fill the cell says so with `flex={1}`, as the shipped ones do.
+
 ### The shipped editors
 
 Each is implemented purely on the public context above — proof the context suffices, and the reference for writing your own. All render default-variant Mantine inputs filling the cell (the border marks the cell as an open editor) and honor `autoFocus`, `pending`, `error`, `label`, and `size`.

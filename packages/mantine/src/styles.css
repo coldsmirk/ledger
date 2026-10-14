@@ -542,6 +542,19 @@
     width: 100%;
   }
 
+  /* The editor follows the column's alignment: a control that does not fill the cell sits where
+     the column's values do, and a Mantine input's text aligns the same way, through the variable
+     its (possibly unlayered) rule reads — a number no longer jumps to the start as it opens. */
+  .ledger-cell[data-align="center"] .ledger-cell-editor {
+    --input-text-align: center;
+    justify-content: center;
+  }
+
+  .ledger-cell[data-align="end"] .ledger-cell-editor {
+    --input-text-align: end;
+    justify-content: flex-end;
+  }
+
   .ledger-cell-editor[data-pending] {
     opacity: 0.7;
   }

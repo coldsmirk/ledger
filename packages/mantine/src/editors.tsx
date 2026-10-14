@@ -7,7 +7,8 @@ import type { DataTableEditRenderer, DataTableInstantEditRenderer } from "./type
  * renderer over the public editing contexts (docs/editing.md#editors), which is the proof the
  * contexts suffice: anything these do, an application's own renderer can do the same way.
  * All are default-variant Mantine inputs at the context's `size` — the border marks the cell as an
- * open editor, and the size keeps it inside the row.
+ * open editor, and the size keeps it inside the row. The fields fill the cell (`flex={1}` in the
+ * host's flex line); the checkbox keeps its own size, placed by the column's alignment.
  */
 import { Checkbox, NumberInput, Select, TextInput } from "@mantine/core";
 
@@ -25,6 +26,7 @@ const renderTextEditor: DataTableEditRenderer<any, any> = ({
     autoFocus={autoFocus}
     disabled={pending}
     error={error}
+    flex={1}
     size={size}
     value={value === null || value === undefined ? "" : String(value)}
     onChange={event => setValue(event.currentTarget.value)}
@@ -53,6 +55,7 @@ const renderNumberEditor: DataTableEditRenderer<any, any> = ({
     autoFocus={autoFocus}
     disabled={pending}
     error={error}
+    flex={1}
     size={size}
     value={typeof value === "number" || typeof value === "string" ? value : ""}
     onChange={next => setValue(next === "" ? null : next)}
@@ -91,6 +94,7 @@ export function selectEditor(options: ComboboxData): DataTableEditRenderer<any, 
       defaultDropdownOpened={mode === "cell"}
       disabled={pending}
       error={error}
+      flex={1}
       size={size}
       value={value === null || value === undefined ? null : String(value)}
       onChange={next => {
