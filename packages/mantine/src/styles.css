@@ -403,15 +403,22 @@
      drawn only while content is actually scrolled past that edge. The edge is a hairline in the
      border color — the plane the rows pass beneath — and the shade only its depth: narrow, and in
      `--ledger-edge-shade`, the ink thinned to a breath on light and a dusk on dark, so the edge
-     reads as one plane over another and never as a bar beside it. */
+     reads as one plane over another and never as a bar beside it. The dark tone follows Mantine's
+     scheme attribute, never `light-dark()`: a consumer's bundler lowers that for older targets
+     into variables it defines only beside a literal `color-scheme`, which Mantine sets through a
+     variable — lowered, the shade would be no color at all. */
   [data-pinned-edge]::after {
-    --ledger-pinned-shade: var(--ledger-edge-shade, light-dark(rgb(15 19 24 / 7%), rgb(0 0 0 / 36%)));
+    --ledger-pinned-shade: var(--ledger-edge-shade, rgb(15 19 24 / 7%));
     position: absolute;
     inset-block: 0;
     width: 7px;
     pointer-events: none;
     content: "";
     opacity: 0;
+  }
+
+  :where([data-mantine-color-scheme="dark"]) [data-pinned-edge]::after {
+    --ledger-pinned-shade: var(--ledger-edge-shade, rgb(0 0 0 / 36%));
   }
 
   [data-pinned-edge="start"]::after {
