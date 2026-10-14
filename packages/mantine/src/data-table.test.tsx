@@ -1036,6 +1036,42 @@ describe("DataTable", () => {
     expect(selectAll?.closest<HTMLElement>(".ledger-header-label")?.dataset.align).toBe("center");
   });
 
+  it("starts every synthetic row with a leading cell, so column borders draw no edge before it", () => {
+    // Regression: a column border is drawn before every cell but the leading one, and the
+    // synthetic rows never marked theirs — under `withColumnBorders` each skeleton, detail,
+    // loader and load-more error row drew a line on the table's leading edge, doubling a frame.
+    const loading = render(<DataTable loading withColumnBorders columns={columns} data={[]} getRowId={getRowId} />, { wrapper });
+    const skeleton = loading.container.querySelector(":scope .ledger-tbody tr");
+
+    expect(skeleton?.querySelector(":scope > td:first-child")?.hasAttribute("data-leading")).toBe(true);
+    expect(skeleton?.querySelector(":scope > td:last-child")?.hasAttribute("data-leading")).toBe(false);
+    loading.unmount();
+
+    const loadingMore = render(<DataTable loadingMore withColumnBorders columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+
+    expect(loadingMore.container.querySelector(":scope .ledger-loader-row > td")?.hasAttribute("data-leading")).toBe(true);
+    loadingMore.unmount();
+
+    const failed = render(<DataTable loadMoreError withColumnBorders columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+
+    expect(failed.container.querySelector(":scope .ledger-loader-row > td")?.hasAttribute("data-leading")).toBe(true);
+    failed.unmount();
+
+    const { container } = render(
+      <DataTable
+        withColumnBorders
+        columns={columns}
+        data={people}
+        defaultExpanded={{ 1: true }}
+        getRowId={getRowId}
+        renderDetailPanel={row => row.original.name}
+      />,
+      { wrapper }
+    );
+
+    expect(container.querySelector(":scope .ledger-detail-panel")?.hasAttribute("data-leading")).toBe(true);
+  });
+
   it("skips the footer levels a grouped header mirrors but nothing fills", () => {
     // getFooterGroups() mirrors every header level. With totals only on the leaves the group
     // level came out as an empty row that still drew row and column borders under the totals.

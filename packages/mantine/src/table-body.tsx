@@ -664,7 +664,8 @@ function DetailRow({
       role="row"
       {...getStyles("row", { style: pinnedStyle })}
     >
-      <MantineTable.Td colSpan={colSpan} role="cell" {...getStyles("detailPanel")}>
+      {/* Every full-width cell starts the row, so it draws no column border (`data-leading`). */}
+      <MantineTable.Td data-leading colSpan={colSpan} role="cell" {...getStyles("detailPanel")}>
         {renderDetailPanel?.(row)}
       </MantineTable.Td>
     </MantineTable.Tr>
@@ -697,7 +698,7 @@ function SkeletonRows({
           {...getStyles("row")}
         >
           {Array.from({ length: columnCount }, (_, columnIndex) => (
-            <MantineTable.Td key={columnIndex} role="cell" {...getStyles("cell")}>
+            <MantineTable.Td key={columnIndex} data-leading={columnIndex === 0 || undefined} role="cell" {...getStyles("cell")}>
               <Skeleton height={10} radius="sm" />
             </MantineTable.Td>
           ))}
@@ -712,7 +713,7 @@ function LoaderRow({ colSpan, ariaRowIndex }: { colSpan: number; ariaRowIndex?: 
 
   return (
     <MantineTable.Tr aria-rowindex={ariaRowIndex} role="row" {...getStyles("loaderRow")}>
-      <MantineTable.Td colSpan={colSpan} role="cell">
+      <MantineTable.Td data-leading colSpan={colSpan} role="cell">
         <div {...getStyles("loaderRowContent")}>
           {/* dots, not the oval arc: the arc's ink orbits its box, so at rest sizes it reads as
               misaligned against the text in any single frame; the dots' mass never moves. */}
@@ -745,7 +746,7 @@ function LoadMoreErrorRow({
     <MantineTable.Tr data-error aria-rowindex={ariaRowIndex} role="row" {...getStyles("loaderRow")}>
       {/* The alert lives on the message, never on the cell: `role="alert"` would replace
           `role="cell"` and leave the row with no cell in the accessibility tree. */}
-      <MantineTable.Td colSpan={colSpan} role="cell">
+      <MantineTable.Td data-leading colSpan={colSpan} role="cell">
         <div {...getStyles("loaderRowContent")}>
           <span role="alert">{message === true ? labels.loadMoreError : message}</span>
 
