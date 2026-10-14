@@ -1468,13 +1468,16 @@ function DataTableCore<TData extends RowData>({
   };
   // Exact table width (the engine's total) — the browser never redistributes column widths;
   // `border-collapse: separate` is inline because the host's unlayered `collapse` would win,
-  // and collapse drops borders on stuck sticky cells (docs/styling.md).
+  // and collapse drops borders on stuck sticky cells (docs/styling.md). So is the type: Mantine's
+  // `Table` sets its own font size, which unlayered beats the size the root hands down
+  // (docs/styling.md#size), and the root's is the one every table has to inherit.
   const tableStyleProps = () => getStyles("table", {
     style: {
       width: columnWidths.total > 0 ? columnWidths.total : undefined,
       minWidth: toPx(tableMinWidth),
       borderCollapse: "separate" as const,
-      borderSpacing: 0
+      borderSpacing: 0,
+      fontSize: "inherit"
     }
   });
 

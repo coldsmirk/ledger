@@ -1011,6 +1011,29 @@ describe("DataTable", () => {
     const footerCell = container.querySelector(":scope .ledger-footer .ledger-footer-cell");
     expect(footerCell?.textContent).toBe("Total");
     expect(footerCell?.getAttribute("role")).toBe("cell");
+    // Regression: a `<th>` takes Mantine's unlayered `text-align: start`, which beat the column's
+    // alignment on every total of an end-aligned column. Totals are data, and so are their cells.
+    expect(footerCell?.tagName).toBe("TD");
+  });
+
+  it("keeps the type and alignment ledger sets out of reach of an unlayered Mantine stylesheet", () => {
+    const { container } = render(
+      <DataTable enableRowSelection columns={columns} data={people} getRowId={getRowId} size="xl" />,
+      { wrapper }
+    );
+
+    // Mantine's `Table` sets its own font size; unlayered it beat the size the root hands down,
+    // and every `size` drew the same 14px type.
+    for (const table of container.querySelectorAll<HTMLElement>(".ledger-table")) {
+      expect(table.style.fontSize).toBe("inherit");
+    }
+
+    // An injected header's control is centered by the label box, not by the cell's text
+    // alignment, which unlayered Mantine pins to `start`.
+    const selectAll = container.querySelector(
+      ":scope .ledger-header th[data-ledger-column-id=\"ledger:select\"] input"
+    );
+    expect(selectAll?.closest<HTMLElement>(".ledger-header-label")?.dataset.align).toBe("center");
   });
 
   it("skips the footer levels a grouped header mirrors but nothing fills", () => {

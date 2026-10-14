@@ -688,6 +688,9 @@ export function RowDragCell<TData extends RowData>({ row, table }: { row: Row<TD
         aria-pressed={lifted || undefined}
         color="gray"
         size={SIZES[size].control}
+        // Inline: Mantine's button ships an unlayered `cursor: pointer`, which beats any cursor
+        // the stylesheet's layer could give the handle (docs/styling.md).
+        style={{ cursor: orderable ? "grab" : "default" }}
         variant="subtle"
         onBlur={() => {
           // A keyboard lift is bound to the handle that owns the keys — focus leaving it would

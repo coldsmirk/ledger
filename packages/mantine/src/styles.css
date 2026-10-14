@@ -135,13 +135,14 @@
     z-index: 2;
   }
 
-  .ledger-header-cell[data-align="center"],
+  /* Body and footer cells are `<td>`s, which Mantine leaves aligned by inheritance. A header
+     cell's own alignment is Mantine's, unlayered (`text-align: start`), so header content aligns
+     through the label box instead (`.ledger-header-label[data-align]`). */
   .ledger-cell[data-align="center"],
   .ledger-footer-cell[data-align="center"] {
     text-align: center;
   }
 
-  .ledger-header-cell[data-align="end"],
   .ledger-cell[data-align="end"],
   .ledger-footer-cell[data-align="end"] {
     text-align: end;
@@ -463,23 +464,22 @@
     text-align: center;
   }
 
-  /* The reorder handle: grab affordance while live, quiet dim while something else controls
-     the order (the tooltip says what — labels.rowOrderingUnavailable). */
+  /* The reorder handle: quiet dim while something else controls the order (the tooltip says
+     what — labels.rowOrderingUnavailable). Its cursor is set inline, since Mantine's button
+     carries an unlayered one. */
   .ledger-row-drag-cell button {
     vertical-align: middle;
-    cursor: grab;
   }
 
   .ledger-row-drag-cell button[aria-disabled] {
-    cursor: default;
     opacity: 0.4;
   }
 
   /* An icon-only ActionIcon is an inline-flex box whose baseline is its bottom edge, so the
      default `vertical-align: baseline` rides it a few pixels high of the middle-aligned cell's
-     center — the row chevron and the tree header's expand-all both need pinning to the middle. */
-  .ledger-expander-cell button,
-  .ledger-header-cell[data-ledger-column-id="ledger:expander"] button {
+     center — the row chevron needs pinning to the middle. (The tree header's expand-all sits in
+     the label box, a flex line that centers it already.) */
+  .ledger-expander-cell button {
     vertical-align: middle;
   }
 
@@ -509,13 +509,15 @@
     color: var(--ledger-color-dimmed);
   }
 
+  /* Cell padding is Mantine's, set unlayered from the spacing variables its table carries — so
+     a cell's padding changes through those variables, never through its padding property. */
   .ledger-cell[data-editing] {
-    padding-block: 2px;
+    --table-vertical-spacing: 2px;
   }
 
   /* An `xs` row is as tall as the smallest input Mantine draws: the editor takes the whole of it. */
   .ledger-root[data-size="xs"] .ledger-cell[data-editing] {
-    padding-block: 0;
+    --table-vertical-spacing: 0px;
   }
 
   .ledger-cell-editor {
@@ -592,7 +594,8 @@
    * Detail panels, footer, states, chrome
    * ------------------------------------------------------------------------------------------ */
   .ledger-detail-panel {
-    padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+    --table-vertical-spacing: var(--mantine-spacing-sm);
+    --table-horizontal-spacing: var(--mantine-spacing-md);
   }
 
   .ledger-footer-cell {
@@ -631,9 +634,8 @@
   }
 
   .ledger-loader-row td {
-    padding-block: var(--mantine-spacing-sm);
+    --table-vertical-spacing: var(--mantine-spacing-sm);
     color: var(--ledger-color-dimmed);
-    border-bottom: 0;
   }
 
   /* The cell holds a centred pair — spinner + text, or message + retry — so it is laid out as
@@ -769,9 +771,9 @@
     opacity: 0.4;
   }
 
-  /* A translucent grip is enough of a "this list reorders" hint; the hovered row sharpens it. */
+  /* A translucent grip is enough of a "this list reorders" hint; the hovered row sharpens it.
+     Its cursor is set inline, since Mantine's button carries an unlayered one. */
   .ledger-columns-panel-handle {
-    cursor: grab;
     opacity: 0.3;
     transition: opacity 120ms ease;
   }
@@ -779,10 +781,6 @@
   .ledger-columns-panel-item:hover .ledger-columns-panel-handle,
   .ledger-columns-panel-item:focus-within .ledger-columns-panel-handle {
     opacity: 1;
-  }
-
-  .ledger-columns-panel-item[data-dragging] .ledger-columns-panel-handle {
-    cursor: grabbing;
   }
 
   /* The checkbox's label wrapper. Mantine already clears min-width on the body between them, so
@@ -856,10 +854,11 @@
     opacity: 1;
   }
 
-  /* Widths are numbers the table's own cells would show right-aligned and tabular. */
+  /* Widths are numbers the table's own cells would show right-aligned and tabular. The
+     alignment rides the variable Mantine's input reads, since its rule may be unlayered. */
   .ledger-columns-panel-width-input {
+    --input-text-align: end;
     font-variant-numeric: tabular-nums;
-    text-align: end;
   }
 
   /* ------------------------------------------------------------------------------------------
@@ -886,8 +885,8 @@
      Body rows do not: `spanRows` drops the cells a merged run covers, which promotes whatever
      renders next to `:first-child` and would strip the border off a mid-table column. The cell
      carries `data-leading` for its real (pinning-aware) display position instead. */
-  .ledger-root[data-with-column-borders] .ledger-table th:not(:first-child),
-  .ledger-root[data-with-column-borders] .ledger-table td:not([data-leading]) {
+  .ledger-root[data-with-column-borders] :is(.ledger-thead, .ledger-tfoot) > tr > :not(:first-child),
+  .ledger-root[data-with-column-borders] .ledger-tbody > tr > td:not([data-leading]) {
     border-inline-start: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 

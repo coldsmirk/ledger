@@ -54,7 +54,7 @@ A footer always separates from the body with the same seam above it while row bo
 | `table` | `.ledger-table` | Every `<table>` element (header, body, and footer tables) |
 | `thead` / `tbody` / `tfoot` | `.ledger-thead` … | Table sections |
 | `headerRow` / `headerCell` | `.ledger-header-row` / `.ledger-header-cell` | Header rows and `<th>`s |
-| `headerLabel` | `.ledger-header-label` | The (sortable) label button |
+| `headerLabel` | `.ledger-header-label` | The label box that aligns a header's content: the sort button, a static label, or an injected column's control |
 | `headerActions` | `.ledger-header-actions` | The hover-revealed action cluster |
 | `sortIndicator` | `.ledger-sort-indicator` | Chevron + multi-sort badge |
 | `resizer` | `.ledger-resizer` | The resize handle |
@@ -65,7 +65,7 @@ A footer always separates from the body with the same seam above it while row bo
 | `cellEditor` | `.ledger-cell-editor` | Inline editor host |
 | `instantCell` / `instantSpinner` | `.ledger-instant-cell` / `.ledger-instant-spinner` | Instant-column host, and its out-of-flow pending loader |
 | `rowDragCell` / `rowDragOverlay` | `.ledger-row-drag-cell` / `.ledger-row-drag-overlay` | Row-ordering handle cell, and the pointer ghost (a snapshot of the whole lifted row) |
-| `footerRow` / `footerCell` | `.ledger-footer-row` / `.ledger-footer-cell` | Totals row |
+| `footerRow` / `footerCell` | `.ledger-footer-row` / `.ledger-footer-cell` | Totals row and its `<td>`s |
 | `empty` | `.ledger-empty` | Empty-state block |
 | `loaderRow` / `loaderRowContent` | `.ledger-loader-row` / `.ledger-loader-row-content` | Infinite-loading trailing row, and the centred flex line inside its cell |
 | `paginationBar` | `.ledger-pagination-bar` | The built-in bar (and the standalone compound) |
@@ -229,6 +229,7 @@ Those rendered outside the table's tree sit outside its Styles API and carry sta
 ## Layering, dark mode, RTL, motion
 
 - Everything ships inside `@layer ledger`; cross-library layer order is the application's call (declare `@layer mantine, ledger;` first if you need to arbitrate).
+- The table looks the same whether Mantine's stylesheet is layered (`styles.layer.css`) or not (`styles.css`, the default). Unlayered, Mantine's rules beat anything in a layer, so ledger never sets a property Mantine sets on the same element: it writes the variable Mantine's rule reads (a cell's padding through `--table-vertical-spacing` / `--table-horizontal-spacing`, an input's text alignment through `--input-text-align`), aligns header content in its own label box, and sets the rest inline (the tables' type and border model, the drag handles' cursor).
 - Colors and metrics are Mantine variables only → dark mode is automatic.
 - Offsets and gradients use logical properties with explicit `[dir="rtl"]` mirrors for the pinned-edge shades → RTL is automatic.
 - Chevron rotations and columns-panel reveals respect `prefers-reduced-motion: reduce`; on devices

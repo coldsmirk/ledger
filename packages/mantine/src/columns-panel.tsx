@@ -409,6 +409,9 @@ function ColumnsPanelItem<TData extends RowData>({
             className="ledger-columns-panel-handle"
             color="gray"
             size="sm"
+            // Inline: Mantine's button ships an unlayered `cursor: pointer`, which beats any
+            // cursor the stylesheet's layer could give the grip (docs/styling.md).
+            style={{ cursor: isDragging ? "grabbing" : "grab" }}
             variant="subtle"
           >
             <icons.reorderColumn />

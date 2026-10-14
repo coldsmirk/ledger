@@ -60,7 +60,7 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 | `edit` | renderer \| config \| instant config | Inline cell editing — the renderer is the application's; see [editing.md](editing.md) |
 | `cellProps` | `TableTdProps \| (cell) => TableTdProps \| undefined` | DOM props for this column's `<td>`s — see [DOM props](styling.md#dom-props) |
 | `headerCellProps` | `TableThProps \| (header) => TableThProps \| undefined` | DOM props for this column's `<th>` |
-| `footerCellProps` | `TableThProps \| (footer) => TableThProps \| undefined` | DOM props for this column's footer cell |
+| `footerCellProps` | `TableTdProps \| (footer) => TableTdProps \| undefined` | DOM props for this column's footer `<td>` |
 | `export` | `false \| { header?, value? }` | Exclude from or reshape the CSV export ([api.md](api.md#tocsv)) |
 | `hiddenFrom` / `visibleFrom` | `MantineBreakpoint` | Breakpoint-driven presence — see [Responsive columns](#responsive-columns) |
 

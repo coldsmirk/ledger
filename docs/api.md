@@ -182,7 +182,7 @@ interface ColumnMeta<TData, TValue> {
        | DataTableInstantEditConfig<TData, TValue>;
   cellProps?: DataTableElementProps<TableTdProps, Cell<TData, TValue>>;
   headerCellProps?: DataTableElementProps<TableThProps, Header<TData, TValue>>;
-  footerCellProps?: DataTableElementProps<TableThProps, Header<TData, TValue>>;
+  footerCellProps?: DataTableElementProps<TableTdProps, Header<TData, TValue>>;
   export?: false | { header?: string; value?: (row: Row<TData>) => unknown };
   hiddenFrom?: MantineBreakpoint;   // removed at and above the breakpoint (Box vocabulary)
   visibleFrom?: MantineBreakpoint;  // present only at and above the breakpoint

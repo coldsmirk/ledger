@@ -788,7 +788,7 @@ declare module "@tanstack/react-table" {
     /**
      * DOM props for this column's footer cell — static, or per footer.
      */
-    footerCellProps?: DataTableElementProps<Omit<TableThProps, "ref">, Header<TData, TValue>>;
+    footerCellProps?: DataTableElementProps<Omit<TableTdProps, "ref">, Header<TData, TValue>>;
     /**
      * `toCsv` column control: `false` excludes the column; an object overrides the exported
      * header text or derives the exported value.

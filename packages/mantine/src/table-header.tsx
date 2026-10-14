@@ -218,9 +218,11 @@ function HeaderCell<TData extends RowData>({
       {header.isPlaceholder
         ? null
         : internal
-          // Injected headers (checkbox, expand-all) are controls, not text — the label
-          // scaffolding's [data-truncate] span would clip them at the cell's content box.
-          ? label
+          // Injected headers (checkbox, expand-all) are controls, not text. The label box
+          // centers them, as it aligns every label: the cell's own text alignment is Mantine's,
+          // and unlayered it is always `start`. The [data-truncate] span stays out — it would
+          // clip a control at the cell's content box.
+          ? <div {...getStyles("headerLabel")} data-align="center">{label}</div>
           : (
               <>
                 {canSort

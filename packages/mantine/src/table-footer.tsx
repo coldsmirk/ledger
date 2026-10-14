@@ -49,7 +49,10 @@ export function TableFooter<TData extends RowData>({
     colSpan: number | undefined,
     ariaColIndex: number | undefined
   ) => (
-    <MantineTable.Th
+    // A cell, not a header cell, in the DOM as in the ARIA table: totals are data, and Mantine's
+    // header cell carries an unlayered `text-align: start` that would override the column's
+    // alignment (docs/styling.md).
+    <MantineTable.Td
       key={footer.id}
       {...mergeElementProps(resolveElementProps(footer.column.columnDef.meta?.footerCellProps, footer), {
         "aria-colindex": ariaColIndex,
@@ -60,7 +63,6 @@ export function TableFooter<TData extends RowData>({
         "data-ledger-column-id": footer.column.id,
         "data-pinned": footer.column.getIsPinned() || undefined,
         "data-pinned-edge": pinnedEdge(footer.column),
-        // Totals are data, not headers — under the ARIA table they are plain cells.
         role: "cell",
         ...getStyles("footerCell", { style: pinnedCellStyle(footer.column) })
       })}
@@ -68,7 +70,7 @@ export function TableFooter<TData extends RowData>({
       {footer.isPlaceholder
         ? null
         : flexRender(footer.column.columnDef.footer, footer.getContext())}
-    </MantineTable.Th>
+    </MantineTable.Td>
   );
 
   return (
@@ -87,7 +89,7 @@ export function TableFooter<TData extends RowData>({
           {columnWindow === null
             ? footerGroup.headers.map(footer => renderCell(footer, undefined, undefined))
             : windowHeaderCells(footerGroup.headers, columnWindow).map(cell => cell.kind === "spacer"
-                ? <th key={`ledger:spacer-${cell.edge}`} aria-hidden data-ledger-spacer />
+                ? <td key={`ledger:spacer-${cell.edge}`} aria-hidden data-ledger-spacer />
                 : renderCell(cell.header, cell.colSpan, cell.ariaColIndex))}
         </MantineTable.Tr>
       ))}
