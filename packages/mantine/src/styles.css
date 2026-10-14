@@ -512,11 +512,14 @@
     rotate: 90deg;
   }
 
+  /* Top-aligned in the cell's line: on the text baseline the box hung its descent below the line
+     and made every group row two pixels taller than the rows it groups. */
   [data-group-cell] {
     display: inline-flex;
     gap: 6px;
     align-items: center;
     font-weight: 500;
+    vertical-align: top;
   }
 
   [data-group-count] {
