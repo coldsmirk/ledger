@@ -292,7 +292,10 @@ function RangeFilter<TData extends RowData>({ column, name }: { column: Column<T
   return (
     // The pair is one control: the group carries the column's name, the inputs their bound.
     <Group aria-label={name} gap="xs" role="group" wrap="nowrap">
+      {/* No steppers: a bound is typed, and in a 240px popover the arrows cut the faceted
+          placeholders short. */}
       <NumberInput
+        hideControls
         aria-label={labels.filterRangeMin}
         flex={1}
         placeholder={facetMin === undefined ? labels.filterRangeMin : String(facetMin)}
@@ -301,6 +304,7 @@ function RangeFilter<TData extends RowData>({ column, name }: { column: Column<T
       />
 
       <NumberInput
+        hideControls
         aria-label={labels.filterRangeMax}
         flex={1}
         placeholder={facetMax === undefined ? labels.filterRangeMax : String(facetMax)}
