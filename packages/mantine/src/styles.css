@@ -44,6 +44,11 @@
     /* `radius` (the --ledger-radius variable): the root rounds with the frame so a `bg` or the
        pagination bar follows the same corners. */
     border-radius: var(--ledger-radius, 0);
+
+    /* The table's own layers — pinned cells and rows (2), scrollbars (3), the loading overlay —
+       stack inside the table. Without a stacking context of its own they stacked in the page's,
+       and a pinned column painted over the page's own sticky bars below z-index 2. */
+    isolation: isolate;
   }
 
   /* Secondary text (captions, counts, the state panels' titles, the pagination words): the text

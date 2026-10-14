@@ -230,6 +230,7 @@ Those rendered outside the table's tree sit outside its Styles API and carry sta
 
 - Everything ships inside `@layer ledger`; cross-library layer order is the application's call (declare `@layer mantine, ledger;` first if you need to arbitrate).
 - The table looks the same whether Mantine's stylesheet is layered (`styles.layer.css`) or not (`styles.css`, the default). Unlayered, Mantine's rules beat anything in a layer, so ledger never sets a property Mantine sets on the same element: it writes the variable Mantine's rule reads (a cell's padding through `--table-vertical-spacing` / `--table-horizontal-spacing`, an input's text alignment through `--input-text-align`), aligns header content in its own label box, and sets the rest inline (the tables' type and border model, the drag handles' cursor).
+- The root is its own stacking context (`isolation: isolate`): the table's layers — pinned cells and rows, its scrollbars, the loading overlay — stack inside it, so nothing of the table paints over the page's own positioned elements, however low their `z-index`.
 - Colors and metrics are Mantine variables only → dark mode is automatic.
 - Offsets and gradients use logical properties with explicit `[dir="rtl"]` mirrors for the pinned-edge shades → RTL is automatic.
 - Chevron rotations and columns-panel reveals respect `prefers-reduced-motion: reduce`; on devices
