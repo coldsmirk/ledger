@@ -68,11 +68,14 @@ function PaginationBarCore<TData extends RowData>({
         {labels.paginationSummary(from, to, total)}
       </Text>
 
-      <Group gap="md" wrap="nowrap">
+      {/* Narrow, the bar breaks between its blocks — the summary, the page size, the pager — and
+          never inside one: unwrapped, the page-size label broke over two lines and the pager
+          spilled its last page onto a line of its own. */}
+      <Group gap="md" justify="flex-end" wrap="wrap">
         <Group gap="xs" wrap="nowrap">
           {/* The visible text IS the label — pointing at it beats duplicating it into an
               aria-label, which would let the two drift apart (WCAG 2.5.3, label in name). */}
-          <Text key="label" c="var(--ledger-color-dimmed)" id={pageSizeLabelId} size={size}>
+          <Text key="label" c="var(--ledger-color-dimmed)" id={pageSizeLabelId} size={size} style={{ whiteSpace: "nowrap" }}>
             {labels.rowsPerPage}
           </Text>
 
