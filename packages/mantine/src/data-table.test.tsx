@@ -488,6 +488,27 @@ describe("DataTable", () => {
     }
   });
 
+  it("marks a body whose rows end above its bottom edge, so the last row takes its separator", () => {
+    // A body that fits its rows exactly closes on its own edge, and the last row stays open.
+    const fitting = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+
+    expect(fitting.container.querySelector<HTMLElement>(".ledger-root")?.dataset.underfilled).toBeUndefined();
+    fitting.unmount();
+
+    // jsdom lays nothing out, so the room is stated: a 600px body holding 200px of rows.
+    const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
+    const offsetHeight = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(200);
+
+    try {
+      const { container } = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+
+      expect(container.querySelector<HTMLElement>(".ledger-root")?.dataset.underfilled).toBe("true");
+    } finally {
+      clientHeight.mockRestore();
+      offsetHeight.mockRestore();
+    }
+  });
+
   it("describes the row-navigation focus stop and speaks each move of the current row", () => {
     const { container } = render(
       <DataTable enableActiveRow columns={columns} data={people} getRowId={getRowId} />,

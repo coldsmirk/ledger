@@ -878,11 +878,12 @@
    * positions; our tables are border-collapse: separate (inline), so every cell carries its
    * border wherever it sticks.
    *
-   * Three edges, one line each (docs/styling.md#borders): row separators sit BETWEEN rows and
-   * never under the last one (Mantine's Table rule — a bordered host closes the table with its
-   * own edge); the closing line under the body is the opt-in `withBottomBorder` seam; the
-   * `withTableBorder` frame is four real borders and owns every edge, so under it the body's
-   * seam and the footer's trailing line stay off.
+   * Three edges, one line each (docs/styling.md#borders): row separators sit BETWEEN rows — the
+   * last one included while empty body continues under it, but never on the body's bottom edge
+   * (Mantine's Table rule — a bordered host closes the table with its own edge); the closing line
+   * on that edge is the opt-in `withBottomBorder` seam; the `withTableBorder` frame is four real
+   * borders and owns every edge, so under it the body's seam and the footer's trailing line stay
+   * off.
    * ------------------------------------------------------------------------------------------ */
 
   /* Row separators, header half: the header's bottom edge. (The body half follows the column
@@ -905,6 +906,21 @@
      ending there included). */
   .ledger-root[data-with-row-borders] .ledger-tbody .ledger-row:not([data-last]) > td:not([data-last]) {
     border-block-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
+  }
+
+  /* …and the last row's, while the rows end above the body's bottom edge (`data-underfilled`,
+     measured): with empty body under it, the last row is a row between like any other. Painted
+     inside the cells rather than as a border, so drawing it moves nothing and cannot change the
+     measurement that decides it. */
+  .ledger-root[data-with-row-borders][data-underfilled] .ledger-tbody :is(.ledger-row[data-last] > td, td[data-last]) {
+    background-image:
+      linear-gradient(
+        var(--ledger-border-color, var(--mantine-color-default-border)),
+        var(--ledger-border-color, var(--mantine-color-default-border))
+      );
+    background-repeat: no-repeat;
+    background-position: bottom;
+    background-size: 100% 1px;
   }
 
   /* The body's bottom seam: an inset overlay on the scroller's last pixel — it adds no height

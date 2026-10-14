@@ -8,7 +8,7 @@ Eleven `Table` appearance props forward with Mantine's names and semantics:
 
 `striped` (`boolean | "odd" | "even"`), `stripedColor`, `highlightOnHover`, `highlightOnHoverColor`, `withTableBorder`, `withColumnBorders`, `withRowBorders` (default `true`), `borderColor`, `verticalSpacing` / `horizontalSpacing` (default: the [size](#size)'s), `tabularNums`.
 
-One more comes from `Paper`: **`radius`** (`MantineRadius`) rounds the table box — the root and the header + body + footer frame, which clips its content to the curve — and the `withTableBorder` frame follows it, so a framed table can be its own card instead of sitting inside one. The closing line under the last row is ledger's own switch, `withBottomBorder` — see [Borders](#borders).
+One more comes from `Paper`: **`radius`** (`MantineRadius`) rounds the table box — the root and the header + body + footer frame, which clips its content to the curve — and the `withTableBorder` frame follows it, so a framed table can be its own card instead of sitting inside one. The closing line on the body's bottom edge is ledger's own switch, `withBottomBorder` — see [Borders](#borders).
 
 ## Size
 
@@ -34,8 +34,8 @@ All the border and background props are rendered by ledger itself rather than Ma
 
 Three edges, one line each — and a ledger-owned switch for the middle one, shaped like its Mantine family:
 
-- **Row separators** (`withRowBorders`, default `true`) sit *between* rows: the header's bottom edge and every body row except the last — Mantine's `Table` rule, so a table inside a bordered container closes with the container's edge instead of doubling it. The last row carries `data-last`; a `spanRows` run that reaches it marks its anchor cell `data-last` too.
-- **The closing line** (`withBottomBorder`, default `false`) is for a table that stands alone: an inset 1px seam on the scroller's last pixel (it adds no height and stays put under scroll) and, with a footer, the footer's trailing edge as well.
+- **Row separators** (`withRowBorders`, default `true`) sit *between* rows: the header's bottom edge and every body row except the last — Mantine's `Table` rule, so a table inside a bordered container closes with the container's edge instead of doubling it. The last row carries `data-last`; a `spanRows` run that reaches it marks its anchor cell `data-last` too. A table that fills a taller box can end its rows above the body's bottom edge, and then the last row is a row between as well — empty body follows it — so it takes its separator. The root says so with `data-underfilled`, measured whenever the body or its rows resize; the separator paints inside the cells, so drawing it changes no height.
+- **The closing line** (`withBottomBorder`, default `false`) is for a table that stands alone: an inset 1px seam on the body's bottom edge, the scroller's last pixel (it adds no height and stays put under scroll), and, with a footer, the footer's trailing edge as well.
 - **The frame** (`withTableBorder`) is four real borders around `main`, so `radius` draws continuous corners; it owns every edge, and under it the closing seam and the footer's trailing line stay off whatever `withBottomBorder` says.
 
 A footer always separates from the body with the same seam above it while row borders are on (`data-with-footer` on the root). The pagination bar draws its own top line only when no other edge exists — no frame and no closing line.
@@ -122,7 +122,7 @@ Style states by attribute selector (the Mantine convention). The inventory:
 
 | Element | Attributes |
 | --- | --- |
-| root | `data-size="xs" \| "sm" \| "md" \| "lg" \| "xl"`, `data-striped="odd" \| "even"`, `data-highlight-on-hover`, `data-loading`, `data-empty`, `data-virtualized-rows`, `data-virtualized-columns`, `data-with-table-border`, `data-with-row-borders`, `data-with-column-borders`, `data-with-bottom-border`, `data-with-footer`, `data-scrolled-start`, `data-scrolled-end` |
+| root | `data-size="xs" \| "sm" \| "md" \| "lg" \| "xl"`, `data-striped="odd" \| "even"`, `data-highlight-on-hover`, `data-loading`, `data-empty`, `data-virtualized-rows`, `data-virtualized-columns`, `data-with-table-border`, `data-with-row-borders`, `data-with-column-borders`, `data-with-bottom-border`, `data-with-footer`, `data-underfilled` (the rows end above the body's bottom edge), `data-scrolled-start`, `data-scrolled-end` |
 | header cell | `data-align`, `data-sortable`, `data-sorted` (on the indicator), `data-pinned="start" \| "end"`, `data-pinned-edge`, `data-resizing`, `data-dragging`, `data-drop-side="before" \| "after"` |
 | row | `data-selected`, `data-expanded`, `data-clickable`, `data-parity="odd" \| "even"`, `data-pinned-row="top" \| "bottom"`, `data-row-id`, `data-detail-row`, `data-last` (the body's final row), `data-dragging` (a reorder lifted it), `data-drop-side="before" \| "after"` (the reorder drop edge) |
 | cell | `data-align`, `data-editable`, `data-editing`, `data-last` (a `spanRows` anchor ending on the last row), `data-leading` (its column is first in display order — DOM order cannot say so once `spanRows` drops covered cells; a skeleton row's first cell and the one full-width cell of a detail panel, loader or load-more error row carry it too), `data-pinned`, `data-pinned-edge`, `data-truncate` (inner span), `data-group-cell` / `data-group-count` (grouped) |

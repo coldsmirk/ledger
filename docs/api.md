@@ -134,7 +134,7 @@ One trio per slice — `x` (controlled) / `defaultX` (uncontrolled) / `onXChange
 | `withTableBorder` | `boolean` | `false` | |
 | `withColumnBorders` | `boolean` | `false` | |
 | `withRowBorders` | `boolean` | `true` | Separators between rows — never under the last one ([styling.md](styling.md#borders)) |
-| `withBottomBorder` | `boolean` | `false` | The closing line under the last row (and a footer) for a table without a frame ([styling.md](styling.md#borders)) |
+| `withBottomBorder` | `boolean` | `false` | The closing line on the body's bottom edge (and under a footer) for a table without a frame ([styling.md](styling.md#borders)) |
 | `borderColor` | `MantineColor` | theme default border | |
 | `radius` | `MantineRadius` | — | Rounds the table box (root and the header + body + footer frame) and clips to it; the `withTableBorder` frame follows ([styling.md](styling.md#forwarded-mantine-props)) |
 | `size` | `MantineSize` | `"sm"` | The type, the cell padding, a row's height and every control's size as one word ([styling.md](styling.md#size)) |

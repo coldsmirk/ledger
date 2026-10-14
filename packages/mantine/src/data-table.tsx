@@ -77,7 +77,7 @@ import { useColumnWidths } from "./use-column-widths";
 import { DEFAULT_COLUMN_OVERSCAN, useColumnWindow } from "./use-column-window";
 import { useDataTable } from "./use-data-table";
 import { useStylesRevision } from "./use-styles-revision";
-import { useViewportOverflow } from "./use-viewport-overflow";
+import { useViewportFit } from "./use-viewport-fit";
 import { columnAfterVar, columnStartVar, columnWidthVar, toPx, useEventCallback } from "./utils";
 
 // ------------------------------------------------------------------------------------------------
@@ -200,9 +200,10 @@ export interface DataTableBaseProps<TData extends RowData>
   withColumnBorders?: boolean;
   withRowBorders?: boolean;
   /**
-   * The closing line under the last row — and under a footer — for a table that stands alone
-   * without a frame. Mantine's `Table` leaves the last row open, so this is off by default; the
-   * `withTableBorder` frame closes the table itself and ignores it (docs/styling.md#borders).
+   * The closing line on the body's bottom edge — and under a footer — for a table that stands
+   * alone without a frame. Mantine's `Table` leaves a last row on that edge open, so this is off
+   * by default; the `withTableBorder` frame closes the table itself and ignores it
+   * (docs/styling.md#borders).
    */
   withBottomBorder?: boolean;
   borderColor?: MantineColor;
@@ -703,7 +704,7 @@ function DataTableCore<TData extends RowData>({
     viewportRef.current = element;
     setViewport(element);
   }, []);
-  const viewportOverflows = useViewportOverflow(viewport);
+  const viewportFit = useViewportFit(viewport);
 
   // ---- the width engine (docs/sizing.md) ----
   // Display order is pinned-aware (start + center + end) — header groups and row cells
@@ -1251,7 +1252,7 @@ function DataTableCore<TData extends RowData>({
   // property that any element may carry: `generic` prohibits an accessible *name*, not a
   // description, and referencing an id adds no role and owns nothing. The consumer's own
   // description stays on the table; theirs on the viewport keeps the first read there.
-  const viewportFocusStop = activeRowEnabled || viewportOverflows;
+  const viewportFocusStop = activeRowEnabled || viewportFit.overflowing;
   const viewportDescribedBy = activeRowEnabled
     ? [viewportProps?.["aria-describedby"], rowNavigationHintId].filter(Boolean).join(" ")
     : viewportProps?.["aria-describedby"];
@@ -1569,6 +1570,7 @@ function DataTableCore<TData extends RowData>({
           data-scrolled-start={scrollEdges.start || undefined}
           data-size={size}
           data-striped={stripedMode}
+          data-underfilled={viewportFit.underfilled || undefined}
           data-virtualized-columns={columnWindow !== null || undefined}
           data-virtualized-rows={virtualEnabled || undefined}
           data-with-bottom-border={withBottomBorder || undefined}
