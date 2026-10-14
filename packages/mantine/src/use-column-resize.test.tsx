@@ -531,6 +531,31 @@ describe("useColumnResize", () => {
     expect(onColumnSizingChange).toHaveBeenLastCalledWith({ name: 260 });
   });
 
+  it("narrows a column wider than its content, and leaves the cells as it found them", () => {
+    const { onColumnSizingChange, resizer } = renderResizable();
+    const cells = [...document.querySelectorAll<HTMLElement>(".ledger-tbody td[data-ledger-column-id=\"name\"]")];
+
+    // A fixed table lays every cell at its column's width: read in place, a 300px column reports
+    // 300 whatever it holds. Measured as a block at its content's width, it reports the content.
+    for (const cell of cells) {
+      Object.defineProperty(cell, "scrollWidth", {
+        configurable: true,
+        get: () => cell.style.display === "block" && cell.style.width === "max-content" ? 90 : 300
+      });
+    }
+
+    // Regression: the fit read the cell in place, so it could widen a column but never narrow it.
+    fireEvent.doubleClick(resizer);
+
+    expect(onColumnSizingChange).toHaveBeenLastCalledWith({ name: 98 });
+
+    for (const cell of cells) {
+      expect(cell.style.display).toBe("");
+      expect(cell.style.width).toBe("");
+      expect(cell.style.whiteSpace).toBe("");
+    }
+  });
+
   it("restores the pre-drag width and ends the session on pointercancel", () => {
     const { onColumnSizingChange, resizer } = renderResizable();
 

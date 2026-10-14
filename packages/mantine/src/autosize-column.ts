@@ -12,9 +12,12 @@ import type { ResizerSpec } from "./use-column-resize";
  * The column, its constraints and whether it carries a filter all arrive from the render that put
  * the handle on screen, for the reason `use-column-resize.ts` gives.
  *
- * Measurement forces `white-space: nowrap` on every cell first and reads afterwards, so the
- * whole pass costs one reflow. Truncating cells clip their own overflow (the td never grows),
- * so the content width is read from the `[data-truncate]` span instead of the cell box.
+ * A content cell is measured out of the table's layout: for the pass it is a block as wide as its
+ * content (`display: block; width: max-content`, no wrapping), so its width is the content's, in
+ * whichever direction that lies. Read in place, a cell is never narrower than its column — a fixed
+ * table lays every cell at the column's width, and a truncating span clips at it — so a fit could
+ * only ever widen a column. Every cell is switched first and read afterwards, so the whole pass
+ * costs one reflow, and each gets its own inline styles back before anything paints.
  */
 
 /**
@@ -39,14 +42,6 @@ function horizontalPadding(element: HTMLElement): number {
   const style = getComputedStyle(element);
 
   return asPx(style.paddingInlineStart) + asPx(style.paddingInlineEnd);
-}
-
-function bodyCellWidth(cell: HTMLElement): number {
-  const truncated = cell.querySelector<HTMLElement>(":scope [data-truncate]");
-
-  return truncated
-    ? truncated.scrollWidth + horizontalPadding(cell)
-    : cell.scrollWidth;
 }
 
 function headerCellWidth(th: HTMLElement, hasFilter: boolean): number {
@@ -86,32 +81,46 @@ export function autosizeColumn(
 ): void {
   const selector = `[data-ledger-column-id="${CSS.escape(columnId)}"]`;
   const headerCell = main.querySelector<HTMLElement>(`:scope .ledger-header ${selector}`);
-  const bodyCells = [...main.querySelectorAll<HTMLElement>(`:scope .ledger-tbody ${selector}`)];
-  // A footer cell that spans columns says nothing about the width of any one of them.
-  const footerCells = [...main.querySelectorAll<HTMLElement>(`:scope .ledger-footer ${selector}`)]
-    .filter(cell => (cell as HTMLTableCellElement).colSpan <= 1);
-  const contentCells = [...bodyCells, ...footerCells];
+  // A cell that spans columns — a merged body cell, a footer total — says nothing about the width
+  // of any one of them.
+  const contentCells = [...main.querySelectorAll<HTMLTableCellElement>(`:scope :is(.ledger-tbody, .ledger-footer) ${selector}`)]
+    .filter(cell => cell.colSpan <= 1);
   const cells = headerCell ? [headerCell, ...contentCells] : contentCells;
 
   if (cells.length === 0) {
     return;
   }
 
-  // Write phase, then read phase — the forced nowrap costs one reflow for the whole column.
-  const previousWhitespace = cells.map(cell => cell.style.whiteSpace);
+  // Write phase, then read phase — the whole column costs one reflow.
+  const previous = cells.map(cell => {
+    return {
+      display: cell.style.display,
+      whiteSpace: cell.style.whiteSpace,
+      width: cell.style.width
+    };
+  });
 
   for (const cell of cells) {
     cell.style.whiteSpace = "nowrap";
   }
 
+  for (const cell of contentCells) {
+    cell.style.display = "block";
+    cell.style.width = "max-content";
+  }
+
   let content = headerCell ? headerCellWidth(headerCell, hasFilter) : 0;
 
   for (const cell of contentCells) {
-    content = Math.max(content, bodyCellWidth(cell));
+    content = Math.max(content, cell.scrollWidth);
   }
 
   for (const [index, cell] of cells.entries()) {
-    cell.style.whiteSpace = previousWhitespace[index] ?? "";
+    const styles = previous[index];
+
+    cell.style.display = styles?.display ?? "";
+    cell.style.whiteSpace = styles?.whiteSpace ?? "";
+    cell.style.width = styles?.width ?? "";
   }
 
   const next = Math.min(Math.max(Math.round(content + AUTOSIZE_SLACK_PX), minSize), maxSize);
