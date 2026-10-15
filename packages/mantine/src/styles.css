@@ -494,6 +494,13 @@
     text-align: center;
   }
 
+  /* A Mantine checkbox or radio is a block whose body is a flex row, so the cell's text alignment
+     never reached the box: it stood at the cell's start, off the header's box — which the label
+     box centres — by half of what the column is wider than the control. The body centres it. */
+  .ledger-selection-control {
+    justify-content: center;
+  }
+
   /* The reorder handle: quiet dim while something else controls the order (the tooltip says
      what — labels.rowOrderingUnavailable). Its cursor is set inline, since Mantine's button
      carries an unlayered one. */

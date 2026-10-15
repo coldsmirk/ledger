@@ -1057,6 +1057,31 @@ describe("DataTable", () => {
     expect(selectAll?.closest<HTMLElement>(".ledger-header-label")?.dataset.align).toBe("center");
   });
 
+  it("centres a row's selection control in its cell, as the header centres its own", () => {
+    // Regression: a Mantine checkbox is a block whose body is a flex row, which the cell's text
+    // alignment cannot move — every row's box stood at the cell's start, two pixels off the
+    // header's at the default size. The body carries the class that centres it.
+    const multi = render(<DataTable enableRowSelection columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+    const boxes = multi.container.querySelectorAll(":scope .ledger-selection-cell input[type=\"checkbox\"]");
+
+    expect(boxes).toHaveLength(people.length);
+
+    for (const box of boxes) {
+      expect(box.closest(".ledger-selection-control")).not.toBeNull();
+    }
+
+    multi.unmount();
+
+    const single = render(
+      <DataTable enableRowSelection columns={columns} data={people} enableMultiRowSelection={false} getRowId={getRowId} />,
+      { wrapper }
+    );
+
+    for (const radio of single.container.querySelectorAll(":scope .ledger-selection-cell input[type=\"radio\"]")) {
+      expect(radio.closest(".ledger-selection-control")).not.toBeNull();
+    }
+  });
+
   it("starts every synthetic row with a leading cell, so column borders draw no edge before it", () => {
     // Regression: a column border is drawn before every cell but the leading one, and the
     // synthetic rows never marked theirs — under `withColumnBorders` each skeleton, detail,

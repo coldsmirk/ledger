@@ -17,6 +17,10 @@ import { Checkbox, Radio } from "@mantine/core";
 import { useDataTableContext } from "./context";
 import { SIZES } from "./size";
 
+// The control's body carries ledger's class, which centres the box in the cell: Mantine's body is
+// a flex row the cell's text alignment cannot move (styles.css).
+const CONTROL_CLASS_NAMES = { body: "ledger-selection-control" };
+
 function noop() {
   // Selection is applied in onClick (where shiftKey exists); the controlled checkbox still
   // needs an onChange to satisfy React's controlled-input contract.
@@ -43,6 +47,7 @@ export function SelectionHeaderCell<TData extends RowData>({ table }: { table: T
     <Checkbox
       aria-label={labels.selectAllRows}
       checked={allSelected}
+      classNames={CONTROL_CLASS_NAMES}
       indeterminate={!allSelected && someSelected}
       size={SIZES[size].control}
       onChange={noop}
@@ -82,6 +87,7 @@ export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> 
       <Radio
         aria-label={labels.selectRow}
         checked={selected}
+        classNames={CONTROL_CLASS_NAMES}
         disabled={!row.getCanSelect()}
         name={`${instanceId}-selection`}
         size={SIZES[size].control}
@@ -95,6 +101,7 @@ export function SelectionCell<TData extends RowData>({ row }: { row: Row<TData> 
     <Checkbox
       aria-label={labels.selectRow}
       checked={selected}
+      classNames={CONTROL_CLASS_NAMES}
       disabled={!row.getCanSelect()}
       // Sub-row selection (escape hatch `enableSubRowSelection`): a parent with a partly
       // selected subtree reads as indeterminate.
