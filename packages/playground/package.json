@@ -1,6 +1,6 @@
 {
   "name": "ledger-playground",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "description": "Demo playground for @coldsmirk/ledger-mantine — one page per feature area.",
   "type": "module",
