@@ -40,7 +40,7 @@ There are **no** `height` / `maxHeight` props. The root extends Mantine `BoxProp
 
 ### The header is always fixed
 
-The header renders **outside** the body scroller — there is no prop, and no sticky positioning is involved: vertical scrolling simply cannot move it, it never bounces with macOS overscroll, and the scrollbar starts below it. In the degraded page-flow case the internal viewport does not scroll, so the whole table (header included) travels with the page; that is consistent with "scrollbars belong to the table": give the table (or an ancestor) a definite height and the header stays put.
+The header renders **outside** the body scroller — there is no prop, and no sticky positioning is involved: vertical scrolling simply cannot move it, it never bounces with macOS overscroll, and the scrollbar starts below it. In the degraded page-flow case the internal viewport does not scroll, so the whole table (header included) travels with the page, and a wheel over it scrolls the page — the body holds overscroll only on an axis it scrolls; that is consistent with "scrollbars belong to the table": give the table (or an ancestor) a definite height and the header stays put.
 
 ## Column widths
 

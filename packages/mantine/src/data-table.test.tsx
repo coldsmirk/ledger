@@ -488,6 +488,49 @@ describe("DataTable", () => {
     }
   });
 
+  it("holds overscroll on each axis the body scrolls, and lets the wheel go on along one it does not", () => {
+    // Rubber-band overscroll would translate the body past the clamped scroll position the
+    // header and footer mirror read, shearing the regions apart, so a body that scrolls does not
+    // bounce. A body grown to its rows in a scrolling page scrolls nothing up and down: holding
+    // that axis would keep the page still under the pointer.
+    const fitting = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+    const fittingViewport = fitting.container.querySelector<HTMLElement>(":scope .ledger-scroller [role=\"rowgroup\"]")!;
+
+    expect(fittingViewport.style.overscrollBehaviorX).toBe("auto");
+    expect(fittingViewport.style.overscrollBehaviorY).toBe("auto");
+    fitting.unmount();
+
+    // jsdom lays nothing out, so the overflow is stated: wider than the viewport, never taller.
+    const scrollWidth = vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(2000);
+    const clientWidth = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(800);
+
+    try {
+      const wide = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+      const wideViewport = wide.container.querySelector<HTMLElement>(":scope .ledger-scroller [role=\"rowgroup\"]")!;
+
+      expect(wideViewport.style.overscrollBehaviorX).toBe("none");
+      expect(wideViewport.style.overscrollBehaviorY).toBe("auto");
+      wide.unmount();
+    } finally {
+      scrollWidth.mockRestore();
+      clientWidth.mockRestore();
+    }
+
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(600);
+    const clientHeight = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
+
+    try {
+      const tall = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
+      const tallViewport = tall.container.querySelector<HTMLElement>(":scope .ledger-scroller [role=\"rowgroup\"]")!;
+
+      expect(tallViewport.style.overscrollBehaviorX).toBe("auto");
+      expect(tallViewport.style.overscrollBehaviorY).toBe("none");
+    } finally {
+      scrollHeight.mockRestore();
+      clientHeight.mockRestore();
+    }
+  });
+
   it("marks a body whose rows end above its bottom edge, so the last row takes its separator", () => {
     // A body that fits its rows exactly closes on its own edge, and the last row stays open.
     const fitting = render(<DataTable columns={columns} data={people} getRowId={getRowId} />, { wrapper });
@@ -968,10 +1011,6 @@ describe("DataTable", () => {
     const viewport = container.querySelector<HTMLElement>(".mantine-ScrollArea-viewport");
     expect(header).toBeTruthy();
     expect(viewport).toBeTruthy();
-
-    // Rubber-band overscroll would translate the body past the clamped scroll position the
-    // mirror reads — the regions shear apart — so the viewport must not bounce.
-    expect(viewport!.style.overscrollBehavior).toBe("none");
 
     viewport!.scrollLeft = 120;
     fireEvent.scroll(viewport!);

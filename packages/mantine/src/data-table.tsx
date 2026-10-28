@@ -1256,7 +1256,9 @@ function DataTableCore<TData extends RowData>({
   // property that any element may carry: `generic` prohibits an accessible *name*, not a
   // description, and referencing an id adds no role and owns nothing. The consumer's own
   // description stays on the table; theirs on the viewport keeps the first read there.
-  const viewportFocusStop = activeRowEnabled || viewportFit.overflowing;
+  // A scroll container has to be reachable by keyboard to be scrolled by it (WCAG 2.1.1), while a
+  // focus stop over content that fits is a Tab press spent on nothing.
+  const viewportFocusStop = activeRowEnabled || viewportFit.overflowsX || viewportFit.overflowsY;
   const viewportDescribedBy = activeRowEnabled
     ? [viewportProps?.["aria-describedby"], rowNavigationHintId].filter(Boolean).join(" ")
     : viewportProps?.["aria-describedby"];
@@ -1626,9 +1628,12 @@ function DataTableCore<TData extends RowData>({
               </div>
             )}
 
-            {/* overscroll-behavior: none — rubber-band overscroll translates the body past its
-              clamped scroll position, which the mirrored header/footer can never follow; the
-              regions shear apart for the duration of the bounce.
+            {/* overscroll-behavior: none on each axis the body scrolls — rubber-band overscroll
+              translates the body past its clamped scroll position, which the mirrored
+              header/footer can never follow; the regions shear apart for the duration of the
+              bounce. On an axis whose content fits, nothing bounces, and the wheel goes on to
+              the page: a table grown to its rows in a scrolling page must not hold the page still
+              under the pointer.
               Transparent track/corner — Mantine tints them on hover through unlayered rules
               that defeat any layered override, so inline is the only seat that wins; the thumb
               is its own element and keeps its background. */}
@@ -1642,7 +1647,10 @@ function DataTableCore<TData extends RowData>({
                 scrollbar: { backgroundColor: "transparent" }
               }}
               viewportProps={mergeElementProps(viewportProps, {
-                style: { overscrollBehavior: "none" as const },
+                style: {
+                  overscrollBehaviorX: viewportFit.overflowsX ? "none" as const : "auto" as const,
+                  overscrollBehaviorY: viewportFit.overflowsY ? "none" as const : "auto" as const
+                },
                 // The body viewport is the body's row group. A `table` owns only rows and row
                 // groups, and a roleless div stops being transparent the moment it carries an
                 // ARIA attribute or a tab stop, as this one does: it is a keyboard focus stop

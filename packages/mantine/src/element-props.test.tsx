@@ -236,7 +236,7 @@ describe("DOM prop escape hatches", () => {
     const viewport = container.querySelector<HTMLElement>(":scope [data-testid=\"viewport\"]");
 
     // ledger's own viewport styling survives the merge.
-    expect(viewport?.style.overscrollBehavior).toBe("none");
+    expect(viewport?.style.overscrollBehaviorY).toBe("auto");
 
     fireEvent.scroll(viewport as Element);
     expect(onScroll).toHaveBeenCalledTimes(1);

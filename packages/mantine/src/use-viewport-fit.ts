@@ -7,11 +7,14 @@ import { useLayoutEffect, useState } from "react";
  */
 export interface ViewportFit {
   /**
-   * The viewport scrolls on either axis. A scroll container has to be reachable by keyboard to be
-   * scrolled by it (WCAG 2.1.1), while a focus stop over content that fits is a Tab press spent
-   * on nothing — so the viewport's focus stop follows this.
+   * The viewport scrolls sideways: its content is wider than it is.
    */
-  overflowing: boolean;
+  overflowsX: boolean;
+  /**
+   * The viewport scrolls up and down: its content is taller than it is — never, under an
+   * indefinite parent, where the table grows with its rows and the page scrolls instead.
+   */
+  overflowsY: boolean;
   /**
    * The rows end above the viewport's bottom edge, so there is empty body under the last one —
    * which makes the last row a row between, owed a separator like any other
@@ -20,7 +23,11 @@ export interface ViewportFit {
   underfilled: boolean;
 }
 
-const UNMEASURED: ViewportFit = { overflowing: false, underfilled: false };
+const UNMEASURED: ViewportFit = {
+  overflowsX: false,
+  overflowsY: false,
+  underfilled: false
+};
 
 /**
  * Layout sizes only, never rects: a transform (a modal scaling in) would shrink a rect but not
@@ -38,12 +45,17 @@ export function useViewportFit(viewport: HTMLElement | null): ViewportFit {
     const content = viewport.firstElementChild;
 
     const measure = () => {
-      const overflowing = viewport.scrollHeight - viewport.clientHeight > 1 || viewport.scrollWidth - viewport.clientWidth > 1;
+      const overflowsX = viewport.scrollWidth - viewport.clientWidth > 1;
+      const overflowsY = viewport.scrollHeight - viewport.clientHeight > 1;
       const underfilled = content instanceof HTMLElement && viewport.clientHeight - content.offsetHeight >= 1;
 
-      setFit(previous => previous.overflowing === overflowing && previous.underfilled === underfilled
+      setFit(previous => previous.overflowsX === overflowsX && previous.overflowsY === overflowsY && previous.underfilled === underfilled
         ? previous
-        : { overflowing, underfilled });
+        : {
+            overflowsX,
+            overflowsY,
+            underfilled
+          });
     };
 
     measure();
