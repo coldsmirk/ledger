@@ -73,6 +73,7 @@ import { DEFAULT_SIZE, SIZES } from "./size";
 import { buildDisplayRows, countDisplayRows, TableBody } from "./table-body";
 import { TableFooter, tableHasFooter, visibleFooterGroups } from "./table-footer";
 import { TableHeader } from "./table-header";
+import { useAutosizeWidths } from "./use-autosize-widths";
 import { useColumnWidths } from "./use-column-widths";
 import { DEFAULT_COLUMN_OVERSCAN, useColumnWindow } from "./use-column-window";
 import { useDataTable } from "./use-data-table";
@@ -705,6 +706,8 @@ function DataTableCore<TData extends RowData>({
     setViewport(element);
   }, []);
   const viewportFit = useViewportFit(viewport);
+  // The element the header, body and footer render in — where `meta.autosize` measures.
+  const [main, setMain] = useState<HTMLDivElement | null>(null);
 
   // ---- the width engine (docs/sizing.md) ----
   // Display order is pinned-aware (start + center + end) — header groups and row cells
@@ -729,7 +732,22 @@ function DataTableCore<TData extends RowData>({
   // `useProps` filled the default; the type alone still says it may be absent.
   const size = sizeProp ?? DEFAULT_SIZE;
   const scale = SIZES[size];
-  const columnWidths = useColumnWidths(table, visibleLeafColumns, viewport, tableMinWidth, scale.injectedWidth);
+  const autosizeWidths = useAutosizeWidths({
+    appearance: size,
+    columnSizing: table.state.columnSizing,
+    columns: visibleLeafColumns,
+    main,
+    rows: table.getRowModel().rows,
+    viewport,
+    virtualized: Boolean(virtualizedRows) || Boolean(virtualizedColumns)
+  });
+  const columnWidths = useColumnWidths(table, {
+    autosizeWidths,
+    columns: visibleLeafColumns,
+    injectedWidth: scale.injectedWidth,
+    tableMinWidth,
+    viewport
+  });
 
   /* ---- virtualization config ---- */
   const virtualization: VirtualizationConfig | null = virtualizedRows
@@ -1604,6 +1622,7 @@ function DataTableCore<TData extends RowData>({
           <div
           // On the element that is the table: `aria-busy` is defined for the widget whose
           // content is being updated, and the root carries no role for it to qualify.
+            ref={setMain}
             aria-busy={loading || undefined}
             aria-colcount={columnWindow === null ? undefined : columnWindow.totalLeafCount}
             aria-describedby={ariaDescribedBy}

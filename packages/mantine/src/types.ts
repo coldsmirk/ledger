@@ -761,6 +761,14 @@ declare module "@tanstack/react-table" {
      */
     truncate?: boolean;
     /**
+     * Fit the column to its rendered content and keep it fitted as the content changes: the
+     * header, the rendered cells and the footer, each whole (docs/sizing.md#autosize). The fit is
+     * the column's width — a user's resize still wins over it, `minSize`/`maxSize` still bound it,
+     * and `size` holds the place until the first fit. A `truncate` column fits its typical content
+     * and leaves the outliers to the ellipsis.
+     */
+    autosize?: boolean;
+    /**
      * Header filter UI: a variant shorthand, a config, or a fully custom renderer.
      */
     filter?:

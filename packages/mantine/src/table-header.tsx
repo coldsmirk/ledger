@@ -16,8 +16,8 @@ import type { ColumnWindowView } from "./use-column-window";
 import { Table as MantineTable, Tooltip } from "@mantine/core";
 import { flexRender } from "@tanstack/react-table";
 
-import { autosizeColumn } from "./autosize-column";
 import { columnEnableResizing, isInternalColumn } from "./build-columns";
+import { autosizeColumn } from "./column-autosize";
 import { useDataTableContext } from "./context";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { FilterPopover } from "./filter-popover";
@@ -277,7 +277,11 @@ function HeaderCell<TData extends RowData>({
                         if (main) {
                           autosizeColumn(
                             table.setColumnSizing,
-                            { ...resizerSpec, hasFilter: meta?.filter !== undefined },
+                            {
+                              ...resizerSpec,
+                              hasFilter: meta?.filter !== undefined,
+                              truncate: meta?.truncate === true
+                            },
                             main
                           );
                         }

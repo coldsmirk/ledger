@@ -69,6 +69,10 @@ export interface DataTableLabels {
    * leftover viewport. A column that declares one shows that number instead.
    */
   columnWidthAuto: string;
+  /**
+   * Width placeholder for a column under `meta.autosize` — it fits its content.
+   */
+  columnWidthFit: string;
 
   /* Column interactions */
   resizeColumn: string;
@@ -177,6 +181,7 @@ export const defaultLabels: DataTableLabels = {
   ungroupColumn: "Ungroup",
   columnWidth: "Width",
   columnWidthAuto: "Auto",
+  columnWidthFit: "Fit",
 
   resizeColumn: "Drag to resize; double-click to fit content",
   reorderColumn: "Drag to reorder column",

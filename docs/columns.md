@@ -56,6 +56,7 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 | `label` | `string` | Plain-text column name for every surface that cannot render the `header` — the columns panel, CSV headers, filter and editor field names. Wins over a string `header`; without either, those surfaces fall back to the column id, so a column whose `header` is a render function should declare one |
 | `align` | `"start" \| "center" \| "end"` | Logical text alignment for header, cells, and footer — RTL-correct by construction. An `end` header leads with its sort mark and opens its filter from the leading edge, so its text lines up with the values under it |
 | `truncate` | `boolean` | Single-line ellipsis, plus a `title` tooltip **when the text is actually clipped** (host vocabulary: `Text.truncate`) |
+| `autosize` | `boolean` | Fit the column to its rendered content and keep it fitted as the content changes — the header, the rendered cells and the footer, each whole; a `truncate` column fits its typical content and leaves the outliers to the ellipsis. See [Autosize](sizing.md#autosize) |
 | `filter` | variant \| config \| render function | Header filter UI — see [filtering.md](filtering.md) |
 | `edit` | renderer \| config \| instant config | Inline cell editing — the renderer is the application's; see [editing.md](editing.md) |
 | `cellProps` | `TableTdProps \| (cell) => TableTdProps \| undefined` | DOM props for this column's `<td>`s — see [DOM props](styling.md#dom-props) |
@@ -77,7 +78,7 @@ ledger declaration-merges its presentation surface into TanStack's `ColumnMeta`,
 
 ## Width model
 
-Sized columns are fixed pixels; unsized columns grow to share the leftover viewport width. The full width contract (`tableMinWidth`, grow columns, why layout is always fixed) lives in [sizing.md](sizing.md).
+Sized columns are fixed pixels; `meta.autosize` columns are fixed at the width their content needs; unsized columns grow to share the leftover viewport width. The full width contract (`tableMinWidth`, grow columns, autosize, why layout is always fixed) lives in [sizing.md](sizing.md).
 
 ### Resizing
 
@@ -88,7 +89,7 @@ Sized columns are fixed pixels; unsized columns grow to share the leftover viewp
 - Off by default. When on, every resizable column gets a handle on its trailing edge; per-column opt-out is TanStack's own `enableResizing: false` on the def. On a table without `withColumnBorders`, each handle marks itself with a faint mid-height tick (column borders already say where columns end); hovering it swaps in the full primary-colored line and, after a pause, the drag/double-click tooltip.
 - Drags are live and **exactly 1:1**: the pointer session starts from the width the engine actually rendered ([sizing.md](sizing.md#resizing-interplay)), updates are CSS variables, so a drag **never re-renders row components**, and the result is clamped to the column's `minSize`/`maxSize`.
 - **Escape or a pointercancel cancels** an in-flight drag, restoring the pre-drag width.
-- **Double-click fits the column to its content**: the header cell, every rendered body cell (under virtualization that is the current window — unrendered rows have no boxes to measure) and the column's footer cell are measured, and the result is clamped like a drag. A footer that spans columns is skipped — it says nothing about the width of any one of them. The definition width stays reachable through the columns panel's width reset.
+- **Double-click fits the column to its content** once, measured as [`meta.autosize`](sizing.md#autosize) measures: the header cell, every rendered body cell (under virtualization that is the current window — unrendered rows have no boxes to measure) and the column's footer cell, the result clamped like a drag. A footer that spans columns is skipped — it says nothing about the width of any one of them. The definition width stays reachable through the columns panel's width reset.
 - The drag direction follows the handle's computed `direction` (RTL-correct).
 - State rides the `columnSizing` slice (`columnSizing` / `defaultColumnSizing` / `onColumnSizingChange`), persistable via `persistState`.
 

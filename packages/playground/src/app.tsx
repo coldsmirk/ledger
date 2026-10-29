@@ -113,7 +113,7 @@ const en = {
     },
     pinning: {
       label: "Columns, pinning, widths",
-      description: "A wide table: the columns panel, a persisted layout, double-click a column edge to fit"
+      description: "A wide table: the columns panel, a persisted layout, a column that fits its content, double-click a column edge to fit"
     },
     grouping: {
       label: "Grouping and pinned rows",
@@ -215,7 +215,7 @@ const copy: Copy<AppCopy> = {
       },
       pinning: {
         label: "列设置 / 钉列 / 列宽",
-        description: "宽表：列设置面板、布局持久化、双击列缝自适应列宽"
+        description: "宽表：列设置面板、布局持久化、按内容定宽的列、双击列缝适应内容"
       },
       grouping: {
         label: "分组聚合 + 钉行",

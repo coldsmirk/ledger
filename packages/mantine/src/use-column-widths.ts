@@ -8,8 +8,9 @@ import type { Column, TableInstance } from "./types";
  * number system — the browser never redistributes anything.
  *
  * Rules, in order:
- * - a column with an explicit width (user-resized `columnSizing` entry, else the author's
- * `size`, else `defaultColumn.size`) is fixed at that width, clamped to its declared min/max;
+ * - a column with an explicit width (user-resized `columnSizing` entry, else its fitted content
+ * width under `meta.autosize`, else the author's `size`, else `defaultColumn.size`) is fixed at
+ * that width, clamped to its declared min/max;
  * - a column without one is a grow column with basis `minSize ?? 80`; container surplus is
  * distributed proportionally to the bases (integer floor, remainder in display order), capped
  * by maxSize; when the container is too small every grow column falls back to its basis and the
@@ -32,6 +33,11 @@ const DEFAULT_FLEX_BASIS = 80;
 
 export interface ColumnWidthSpec {
   id: string;
+  /**
+   * The width the column's rendered content needs, for a column under `meta.autosize` that has
+   * been measured (`use-autosize-widths.ts`).
+   */
+  fit: number | undefined;
   size: number | undefined;
   minSize: number | undefined;
   maxSize: number | undefined;
@@ -153,7 +159,7 @@ export function resolveColumnWidths(
   const growColumns: SurplusRecipient[] = [];
 
   for (const column of columns) {
-    const sized = finiteNumber(columnSizing[column.id]) ?? finiteNumber(column.size);
+    const sized = finiteNumber(columnSizing[column.id]) ?? finiteNumber(column.fit) ?? finiteNumber(column.size);
 
     if (sized === undefined) {
       const basis = clampWidth(column.minSize ?? DEFAULT_FLEX_BASIS, column.minSize, column.maxSize);
@@ -215,19 +221,33 @@ function minWidthPx(tableMinWidth: number | string | undefined, viewport: HTMLEl
   return Number.parseFloat(getComputedStyle(tableElement).minWidth) || 0;
 }
 
-export function useColumnWidths<TData extends RowData>(
-  table: TableInstance<TData>,
+export interface ColumnWidthsInput<TData extends RowData> {
   /**
    * Visible leaf columns in DISPLAY order (pinned-aware) — the same order the colgroup renders.
    */
-  columns: Array<Column<TData, unknown>>,
-  viewport: HTMLDivElement | null,
-  tableMinWidth: number | string | undefined,
+  columns: Array<Column<TData, unknown>>;
+  viewport: HTMLDivElement | null;
+  tableMinWidth: number | string | undefined;
   /**
    * The injected columns' width — the table's `size` decides it (`size.ts`) — for every
    * bound an override left unsaid.
    */
-  injectedWidth: number
+  injectedWidth: number;
+  /**
+   * Fitted content widths of the `meta.autosize` columns (`use-autosize-widths.ts`).
+   */
+  autosizeWidths: Readonly<Record<string, number>>;
+}
+
+export function useColumnWidths<TData extends RowData>(
+  table: TableInstance<TData>,
+  {
+    columns,
+    viewport,
+    tableMinWidth,
+    injectedWidth,
+    autosizeWidths
+  }: ColumnWidthsInput<TData>
 ): ColumnWidths {
   const [availableWidth, setAvailableWidth] = useState(0);
 
@@ -265,6 +285,7 @@ export function useColumnWidths<TData extends RowData>(
         if (isInternalColumn(column.id)) {
           return {
             id: column.id,
+            fit: undefined,
             size: raw?.size ?? injectedWidth,
             minSize: raw?.minSize ?? injectedWidth,
             maxSize: raw?.maxSize ?? injectedWidth
@@ -273,6 +294,7 @@ export function useColumnWidths<TData extends RowData>(
 
         return {
           id: column.id,
+          fit: autosizeWidths[column.id],
           size: raw ? raw.size ?? defaultColumn?.size : column.columnDef.size,
           minSize: raw ? raw.minSize ?? defaultColumn?.minSize : column.columnDef.minSize,
           maxSize: raw ? raw.maxSize ?? defaultColumn?.maxSize : column.columnDef.maxSize
@@ -281,7 +303,7 @@ export function useColumnWidths<TData extends RowData>(
 
       return resolveColumnWidths(specs, columnSizing, availableWidth);
     },
-    [columns, columnSizing, availableWidth, defaultColumn, injectedWidth]
+    [columns, columnSizing, availableWidth, defaultColumn, injectedWidth, autosizeWidths]
   );
 
   /* Stable identity while the numbers are unchanged — downstream memos depend on it. */

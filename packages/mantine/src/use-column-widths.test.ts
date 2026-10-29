@@ -7,14 +7,17 @@ import { describe, expect, it } from "vitest";
 import { resolveColumnWidths, useColumnWidths } from "./use-column-widths";
 import { useDataTable } from "./use-data-table";
 
-function spec(id: string, sizing: { size?: number; minSize?: number; maxSize?: number } = {}): ColumnWidthSpec {
+function spec(id: string, sizing: { fit?: number; size?: number; minSize?: number; maxSize?: number } = {}): ColumnWidthSpec {
   return {
     id,
+    fit: sizing.fit,
     size: sizing.size,
     minSize: sizing.minSize,
     maxSize: sizing.maxSize
   };
 }
+
+const NO_FITS: Record<string, number> = {};
 
 describe("resolveColumnWidths", () => {
   it("distributes surplus to grow columns proportionally to their bases", () => {
@@ -145,6 +148,37 @@ describe("resolveColumnWidths", () => {
     });
   });
 
+  it("fixes an autosize column at its fitted width, between a user's resize and its size", () => {
+    const widths = resolveColumnWidths(
+      [
+        spec("status", { fit: 96, size: 140 }),
+        spec("note", {
+          fit: 900,
+          minSize: 120,
+          maxSize: 320
+        }),
+        spec("code", { fit: 40, minSize: 64 }),
+        spec("resized", { fit: 96, size: 140 }),
+        spec("unmeasured", { size: 140 }),
+        spec("name", { minSize: 200 })
+      ],
+      { resized: 180 },
+      1000
+    );
+
+    // The fit clamps like any explicit width, a user's resize still wins over it, an autosize
+    // column not yet measured keeps its size meanwhile, and the surplus goes to the grow column.
+    expect(widths.byId).toEqual({
+      status: 96,
+      note: 320,
+      code: 64,
+      resized: 180,
+      unmeasured: 140,
+      name: 200
+    });
+    expect(widths.total).toBe(1000);
+  });
+
   it("resolves to bases in unmeasured environments (available width 0)", () => {
     const widths = resolveColumnWidths([spec("a"), spec("b", { minSize: 200 })], {}, 0);
 
@@ -195,7 +229,13 @@ describe("useColumnWidths", () => {
           ...table.getEndVisibleLeafColumns()
         ];
 
-        return useColumnWidths(table, displayColumns, null, undefined, 40);
+        return useColumnWidths(table, {
+          columns: displayColumns,
+          viewport: null,
+          tableMinWidth: undefined,
+          injectedWidth: 40,
+          autosizeWidths: NO_FITS
+        });
       },
       { initialProps: { columns: firstColumns } }
     );
@@ -239,7 +279,13 @@ describe("useColumnWidths", () => {
           ...table.getEndVisibleLeafColumns()
         ];
 
-        return useColumnWidths(table, displayColumns, null, undefined, injectedWidth);
+        return useColumnWidths(table, {
+          columns: displayColumns,
+          viewport: null,
+          tableMinWidth: undefined,
+          injectedWidth,
+          autosizeWidths: NO_FITS
+        });
       },
       { initialProps: initial }
     );

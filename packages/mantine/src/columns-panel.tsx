@@ -366,9 +366,10 @@ function ColumnsPanelItem<TData extends RowData>({
       && columnEnableResizing(column.columnDef) !== false;
   const canGroup = table.options.enableGrouping === true && column.getCanGroup();
 
-  // The field holds the OVERRIDE; empty falls back to whatever the definition prescribes — the
-  // author's `size`, or growing where none is declared. The placeholder shows that fallback
-  // rather than a blanket "auto", which would misdescribe every column that declares a size.
+  // The field holds the OVERRIDE; empty falls back to whatever the definition prescribes — fitting
+  // the content under `meta.autosize`, else the author's `size`, else growing where none is
+  // declared. The placeholder shows that fallback rather than a blanket "auto", which would
+  // misdescribe every column that declares a size or fits its content.
   // Author sizing comes from the RAW registry, never `columnDef.size`: TanStack merges its
   // `size: 150` default into every resolved definition, which would make "unsized"
   // unrepresentable (docs/sizing.md).
@@ -376,6 +377,9 @@ function ColumnsPanelItem<TData extends RowData>({
   // while a panel hosted in a header cell receives the core instance — atoms live on both.
   const width = table.atoms.columnSizing.get()[column.id];
   const declaredWidth = rawColumnSizing(column.columnDef)?.size ?? table.options.defaultColumn?.size;
+  const widthPlaceholder = column.columnDef.meta?.autosize === true
+    ? labels.columnWidthFit
+    : declaredWidth === undefined ? labels.columnWidthAuto : String(declaredWidth);
 
   const handleWidthChange = (value: number | string) => {
     table.setColumnSizing(previous => {
@@ -458,7 +462,7 @@ function ColumnsPanelItem<TData extends RowData>({
               classNames={{ input: "ledger-columns-panel-width-input" }}
               max={column.columnDef.maxSize}
               min={column.columnDef.minSize}
-              placeholder={declaredWidth === undefined ? labels.columnWidthAuto : String(declaredWidth)}
+              placeholder={widthPlaceholder}
               size="xs"
               startValue={declaredWidth}
               step={10}

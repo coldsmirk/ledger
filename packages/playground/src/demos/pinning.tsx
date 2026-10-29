@@ -13,20 +13,20 @@ import { StatusBadge, usePersonColumns } from "./columns";
 
 const copy = {
   en: {
-    statusCopy: "Status (copy)",
+    statusCopy: "Status (fits its content)",
     actions: "Actions",
     columns: "Columns",
     more: "More actions",
     barePanel: "The bare panel in a drawer",
-    hint: "The ⚙ in the last header opens the columns panel: drag to reorder, tick to show or hide, pin to either side, type a width (clear it to go back to auto), reset. Header cells themselves also drag to reorder and resize from their right edge (double-click to fit). The layout is written to localStorage and survives a reload."
+    hint: "The ⚙ in the last header opens the columns panel: drag to reorder, tick to show or hide, pin to either side, type a width (clear it to go back to the definition), reset. Header cells themselves also drag to reorder and resize from their right edge (double-click to fit). The second Status column fits its content by itself (meta.autosize) — switch the language and it refits. The layout is written to localStorage and survives a reload."
   },
   zh: {
-    statusCopy: "状态（副本列）",
+    statusCopy: "状态（按内容定宽）",
     actions: "操作",
     columns: "列设置",
     more: "更多操作",
     barePanel: "抽屉里的裸面板",
-    hint: "表头右上角 ⚙ 打开列设置：拖拽改序、勾选显隐、三态钉列、填宽度（清空即回自适应）、重置。列头本身也能拖着重排、拖右缘改宽（双击复位）。布局写入 localStorage，刷新后保留。"
+    hint: "表头右上角 ⚙ 打开列设置：拖拽改序、勾选显隐、三态钉列、填宽度（清空即回到列定义的宽度）、重置。列头本身也能拖着重排、拖右缘改宽（双击按内容定宽）。第二个“状态”列自己按内容定宽（meta.autosize），切换语言它会重新适应。布局写入 localStorage，刷新后保留。"
   }
 };
 
@@ -66,8 +66,8 @@ export function PinningDemo() {
     helper.accessor("status", {
       id: "status-copy",
       header: t.statusCopy,
-      size: 150,
-      cell: context => <StatusBadge status={context.getValue()} />
+      cell: context => <StatusBadge status={context.getValue()} />,
+      meta: { autosize: true }
     }),
     helper.display({
       id: "actions",

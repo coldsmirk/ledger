@@ -176,6 +176,7 @@ interface ColumnMeta<TData, TValue> {
                                     // field names; wins over a string `header`, defaults to it, then the id
   align?: "start" | "center" | "end";
   truncate?: boolean;
+  autosize?: boolean;               // fit to the rendered content, kept fitted (sizing.md#autosize)
   filter?: DataTableFilterVariant | DataTableFilterConfig
          | ((column: Column<TData, TValue>) => ReactNode);
   edit?: DataTableEditRenderer<TData, TValue> | DataTableEditConfig<TData, TValue>

@@ -43,6 +43,7 @@ export const zhCN: DataTableLabels = {
   ungroupColumn: "取消分组",
   columnWidth: "宽度",
   columnWidthAuto: "自适应",
+  columnWidthFit: "适应内容",
 
   resizeColumn: "拖动调整列宽；双击自适应内容",
   reorderColumn: "拖拽调整列顺序",
