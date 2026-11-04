@@ -1,4 +1,5 @@
 import type { RowData } from "@tanstack/react-table";
+import type { ReactNode } from "react";
 
 import type { Header } from "./types";
 
@@ -11,7 +12,7 @@ import type { Header } from "./types";
  * virtualizer would hold a parallel copy of the horizontal geometry that resize, responsive
  * breakpoints, and grow redistribution would each have to invalidate by hand.
  */
-import { startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createElement, startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useEventCallback } from "./utils";
 
@@ -303,19 +304,79 @@ export function useColumnWindow({
 // ------------------------------------------------------------------------------------------------
 
 /**
- * Rendered column count including the spacer cols — what a full-width cell (detail panel,
- * loader row) spans.
+ * What each rendered col holds, in colgroup order: a column, a spacer standing for the columns a
+ * window left out, or the filler (docs/sizing.md#the-filler). Its length is what a full-width
+ * cell (detail panel, loader row) spans; a row with no cells of its own (the skeleton) draws one
+ * cell per entry.
  */
-export function renderedColCount(view: ColumnWindowView | null, leafColumnCount: number): number {
+export function renderedCols(
+  view: ColumnWindowView | null,
+  leafColumnCount: number,
+  pinnedEndCount: number,
+  filler: boolean
+): RenderedCol[] {
+  const columns = (count: number): RenderedCol[] => Array.from({ length: count }, () => "column");
+  const fillerCol: RenderedCol[] = filler ? ["filler"] : [];
+
   if (view === null) {
-    return leafColumnCount;
+    return [...columns(leafColumnCount - pinnedEndCount), ...fillerCol, ...columns(pinnedEndCount)];
   }
 
-  return view.pinnedStartCount
-    + (view.end - view.start)
-    + view.pinnedEndCount
-    + (view.start > 0 ? 1 : 0)
-    + (view.end < view.centerCount ? 1 : 0);
+  return [
+    ...columns(view.pinnedStartCount),
+    ...view.start > 0 ? ["spacer" as const] : [],
+    ...columns(view.end - view.start),
+    ...view.end < view.centerCount ? ["spacer" as const] : [],
+    ...fillerCol,
+    ...columns(view.pinnedEndCount)
+  ];
+}
+
+export type RenderedCol = "column" | "spacer" | "filler";
+
+/**
+ * Where the filler's cell stands in a row (docs/sizing.md#the-filler): before the first cell of
+ * the end-pinned zone — so after the scrolling columns and a trailing spacer — or last where no
+ * column is pinned to the end. The same index in every row, since every row tiles one colgroup.
+ */
+export function fillerIndex<T>(cells: readonly T[], inEndZone: (cell: T) => boolean): number {
+  const index = cells.findIndex(cell => inEndZone(cell));
+
+  return index === -1 ? cells.length : index;
+}
+
+/**
+ * A row's rendered cells with the filler's cell put in its place (`fillerIndex`) — a `td`, or a
+ * `th` in the header — or as they are where the row carries none. The cell is empty and, like a
+ * spacer's, out of the accessibility tree: no cell of the ARIA table.
+ */
+export function withFillerCell(
+  cells: ReadonlyArray<{ node: ReactNode; endZone: boolean }>,
+  filler: "td" | "th" | null
+): ReactNode[] {
+  const nodes = cells.map(cell => cell.node);
+
+  if (filler === null) {
+    return nodes;
+  }
+
+  const at = fillerIndex(cells, cell => cell.endZone);
+  const fillerCell = createElement(filler, {
+    key: "ledger:filler",
+    "aria-hidden": true,
+    "data-ledger-filler": true
+  });
+
+  return [...nodes.slice(0, at), fillerCell, ...nodes.slice(at)];
+}
+
+/**
+ * A header or footer cell's zone is its own leaves': v9 splits a group at every pinning
+ * boundary, so each instance covers one zone — while the group column's `getIsPinned()` answers
+ * for all its leaves at once, and would put a group's scrolling half in the end zone.
+ */
+export function headerInEndZone<TData extends RowData>(header: Header<TData, unknown>): boolean {
+  return header.getLeafHeaders()[0]?.column.getIsPinned() === "end";
 }
 
 export interface WindowedRowCells<T> {

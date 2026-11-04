@@ -115,6 +115,34 @@ describe("resolveColumnWidths", () => {
       name: 240
     });
     expect(widths.total).toBe(280);
+    // What no column may take is the filler's, so the table still spans the viewport.
+    expect(widths.filler).toBe(720);
+  });
+
+  it("leaves the filler what capped grow columns cannot take, and fixed columns never take it", () => {
+    // Fixed columns do not flex while the table has grow columns, capped ones included.
+    const widths = resolveColumnWidths(
+      [spec("a", { size: 100 }), spec("b", { maxSize: 150 })],
+      {},
+      600
+    );
+
+    expect(widths.byId).toEqual({ a: 100, b: 150 });
+    expect(widths.filler).toBe(350);
+  });
+
+  it("has no filler where the columns fill the viewport or overflow it", () => {
+    const filling = resolveColumnWidths([spec("a", { size: 100 }), spec("b")], {}, 600);
+    const overflowing = resolveColumnWidths(
+      [spec("a", { size: 400, maxSize: 400 }), spec("b", { size: 400, maxSize: 400 })],
+      {},
+      600
+    );
+
+    expect(filling.total).toBe(600);
+    expect(filling.filler).toBe(0);
+    expect(overflowing.total).toBe(800);
+    expect(overflowing.filler).toBe(0);
   });
 
   it("falls back to equal distribution when every grow basis is zero", () => {

@@ -10,7 +10,7 @@ import { StrictMode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DataTable } from "./data-table";
-import { measureColumnWindow, renderedColCount, windowHeaderCells, windowRowCells } from "./use-column-window";
+import { fillerIndex, measureColumnWindow, renderedCols, windowHeaderCells, windowRowCells, withFillerCell } from "./use-column-window";
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -214,7 +214,14 @@ describe("windowHeaderCells", () => {
   });
 });
 
-describe("windowRowCells / renderedColCount", () => {
+/* A row's cells by zone: `true` for an end-pinned cell. */
+function zones(...endZone: boolean[]) {
+  return endZone.map((end, index) => {
+    return { node: `c${index}`, endZone: end };
+  });
+}
+
+describe("windowRowCells / renderedCols / the filler's place", () => {
   it("slices the display-ordered cells into the three rendered segments", () => {
     const cells = Array.from({ length: 12 }, (_, index) => `c${index}`);
     const segments = windowRowCells(
@@ -235,9 +242,9 @@ describe("windowRowCells / renderedColCount", () => {
     });
   });
 
-  it("counts rendered cols including spacers for full-width cells", () => {
-    expect(renderedColCount(null, 12)).toBe(12);
-    expect(renderedColCount(
+  it("lists the rendered cols, spacers included, for full-width cells and the skeleton", () => {
+    expect(renderedCols(null, 12, 0, false)).toHaveLength(12);
+    expect(renderedCols(
       view({
         centerCount: 10,
         end: 5,
@@ -245,9 +252,42 @@ describe("windowRowCells / renderedColCount", () => {
         pinnedStartCount: 1,
         start: 3
       }),
-      12
-    )).toBe(6);
-    expect(renderedColCount(view({ end: 4, start: 0 }), 10)).toBe(5);
+      12,
+      1,
+      false
+    )).toEqual(["column", "spacer", "column", "column", "spacer", "column"]);
+    expect(renderedCols(view({ end: 4, start: 0 }), 10, 0, false)).toHaveLength(5);
+  });
+
+  it("puts the filler col after the scrolling columns and a trailing spacer, before the end-pinned", () => {
+    expect(renderedCols(null, 4, 1, true)).toEqual(["column", "column", "column", "filler", "column"]);
+    expect(renderedCols(null, 2, 0, true)).toEqual(["column", "column", "filler"]);
+    expect(renderedCols(
+      view({
+        centerCount: 10,
+        end: 5,
+        pinnedEndCount: 1,
+        pinnedStartCount: 1,
+        start: 3
+      }),
+      12,
+      1,
+      true
+    )).toEqual(["column", "spacer", "column", "column", "spacer", "filler", "column"]);
+  });
+
+  it("places the filler's cell before a row's first end-zone cell, or last", () => {
+    expect(fillerIndex(zones(false, false, true, true), cell => cell.endZone)).toBe(2);
+    expect(fillerIndex(zones(false, false), cell => cell.endZone)).toBe(2);
+
+    const [first, filler, last] = withFillerCell(zones(false, true), "th");
+    expect([first, last]).toEqual(["c0", "c1"]);
+    expect(filler).toMatchObject({
+      type: "th",
+      key: "ledger:filler",
+      props: { "aria-hidden": true, "data-ledger-filler": true }
+    });
+    expect(withFillerCell(zones(false, true), null), "no filler, the cells as they are").toEqual(["c0", "c1"]);
   });
 });
 

@@ -94,4 +94,28 @@ describe("the ARIA table", () => {
   ])("owns only rows and row groups %s", async (_state, props) => {
     expect(await violations(props)).toEqual([]);
   });
+
+  it("owns only rows and row groups with its columns stopping short of the viewport", async () => {
+    // Every column at a hard maximum in an 800px viewport: each row carries the filler's cell
+    // (docs/sizing.md#the-filler), out of the accessibility tree, beside an end-pinned column.
+    const clientWidth = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(800);
+
+    try {
+      expect(await violations({
+        columns: columns.map(column => {
+          return {
+            ...column,
+            size: 100,
+            maxSize: 100
+          };
+        }),
+        defaultColumnPinning: { start: [], end: ["age"] },
+        renderDetailPanel: row => row.original.name,
+        defaultExpanded: { 1: true }
+      })).toEqual([]);
+      expect(document.querySelectorAll("tr > [data-ledger-filler]").length, "the filler drawn").toBeGreaterThan(0);
+    } finally {
+      clientWidth.mockRestore();
+    }
+  });
 });

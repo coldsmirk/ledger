@@ -16,7 +16,9 @@ import type { Column, TableInstance } from "./types";
  * by maxSize; when the container is too small every grow column falls back to its basis and the
  * table overflows into horizontal scroll;
  * - with no grow columns at all, surplus distributes proportionally over every column up to each
- * maxSize. Hard maximums win over filling the viewport.
+ * maxSize. Hard maximums win over filling the viewport: what no column may take is the filler,
+ * an empty col between the scrolling columns and the end-pinned ones that every row carries a
+ * cell of, so the table still spans the viewport (docs/sizing.md#the-filler).
  *
  * Author sizing comes from the raw-definition registry (`rawColumnSizing`), never from
  * `column.columnDef` — TanStack merges `size: 150, minSize: 20` defaults into every resolved
@@ -49,9 +51,15 @@ export interface ColumnWidths {
    */
   byId: Record<string, number>;
   /**
-   * Sum of all resolved widths — the exact table width.
+   * Sum of all resolved widths.
    */
   total: number;
+  /**
+   * What the columns leave of the width they are laid out in — nonzero only where every column
+   * that could take a share of the surplus reached its `maxSize`. The table's exact width is
+   * `total + filler`.
+   */
+  filler: number;
 }
 
 function finiteNumber(value: number | undefined): number | undefined {
@@ -194,7 +202,11 @@ export function resolveColumnWidths(
 
   const total = columns.reduce((sum, column) => sum + (byId[column.id] ?? 0), 0);
 
-  return { byId, total };
+  return {
+    byId,
+    total,
+    filler: Math.max(0, targetWidth - total)
+  };
 }
 
 /**
@@ -307,7 +319,7 @@ export function useColumnWidths<TData extends RowData>(
   );
 
   /* Stable identity while the numbers are unchanged — downstream memos depend on it. */
-  const signature = JSON.stringify([resolved.total, Object.entries(resolved.byId)]);
+  const signature = JSON.stringify([resolved.total, resolved.filler, Object.entries(resolved.byId)]);
 
   // eslint-disable-next-line @eslint-react/exhaustive-deps -- `signature` fully encodes `resolved`
   return useMemo(() => resolved, [signature]);

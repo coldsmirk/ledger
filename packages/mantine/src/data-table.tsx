@@ -895,9 +895,18 @@ function DataTableCore<TData extends RowData>({
 
   // The one colgroup all three synced tables share. Under a column window the hidden center
   // runs collapse into two spacer cols with the exact widths the missing columns add up to, so
-  // the table keeps its full scroll width and the pinned offsets stay honest.
+  // the table keeps its full scroll width and the pinned offsets stay honest. Where the columns
+  // stop short of the viewport, the filler col takes what they leave, between the scrolling
+  // columns and the end-pinned ones (docs/sizing.md#the-filler).
+  const filler = columnWidths.filler > 0;
+  const fillerCol = filler && <col key="ledger:filler" data-ledger-filler style={{ width: columnWidths.filler }} />;
+  const endCols = pinnedEndCount === 0 ? [] : visibleLeafColumns.slice(-pinnedEndCount).map(column => leafCol(column));
   const colElements = columnWindow === null
-    ? visibleLeafColumns.map(column => leafCol(column))
+    ? [
+        ...visibleLeafColumns.slice(0, visibleLeafColumns.length - pinnedEndCount).map(column => leafCol(column)),
+        fillerCol,
+        ...endCols
+      ]
     : [
         ...visibleLeafColumns.slice(0, pinnedStartCount).map(column => leafCol(column)),
         columnWindow.start > 0
@@ -907,7 +916,8 @@ function DataTableCore<TData extends RowData>({
           .map(column => leafCol(column)),
         columnWindow.end < columnWindow.centerCount
         && <col key="ledger:spacer-trailing" data-ledger-spacer style={{ width: columnWindow.trailingSpace }} />,
-        ...pinnedEndCount === 0 ? [] : visibleLeafColumns.slice(-pinnedEndCount).map(column => leafCol(column))
+        fillerCol,
+        ...endCols
       ];
 
   /* ---- data flags ---- */
@@ -1491,14 +1501,15 @@ function DataTableCore<TData extends RowData>({
     tabularNums,
     verticalSpacing: verticalSpacing ?? scale.verticalSpacing
   };
-  // Exact table width (the engine's total) — the browser never redistributes column widths;
-  // `border-collapse: separate` is inline because the host's unlayered `collapse` would win,
+  // Exact table width (the engine's total, and the filler where the columns stop short) — the
+  // browser never redistributes column widths; `border-collapse: separate` is inline because the host's unlayered `collapse` would win,
   // and collapse drops borders on stuck sticky cells (docs/styling.md). So is the type: Mantine's
   // `Table` sets its own font size, which unlayered beats the size the root hands down
   // (docs/styling.md#size), and the root's is the one every table has to inherit.
+  const tableWidth = columnWidths.total + columnWidths.filler;
   const tableStyleProps = () => getStyles("table", {
     style: {
-      width: columnWidths.total > 0 ? columnWidths.total : undefined,
+      width: tableWidth > 0 ? tableWidth : undefined,
       minWidth: toPx(tableMinWidth),
       borderCollapse: "separate" as const,
       borderSpacing: 0,
@@ -1641,6 +1652,7 @@ function DataTableCore<TData extends RowData>({
                     columnSizing={tableState.columnSizing}
                     columnWidths={columnWidths.byId}
                     columnWindow={columnWindow}
+                    filler={filler}
                     table={erasedTable}
                   />
                 </MantineTable>
@@ -1691,6 +1703,7 @@ function DataTableCore<TData extends RowData>({
 
                 <TableBody
                   columnWindow={columnWindow}
+                  filler={filler}
                   loading={loading === true}
                   loadingMore={loadingMore === true}
                   loadMoreError={loadMoreError ?? false}
@@ -1781,6 +1794,7 @@ function DataTableCore<TData extends RowData>({
                   <TableFooter
                     ariaRowIndexStart={virtualEnabled ? footerAriaRowIndexStart : undefined}
                     columnWindow={columnWindow}
+                    filler={filler}
                     table={erasedTable}
                   />
                 </MantineTable>

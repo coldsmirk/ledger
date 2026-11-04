@@ -14,7 +14,7 @@ import { flexRender } from "@tanstack/react-table";
 import { useDataTableContext } from "./context";
 import { mergeElementProps, resolveElementProps } from "./element-props";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
-import { windowHeaderCells } from "./use-column-window";
+import { headerInEndZone, windowHeaderCells, withFillerCell } from "./use-column-window";
 
 /**
  * The footer rows that actually render. `getFooterGroups()` mirrors *every* header level, so a
@@ -36,11 +36,17 @@ export function tableHasFooter<TData extends RowData>(table: TableInstance<TData
 export function TableFooter<TData extends RowData>({
   table,
   ariaRowIndexStart,
-  columnWindow
+  columnWindow,
+  filler
 }: {
   table: TableInstance<TData>;
   ariaRowIndexStart?: number;
   columnWindow: ColumnWindowView | null;
+  /**
+   * The columns stop short of the viewport, and each row carries the filler's cell
+   * (docs/sizing.md#the-filler).
+   */
+  filler: boolean;
 }) {
   const { getStyles, footerRowProps } = useDataTableContext();
 
@@ -86,11 +92,14 @@ export function TableFooter<TData extends RowData>({
         >
           {/* Footer groups mirror header groups, so the same clamp rule tiles them
             (docs/virtualization.md#column-virtualization). */}
-          {columnWindow === null
-            ? footerGroup.headers.map(footer => renderCell(footer, undefined, undefined))
-            : windowHeaderCells(footerGroup.headers, columnWindow).map(cell => cell.kind === "spacer"
-                ? <td key={`ledger:spacer-${cell.edge}`} aria-hidden data-ledger-spacer />
-                : renderCell(cell.header, cell.colSpan, cell.ariaColIndex))}
+          {withFillerCell(
+            columnWindow === null
+              ? footerGroup.headers.map(footer => { return { node: renderCell(footer, undefined, undefined), endZone: headerInEndZone(footer) }; })
+              : windowHeaderCells(footerGroup.headers, columnWindow).map(cell => cell.kind === "spacer"
+                  ? { node: <td key={`ledger:spacer-${cell.edge}`} aria-hidden data-ledger-spacer />, endZone: false }
+                  : { node: renderCell(cell.header, cell.colSpan, cell.ariaColIndex), endZone: headerInEndZone(cell.header) }),
+            filler ? "td" : null
+          )}
         </MantineTable.Tr>
       ))}
     </MantineTable.Tfoot>

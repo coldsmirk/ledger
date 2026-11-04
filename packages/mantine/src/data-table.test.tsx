@@ -1722,3 +1722,166 @@ describe("DataTable", () => {
     expect(document.querySelector(".ledger-selection-cell")?.getAttribute("role")).toBe("cell");
   });
 });
+
+/**
+ * jsdom lays nothing out, so the viewport's width is stated.
+ */
+function at800<T>(draw: () => T): T {
+  const clientWidth = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(800);
+
+  try {
+    return draw();
+  } finally {
+    clientWidth.mockRestore();
+  }
+}
+
+function fillerCells(row: Element): HTMLElement[] {
+  return [...row.querySelectorAll<HTMLElement>(":scope > *")].filter(cell => Object.hasOwn(cell.dataset, "ledgerFiller"));
+}
+
+describe("the filler (docs/sizing.md#the-filler)", () => {
+  // Every column at a hard maximum: 120 + 80 of an 800px viewport, so 600px is the filler's.
+  const capped: Array<ColumnDef<Person, any>> = [
+    {
+      accessorKey: "name",
+      header: "Name",
+      footer: "Total",
+      size: 120,
+      maxSize: 120
+    },
+    {
+      accessorKey: "age",
+      header: "Age",
+      size: 80,
+      maxSize: 80
+    }
+  ];
+
+  it("spans the viewport with an empty col and a cell of every row where every column stops at its maxSize", () => {
+    const { container } = at800(() => render(
+      <DataTable columns={capped} data={people} getRowId={getRowId} />,
+      { wrapper }
+    ));
+    const tables = [...container.querySelectorAll<HTMLTableElement>(".ledger-table")];
+
+    // Header, body and footer: one colgroup, the columns at their caps and the filler after them.
+    expect(tables).toHaveLength(3);
+
+    for (const table of tables) {
+      expect(table.style.width, "the table as wide as the viewport").toBe("800px");
+      const cols = [...table.querySelectorAll("col")];
+      expect(cols.map(col => col.dataset.ledgerFiller !== undefined)).toEqual([false, false, true]);
+      expect(cols[2]?.style.width, "the filler takes what the columns leave").toBe("600px");
+    }
+
+    const rows = [...container.querySelectorAll(":scope .ledger-table tr")];
+    expect(rows, "the header row, three body rows and the footer row").toHaveLength(5);
+
+    for (const row of rows) {
+      const [filler] = fillerCells(row);
+      expect(filler, "every row carries one").toBeDefined();
+      expect(row.lastElementChild, "after the columns").toBe(filler);
+      expect(filler?.getAttribute("aria-hidden"), "out of the accessibility tree").toBe("true");
+      expect(filler?.hasAttribute("role"), "and no cell of the ARIA table").toBe(false);
+      expect(filler?.childNodes, "with nothing in it").toHaveLength(0);
+    }
+
+    // The filler is no column: the engine's own widths stay the columns' caps.
+    const root = container.querySelector<HTMLElement>(".ledger-root")!;
+    expect(root.style.getPropertyValue("--ledger-col-width-name")).toBe("120px");
+    expect(root.style.getPropertyValue("--ledger-col-width-age")).toBe("80px");
+  });
+
+  it("stands between the scrolling columns and the end-pinned ones, which keep the viewport's end", () => {
+    const { container } = at800(() => render(
+      <DataTable
+        columns={capped}
+        data={people}
+        defaultColumnPinning={{ start: [], end: ["name"] }}
+        getRowId={getRowId}
+      />,
+      { wrapper }
+    ));
+
+    const cols = [...container.querySelectorAll<HTMLTableColElement>(":scope .ledger-header col")];
+    expect(cols.map(col => col.dataset.ledgerFiller === undefined ? col.getAttribute("style") : "filler")).toEqual([
+      "width: var(--ledger-col-width-age);",
+      "filler",
+      "width: var(--ledger-col-width-name);"
+    ]);
+
+    for (const row of container.querySelectorAll(":scope .ledger-table tr")) {
+      const cells = [...row.querySelectorAll<HTMLElement>(":scope > *")];
+      expect(cells.findIndex(cell => Object.hasOwn(cell.dataset, "ledgerFiller")), "before the end-pinned cell").toBe(1);
+      expect(cells[2]?.dataset.pinned).toBe("end");
+    }
+  });
+
+  it("is spanned by a full-width row and left empty by the skeleton", () => {
+    const expanded = at800(() => render(
+      <DataTable
+        columns={capped}
+        data={people}
+        defaultExpanded={{ 1: true }}
+        getRowId={getRowId}
+        renderDetailPanel={row => row.original.name}
+      />,
+      { wrapper }
+    ));
+    const panel = expanded.container.querySelector<HTMLTableCellElement>(".ledger-detail-panel");
+
+    // The expander, the two columns and the filler.
+    expect(panel?.colSpan).toBe(4);
+    expanded.unmount();
+
+    const loading = at800(() => render(
+      <DataTable loading columns={capped} data={[]} getRowId={getRowId} />,
+      { wrapper }
+    ));
+    const skeletonRow = loading.container.querySelector(":scope .ledger-scroller tr")!;
+
+    expect(skeletonRow.querySelectorAll(".mantine-Skeleton-root"), "a bar over each column").toHaveLength(2);
+    expect(fillerCells(skeletonRow)[0]?.childNodes, "and none over the filler").toHaveLength(0);
+  });
+
+  it("is part of its row: a click there is the row's", () => {
+    const onRowClick = vi.fn();
+    const { container } = at800(() => render(
+      <DataTable columns={capped} data={people} getRowId={getRowId} onRowClick={onRowClick} />,
+      { wrapper }
+    ));
+    const row = container.querySelector(":scope .ledger-scroller .ledger-row")!;
+
+    fireEvent.click(fillerCells(row)[0]!);
+
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(onRowClick.mock.calls[0]?.[0].id).toBe("1");
+  });
+
+  it("is not drawn where the columns fill the viewport or overflow it", () => {
+    const growing = at800(() => render(
+      <DataTable columns={columns} data={people} getRowId={getRowId} />,
+      { wrapper }
+    ));
+
+    expect(growing.container.querySelector("[data-ledger-filler]"), "a grow column takes the surplus").toBeNull();
+    expect(growing.container.querySelector<HTMLTableElement>(".ledger-table")?.style.width).toBe("800px");
+    growing.unmount();
+
+    const wide = capped.map(column => {
+      return {
+        ...column,
+        size: 500,
+        maxSize: 500
+      };
+    });
+    const overflowing = at800(() => render(
+      <DataTable columns={wide} data={people} getRowId={getRowId} />,
+      { wrapper }
+    ));
+
+    expect(overflowing.container.querySelector("[data-ledger-filler]"), "nothing is left over").toBeNull();
+    expect(overflowing.container.querySelector<HTMLTableElement>(".ledger-table")?.style.width).toBe("1000px");
+  });
+});

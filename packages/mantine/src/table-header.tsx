@@ -27,7 +27,7 @@ import { SIZES } from "./size";
 import { syncTruncationTitle } from "./truncate";
 import { useColumnReorder } from "./use-column-reorder";
 import { useColumnResize } from "./use-column-resize";
-import { windowHeaderCells } from "./use-column-window";
+import { headerInEndZone, windowHeaderCells, withFillerCell } from "./use-column-window";
 
 /**
  * `columnWidths` and `columnSizing` arrive as props, not through the context or the table: a drag
@@ -40,12 +40,18 @@ export function TableHeader<TData extends RowData>({
   table,
   columnWidths,
   columnSizing,
-  columnWindow
+  columnWindow,
+  filler
 }: {
   table: TableInstance<TData>;
   columnWidths: Record<string, number>;
   columnSizing: ColumnSizingState;
   columnWindow: ColumnWindowView | null;
+  /**
+   * The columns stop short of the viewport, and each row carries the filler's cell
+   * (docs/sizing.md#the-filler).
+   */
+  filler: boolean;
 }) {
   const {
     getStyles,
@@ -84,11 +90,14 @@ export function TableHeader<TData extends RowData>({
             ...getStyles("headerRow")
           })}
         >
-          {columnWindow === null
-            ? headerGroup.headers.map(header => renderCell(header, undefined, undefined))
-            : windowHeaderCells(headerGroup.headers, columnWindow).map(cell => cell.kind === "spacer"
-                ? <th key={`ledger:spacer-${cell.edge}`} aria-hidden data-ledger-spacer />
-                : renderCell(cell.header, cell.colSpan, cell.ariaColIndex))}
+          {withFillerCell(
+            columnWindow === null
+              ? headerGroup.headers.map(header => { return { node: renderCell(header, undefined, undefined), endZone: headerInEndZone(header) }; })
+              : windowHeaderCells(headerGroup.headers, columnWindow).map(cell => cell.kind === "spacer"
+                  ? { node: <th key={`ledger:spacer-${cell.edge}`} aria-hidden data-ledger-spacer />, endZone: false }
+                  : { node: renderCell(cell.header, cell.colSpan, cell.ariaColIndex), endZone: headerInEndZone(cell.header) }),
+            filler ? "th" : null
+          )}
         </MantineTable.Tr>
       ))}
     </MantineTable.Thead>

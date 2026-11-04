@@ -417,6 +417,25 @@
     border: 0;
   }
 
+  /* The filler (docs/sizing.md#the-filler): what the columns leave of the viewport, one empty
+     cell of every row. Everything else it takes as any cell of its row does — the row's
+     background through the pipeline (stripes, hover, selection, the editing wash), the row rule,
+     the editing frame and the drop edge, and with column borders the line that closes the last
+     scrolling column — and in the header and the footer the band and the surface, so the table
+     spans its frame where its columns stop short. A plain cell, like the spacers: no Mantine
+     padding reaches it, and the user agent's is taken off here. */
+  .ledger-table [data-ledger-filler] {
+    padding: 0;
+  }
+
+  .ledger-thead th[data-ledger-filler] {
+    background-color: var(--ledger-header-bg, var(--ledger-body-bg, var(--mantine-color-body)));
+  }
+
+  .ledger-tfoot td[data-ledger-filler] {
+    background-color: var(--ledger-body-bg, var(--mantine-color-body));
+  }
+
   /* ------------------------------------------------------------------------------------------
    * Cells
    * ------------------------------------------------------------------------------------------ */

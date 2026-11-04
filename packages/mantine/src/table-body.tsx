@@ -4,7 +4,7 @@ import type { MouseEvent, ReactNode, RefObject } from "react";
 
 import type { RowReorderTarget } from "./row-reorder";
 import type { Cell, ColumnDef, DataTableInstantEditRenderer, Row, TableInstance } from "./types";
-import type { ColumnWindowView } from "./use-column-window";
+import type { ColumnWindowView, RenderedCol } from "./use-column-window";
 
 /**
  * The body: display-row synthesis (detail panels become synthetic rows so every <tr> is exactly
@@ -28,7 +28,7 @@ import { endsTextSelection, isOwnEvent } from "./interactive";
 import { pinnedCellStyle, pinnedEdge } from "./pinning";
 import { SIZES } from "./size";
 import { syncTruncationTitle } from "./truncate";
-import { renderedColCount, windowRowCells } from "./use-column-window";
+import { renderedCols, windowRowCells, withFillerCell } from "./use-column-window";
 import { usePinnedRowOffsets } from "./use-pinned-row-offsets";
 import { useEventCallback } from "./utils";
 
@@ -458,6 +458,11 @@ interface DataRowProps {
    * identity, which is exactly when a row must redraw.
    */
   columnWindow: ColumnWindowView | null;
+  /**
+   * The columns stop short of the viewport, and the row carries the filler's cell before its
+   * end-pinned cells (docs/sizing.md#the-filler).
+   */
+  filler: boolean;
   pinnedPosition?: "top" | "bottom";
   /**
    * Sticky offset for pinned rows — measured cumulative height of the pinned rows before it.
@@ -484,6 +489,7 @@ function DataRowImpl({
   depth,
   spanning,
   columnWindow,
+  filler,
   pinnedPosition,
   pinnedOffset,
   virtualIndex,
@@ -577,8 +583,9 @@ function DataRowImpl({
   );
 
   // Cells against the column window: pinned segments in full, the windowed center slice, and
-  // spacer cells over the spacer cols (docs/virtualization.md#column-virtualization). Spanning
-  // never coexists with a window (the body gates it), so the two branches stay disjoint.
+  // spacer cells over the spacer cols (docs/virtualization.md#column-virtualization), then the
+  // filler's cell before the end-pinned ones (docs/sizing.md#the-filler). Spanning never
+  // coexists with a window (the body gates it), so the two branches stay disjoint.
   function renderRowCells(): ReactNode {
     const renderCell = (cell: Cell<any, unknown>, displayIndex: number) => {
       if (spanning && cell.getIsCovered()) {
@@ -601,27 +608,39 @@ function DataRowImpl({
       );
     };
 
+    const placed = (cell: Cell<any, unknown>, displayIndex: number) => {
+      return { node: renderCell(cell, displayIndex), endZone: cell.column.getIsPinned() === "end" };
+    };
+
+    const fillerCell = filler ? "td" : null;
+
     if (columnWindow === null) {
-      return cells.map((cell, index) => renderCell(cell, index));
+      return withFillerCell(cells.map((cell, index) => placed(cell, index)), fillerCell);
     }
 
     const segments = windowRowCells(cells, columnWindow);
     const windowedStart = columnWindow.pinnedStartCount + columnWindow.start;
     const trailingStart = cells.length - columnWindow.pinnedEndCount;
 
-    return (
-      <>
-        {segments.leading.map((cell, index) => renderCell(cell, index))}
-        {columnWindow.start > 0 && <td aria-hidden data-ledger-spacer />}
-        {segments.windowed.map((cell, index) => renderCell(cell, windowedStart + index))}
-        {columnWindow.end < columnWindow.centerCount && <td aria-hidden data-ledger-spacer />}
-        {segments.trailing.map((cell, index) => renderCell(cell, trailingStart + index))}
-      </>
-    );
+    return withFillerCell([
+      ...segments.leading.map((cell, index) => placed(cell, index)),
+      ...columnWindow.start > 0 ? [spacerCell("leading")] : [],
+      ...segments.windowed.map((cell, index) => placed(cell, windowedStart + index)),
+      ...columnWindow.end < columnWindow.centerCount ? [spacerCell("trailing")] : [],
+      ...segments.trailing.map((cell, index) => placed(cell, trailingStart + index))
+    ], fillerCell);
   }
 }
 
 const DataRow = memo(DataRowImpl) as typeof DataRowImpl;
+
+/**
+ * A spacer's cell over a spacer col (docs/virtualization.md#column-virtualization), placed in its
+ * row as the scrolling columns' — never the end zone's.
+ */
+function spacerCell(edge: "leading" | "trailing") {
+  return { node: <td key={`ledger:spacer-${edge}`} aria-hidden data-ledger-spacer />, endZone: false };
+}
 
 interface DetailRowProps {
   row: Row<any>;
@@ -697,11 +716,15 @@ function DetailRow({
 
 function SkeletonRows({
   rowCount,
-  columnCount,
+  cols,
   ariaRowIndexStart
 }: {
   rowCount: number;
-  columnCount: number;
+  /**
+   * The rendered cols: a bar over each column, and the spacers and the filler as every row
+   * draws them — empty, out of the accessibility tree.
+   */
+  cols: readonly RenderedCol[];
   ariaRowIndexStart?: number;
 }) {
   const { getStyles } = useDataTableContext();
@@ -716,14 +739,18 @@ function SkeletonRows({
           role="row"
           {...getStyles("row")}
         >
-          {Array.from({ length: columnCount }, (_, columnIndex) => (
-            <MantineTable.Td key={columnIndex} data-leading={columnIndex === 0 || undefined} role="cell" {...getStyles("cell")}>
-              {/* One line tall, like the text the row will hold: a bare 10px bar made every
-                  skeleton row a line shorter than a data row, and the table jumped when the data
-                  arrived. */}
-              <Skeleton height={10} my="calc((1lh - 10px) / 2)" radius="sm" />
-            </MantineTable.Td>
-          ))}
+          {cols.map((col, colIndex) => col === "column"
+            ? (
+                <MantineTable.Td key={colIndex} data-leading={colIndex === 0 || undefined} role="cell" {...getStyles("cell")}>
+                  {/* One line tall, like the text the row will hold: a bare 10px bar made every
+                      skeleton row a line shorter than a data row, and the table jumped when the data
+                      arrived. */}
+                  <Skeleton height={10} my="calc((1lh - 10px) / 2)" radius="sm" />
+                </MantineTable.Td>
+              )
+            : col === "spacer"
+              ? <td key={colIndex} aria-hidden data-ledger-spacer />
+              : <td key={colIndex} aria-hidden data-ledger-filler />)}
         </MantineTable.Tr>
       ))}
     </>
@@ -801,6 +828,11 @@ export interface TableBodyProps {
    * every visible leaf column.
    */
   columnWindow: ColumnWindowView | null;
+  /**
+   * The columns stop short of the viewport, and every row carries the filler's cell
+   * (docs/sizing.md#the-filler).
+   */
+  filler: boolean;
   viewportRef: RefObject<HTMLDivElement | null>;
   loading: boolean;
   loadingMore: boolean;
@@ -820,6 +852,7 @@ export function TableBody({
   table,
   virtualization,
   columnWindow,
+  filler,
   viewportRef,
   loading,
   loadingMore,
@@ -924,10 +957,15 @@ export function TableBody({
     return () => onVirtualizerChange(null);
   }, [virtualEnabled, virtualizer, onVirtualizerChange]);
 
-  const leafColumnCount = table.getVisibleLeafColumns().length;
-  // What a full-width cell (skeleton, detail panel, loader) spans — the rendered cols, spacer
-  // cols included, under a column window.
-  const fullWidthColSpan = renderedColCount(columnWindow, leafColumnCount);
+  // What each rendered col holds; a full-width cell (detail panel, loader) spans them all, spacer
+  // cols and the filler col included.
+  const cols = renderedCols(
+    columnWindow,
+    table.getVisibleLeafColumns().length,
+    table.getEndVisibleLeafColumns().length,
+    filler
+  );
+  const fullWidthColSpan = cols.length;
   const totalDisplayRowCount = topDisplayRows.length + centerDisplayRows.length + bottomDisplayRows.length;
   // Presence, never identity: what a row's cells read from the commit handlers is whether the
   // live mode has one at all — that is the whole of their part in `canEditCell`, and the write
@@ -962,7 +1000,7 @@ export function TableBody({
       <MantineTable.Tbody {...getStyles("tbody")}>
         <SkeletonRows
           ariaRowIndexStart={virtualEnabled ? headerRowCount + 1 : undefined}
-          columnCount={fullWidthColSpan}
+          cols={cols}
           rowCount={skeletonRowCount}
         />
       </MantineTable.Tbody>
@@ -1068,6 +1106,7 @@ export function TableBody({
         dropSide={dropSide}
         editingRow={editingRowId === row.id && (ledger?.editing.row.active(row.id) ?? false)}
         expanded={row.getIsExpanded()}
+        filler={filler}
         last={last}
         measureRef={options.measureRef}
         pinKey={pinKey}
