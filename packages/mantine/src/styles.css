@@ -305,7 +305,7 @@
      either way — a two-step tell, like the Tooltip's delay. */
   :where(.ledger-root:not([data-with-column-borders])) .ledger-resizer::after {
     inset-block: 30%;
-    background-color: var(--mantine-color-default-border);
+    background-color: var(--ledger-border-color, var(--mantine-color-default-border));
   }
 
   .ledger-resizer:hover::after,
@@ -657,7 +657,7 @@
     overflow: hidden;
     pointer-events: none;
     background-color: var(--ledger-body-bg, var(--mantine-color-body));
-    border: 1px solid var(--mantine-color-default-border);
+    border: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
     border-radius: var(--mantine-radius-default);
     box-shadow: var(--mantine-shadow-md);
   }
@@ -734,7 +734,7 @@
 
   .ledger-root > .ledger-pagination-bar {
     padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
-    border-block-start: 1px solid var(--mantine-color-default-border);
+    border-block-start: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 
   /* The seam above the bar is owned by the table's own bottom edge (the frame, or the closing
@@ -776,7 +776,7 @@
   .ledger-columns-panel-header {
     padding: 4px 0 10px;
     margin-block-end: var(--mantine-spacing-xs);
-    border-block-end: 1px solid var(--mantine-color-default-border);
+    border-block-end: 1px solid var(--ledger-border-color, var(--mantine-color-default-border));
   }
 
   .ledger-columns-panel-list {
