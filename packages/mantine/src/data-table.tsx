@@ -877,6 +877,12 @@ function DataTableCore<TData extends RowData>({
     // group header's label) sticks here, clear of the pinned block.
     varsMap["--ledger-pinned-start-width"] = `${leftOffset}px`;
 
+    // The visible scrollport width: full-width body cells (`colSpan` detail panels and loader
+    // rows) cap and stick their inner content to this width when the table overflows horizontally.
+    if (columnWidths.viewportWidth > 0) {
+      varsMap["--ledger-viewport-width"] = `${columnWidths.viewportWidth}px`;
+    }
+
     let rightOffset = 0;
 
     for (let index = visibleLeafColumns.length - 1; index >= 0; index -= 1) {

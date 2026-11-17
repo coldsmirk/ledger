@@ -670,6 +670,19 @@
     --table-horizontal-spacing: var(--mantine-spacing-md);
   }
 
+  /* Full-width body cells (`colSpan` across every column) span the whole table when it overflows,
+     so their inner box sticks to the scrollport's start edge and caps at the visible viewport
+     width — an open detail panel and the infinite-loading line stay framed in view instead of
+     clipping off the trailing edge or scrolling out with the columns. When `--ledger-viewport-width`
+     is unset (before measurement, or in headless tests), `max-width` falls back to `none`. */
+  .ledger-detail-panel > [data-detail-content],
+  .ledger-loader-row-content {
+    position: sticky;
+    inset-inline-start: var(--table-horizontal-spacing, 0);
+    width: 100%;
+    max-width: max(0px, calc(var(--ledger-viewport-width) - 2 * var(--table-horizontal-spacing, 0px)));
+  }
+
   .ledger-footer-cell {
     font-weight: 600;
     background-color: var(--ledger-body-bg, var(--mantine-color-body));

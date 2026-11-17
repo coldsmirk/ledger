@@ -702,9 +702,11 @@ function DetailRow({
       role="row"
       {...getStyles("row", { style: pinnedStyle })}
     >
-      {/* Every full-width cell starts the row, so it draws no column border (`data-leading`). */}
+      {/* Every full-width cell starts the row, so it draws no column border (`data-leading`).
+          The inner box sticks to the scrollport's start edge and caps at `--ledger-viewport-width`
+          so horizontal overflow neither clips the panel's trailing edge nor scrolls it out. */}
       <MantineTable.Td data-leading colSpan={colSpan} role="cell" {...getStyles("detailPanel")}>
-        {renderDetailPanel?.(row)}
+        <div data-detail-content>{renderDetailPanel?.(row)}</div>
       </MantineTable.Td>
     </MantineTable.Tr>
   );

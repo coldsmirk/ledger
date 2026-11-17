@@ -251,6 +251,15 @@ export interface ColumnWidthsInput<TData extends RowData> {
   autosizeWidths: Readonly<Record<string, number>>;
 }
 
+export interface MeasuredColumnWidths extends ColumnWidths {
+  /**
+   * The scroller viewport's inner width (`viewport.clientWidth`), integer pixels (`0` before
+   * layout or in non-browser environments). Distinct from `total + filler`, which expands to
+   * `tableMinWidth` or the overflowing columns' sum.
+   */
+  viewportWidth: number;
+}
+
 export function useColumnWidths<TData extends RowData>(
   table: TableInstance<TData>,
   {
@@ -260,16 +269,19 @@ export function useColumnWidths<TData extends RowData>(
     injectedWidth,
     autosizeWidths
   }: ColumnWidthsInput<TData>
-): ColumnWidths {
-  const [availableWidth, setAvailableWidth] = useState(0);
+): MeasuredColumnWidths {
+  const [widths, setWidths] = useState({ available: 0, viewport: 0 });
 
   const measure = useCallback(() => {
     if (!viewport) {
       return;
     }
 
-    const next = Math.max(viewport.clientWidth, minWidthPx(tableMinWidth, viewport));
-    setAvailableWidth(previous => previous === next ? previous : next);
+    const inner = Math.max(0, Math.round(viewport.clientWidth));
+    const available = Math.max(inner, minWidthPx(tableMinWidth, viewport));
+    setWidths(previous => previous.available === available && previous.viewport === inner
+      ? previous
+      : { available, viewport: inner });
   }, [viewport, tableMinWidth]);
 
   /* Pre-paint measurement: the corrected widths land before the first frame is shown. */
@@ -313,14 +325,19 @@ export function useColumnWidths<TData extends RowData>(
         };
       });
 
-      return resolveColumnWidths(specs, columnSizing, availableWidth);
+      return resolveColumnWidths(specs, columnSizing, widths.available);
     },
-    [columns, columnSizing, availableWidth, defaultColumn, injectedWidth, autosizeWidths]
+    [columns, columnSizing, widths.available, defaultColumn, injectedWidth, autosizeWidths]
   );
 
   /* Stable identity while the numbers are unchanged — downstream memos depend on it. */
-  const signature = JSON.stringify([resolved.total, resolved.filler, Object.entries(resolved.byId)]);
+  const signature = JSON.stringify([resolved.total, resolved.filler, widths.viewport, Object.entries(resolved.byId)]);
 
-  // eslint-disable-next-line @eslint-react/exhaustive-deps -- `signature` fully encodes `resolved`
-  return useMemo(() => resolved, [signature]);
+  return useMemo(
+    () => {
+      return { ...resolved, viewportWidth: widths.viewport };
+    },
+    // eslint-disable-next-line @eslint-react/exhaustive-deps -- `signature` fully encodes `resolved` and `widths.viewport`
+    [signature]
+  );
 }

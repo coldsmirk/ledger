@@ -1884,4 +1884,47 @@ describe("the filler (docs/sizing.md#the-filler)", () => {
     expect(overflowing.container.querySelector("[data-ledger-filler]"), "nothing is left over").toBeNull();
     expect(overflowing.container.querySelector<HTMLTableElement>(".ledger-table")?.style.width).toBe("1000px");
   });
+
+  it("writes the measured viewport width separately from the overflowing table width for sticky detail panels", () => {
+    const unmeasured = render(
+      <DataTable
+        columns={columns}
+        data={people}
+        defaultExpanded={{ 1: true }}
+        getRowId={getRowId}
+        renderDetailPanel={row => <div data-testid="panel">{row.original.name}</div>}
+      />,
+      { wrapper }
+    );
+
+    expect(
+      unmeasured.container.querySelector<HTMLElement>(".ledger-root")?.style.getPropertyValue("--ledger-viewport-width"),
+      "omitted before layout so headless max-width stays none"
+    ).toBe("");
+    unmeasured.unmount();
+
+    const wide = capped.map(column => {
+      return {
+        ...column,
+        size: 500,
+        maxSize: 500
+      };
+    });
+    const overflowing = at800(() => render(
+      <DataTable
+        columns={wide}
+        data={people}
+        defaultExpanded={{ 1: true }}
+        getRowId={getRowId}
+        renderDetailPanel={row => <div data-testid="panel">{row.original.name}</div>}
+      />,
+      { wrapper }
+    ));
+    const rootStyle = overflowing.container.querySelector<HTMLElement>(".ledger-root")!.style;
+    const detailContent = overflowing.container.querySelector<HTMLElement>(":scope .ledger-detail-panel > [data-detail-content]");
+
+    expect(rootStyle.getPropertyValue("--ledger-viewport-width")).toBe("800px");
+    expect(overflowing.container.querySelector<HTMLTableElement>(":scope .ledger-table")?.style.width).toBe("1040px");
+    expect(detailContent?.querySelector(":scope [data-testid=\"panel\"]")?.textContent).toBe("Carol");
+  });
 });

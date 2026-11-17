@@ -89,7 +89,7 @@ Row order **is** data order — there is no order state, so a completed drag han
 />
 ```
 
-- Declaring `renderDetailPanel` injects the expander column and makes every row expandable; the chevron toggles a full-width panel row (`<td colSpan={…}>` with the `detailPanel` selector) directly beneath its row.
+- Declaring `renderDetailPanel` injects the expander column and makes every row expandable; the chevron toggles a full-width panel row (`<td colSpan={…}>` with the `detailPanel` selector) directly beneath its row. When the table overflows horizontally, the panel's inner `[data-detail-content]` box sticks to the scrollport's start edge and caps at `--ledger-viewport-width`, so the open panel stays framed within the visible width instead of clipping or scrolling out with the columns.
 - Expansion state rides the `expanded` trio (TanStack `ExpandedState`); pair it with `getRowId` so panels survive refetches.
 - Under virtualization each open panel is a **synthetic display row** — exactly one `<tr>` per virtual item, so dynamic-height measurement stays correct ([virtualization.md](virtualization.md)).
 - Row pinning preserves that pair: an expanded top/bottom row renders its panel directly after it in the same measured sticky zone ([pinning.md](pinning.md)).
